@@ -104,3 +104,16 @@ Après démarrage d’un environnement Supabase local, les types peuvent être r
 ```bash
 npm run supabase:types
 ```
+
+## Authentification admin
+
+L’administration est protégée avec Supabase SSR :
+
+- `server/middleware/admin-auth.ts` protège les accès directs et les rafraîchissements SSR sur `/admin`.
+- `app/middleware/admin-auth.global.ts` protège les navigations côté client.
+- `app/pages/auth/login.vue` gère la connexion et le retour vers la page admin demandée.
+- `server/routes/auth/callback.get.ts` échange les codes PKCE/OAuth/magic link contre une session serveur.
+- `server/api/auth/session.get.ts` récupère la session sans exposer d’informations sensibles.
+- `server/api/auth/logout.post.ts` gère la déconnexion.
+
+Les redirections sont limitées aux routes `/admin` pour éviter les retours externes non sûrs.

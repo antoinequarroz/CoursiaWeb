@@ -1,3 +1,10 @@
+<script setup lang="ts">
+const logout = async () => {
+  await $fetch('/api/auth/logout', { method: 'POST' }).catch(() => null)
+  await navigateTo('/auth/login')
+}
+</script>
+
 <template>
   <div class="min-h-screen bg-coursia-background text-coursia-foreground" data-theme="dark">
     <aside
@@ -11,7 +18,12 @@
 
     <div class="md:pl-64">
       <header class="border-b border-coursia-border bg-coursia-surface px-6 py-4">
-        <p class="text-sm text-coursia-muted">Administration</p>
+        <div class="flex items-center justify-between gap-4">
+          <p class="text-sm text-coursia-muted">Administration</p>
+          <BaseButton variant="ghost" size="sm" type="button" @click="logout">
+            Déconnexion
+          </BaseButton>
+        </div>
       </header>
       <main class="px-6 py-8">
         <slot />

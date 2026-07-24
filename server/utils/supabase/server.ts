@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import type { H3Event } from 'h3'
-import { getCookie, getHeader, setCookie } from 'h3'
+import { getHeader, parseCookies, setCookie, setHeader } from 'h3'
 import type { Database } from '#shared/supabase/database.types'
 
 const getSupabasePublicConfig = () => {
@@ -18,14 +18,17 @@ export const createSupabaseServerClient = (event: H3Event) => {
 
   return createServerClient<Database>(url, publishableKey, {
     cookies: {
-      get(name: string) {
-        return getCookie(event, name)
+      getAll() {
+        return Object.entries(parseCookies(event)).map(([name, value]) => ({
+          name,
+          value,
+        }))
       },
-      set(name: string, value: string, options: CookieOptions) {
-        setCookie(event, name, value, options)
-      },
-      remove(name: string, options: CookieOptions) {
-        setCookie(event, name, '', { ...options, maxAge: 0 })
+      setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          setCookie(event, name, value, options)
+        })
+        setHeader(event, 'Cache-Control', 'private, no-store')
       },
     },
     global: {

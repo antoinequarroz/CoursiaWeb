@@ -1,0 +1,13 @@
+node_modules
+.nuxt
+.output
+.data
+.nitro
+.cache
+dist
+coverage
+*.local
+.env
+.env.*
+!.env.example
+npm-debug.log*

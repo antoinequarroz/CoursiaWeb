@@ -117,3 +117,12 @@ L’administration est protégée avec Supabase SSR :
 - `server/api/auth/logout.post.ts` gère la déconnexion.
 
 Les redirections sont limitées aux routes `/admin` pour éviter les retours externes non sûrs.
+
+## Rôles et permissions admin
+
+Le modèle de rôles est documenté dans `docs/admin-permissions.md`.
+
+Les décisions d’autorisation reposent sur `public.admin_role_assignments`, pas sur `user_metadata`.
+Les politiques RLS du schéma Supabase utilisent des fonctions `app_private` sécurisées pour vérifier
+le rôle actif en base. Un rôle retiré reçoit `revoked_at`, ce qui le rend immédiatement inactif pour
+les prochains contrôles serveur/RLS.

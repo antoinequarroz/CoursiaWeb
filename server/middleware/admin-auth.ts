@@ -16,7 +16,16 @@ export default defineEventHandler(async (event) => {
   } = await supabase.auth.getUser()
 
   if (!error && user) {
-    return
+    const { data: roleAssignment } = await supabase
+      .from('admin_role_assignments')
+      .select('role')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .maybeSingle()
+
+    if (roleAssignment) {
+      return
+    }
   }
 
   return sendRedirect(event, buildAdminLoginRedirect(event.path), 302)

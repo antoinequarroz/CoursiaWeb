@@ -62,10 +62,45 @@ export type Database = {
           },
         ]
       }
+      admin_role_assignments: {
+        Row: {
+          id: string
+          user_id: string
+          role: Database['public']['Enums']['admin_role']
+          granted_by: string | null
+          granted_at: string
+          revoked_at: string | null
+          revoked_by: string | null
+          revoke_reason: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role: Database['public']['Enums']['admin_role']
+          granted_by?: string | null
+          granted_at?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoke_reason?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          role?: Database['public']['Enums']['admin_role']
+          granted_by?: string | null
+          granted_at?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoke_reason?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
-    Enums: Record<string, never>
+    Enums: {
+      admin_role: 'editor' | 'moderator' | 'support' | 'administrator' | 'super_administrator'
+    }
     CompositeTypes: Record<string, never>
   }
 }

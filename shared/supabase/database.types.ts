@@ -95,11 +95,57 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_audit_logs: {
+        Row: {
+          id: string
+          actor_user_id: string | null
+          action: Database['public']['Enums']['admin_audit_action']
+          resource_type:
+            | 'course'
+            | 'admin_role_assignment'
+            | 'moderation_case'
+            | 'support_case'
+            | 'admin_settings'
+          resource_id: string
+          occurred_at: string
+          context: Json
+        }
+        Insert: {
+          id?: string
+          actor_user_id?: string | null
+          action: Database['public']['Enums']['admin_audit_action']
+          resource_type:
+            | 'course'
+            | 'admin_role_assignment'
+            | 'moderation_case'
+            | 'support_case'
+            | 'admin_settings'
+          resource_id: string
+          occurred_at?: string
+          context?: Json
+        }
+        Update: {
+          id?: string
+          actor_user_id?: string | null
+          action?: Database['public']['Enums']['admin_audit_action']
+          resource_type?:
+            | 'course'
+            | 'admin_role_assignment'
+            | 'moderation_case'
+            | 'support_case'
+            | 'admin_settings'
+          resource_id?: string
+          occurred_at?: string
+          context?: Json
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
       admin_role: 'editor' | 'moderator' | 'support' | 'administrator' | 'super_administrator'
+      admin_audit_action: 'create' | 'update' | 'publish' | 'archive' | 'moderate' | 'role_change'
     }
     CompositeTypes: Record<string, never>
   }

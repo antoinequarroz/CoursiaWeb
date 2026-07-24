@@ -13,6 +13,8 @@
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "test": "vitest run",
+    "ci:secrets": "node scripts/check-no-secrets.mjs",
+    "ci:pr": "npm run ci:secrets && npm run typecheck && npm run lint && npm test && npm run build",
     "supabase:types": "supabase gen types typescript --local --schema public > shared/supabase/database.types.ts"
   },
   "dependencies": {

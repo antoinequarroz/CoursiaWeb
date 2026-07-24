@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
   adminPermissionMatrix,
   canAccessAdminPermission,
@@ -32,5 +34,13 @@ describe('admin permission matrix', () => {
     expect(canManageAdminRole('administrator', 'administrator')).toBe(false)
     expect(canManageAdminRole('administrator', 'super_administrator')).toBe(false)
     expect(canManageAdminRole('super_administrator', 'administrator')).toBe(true)
+  })
+
+  it('keeps SQL RLS helpers aligned with distinct operational roles', () => {
+    const schema = readFileSync(resolve(process.cwd(), 'supabase/schemas/public.sql'), 'utf8')
+
+    expect(schema).toContain("when role = 'administrator' then minimum_role <> 'super_administrator'")
+    expect(schema).toContain('else role = minimum_role')
+    expect(schema).toContain('prevent_admin_role_assignment_identity_update')
   })
 })

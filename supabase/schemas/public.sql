@@ -9,6 +9,9 @@ create table if not exists public.courses (
 
 alter table public.courses enable row level security;
 
+revoke all privileges on public.courses from anon, authenticated, public;
+grant select on public.courses to anon, authenticated;
+
 create policy "Published courses are publicly readable"
 on public.courses
 for select
@@ -25,6 +28,12 @@ create table if not exists public.enrollments (
 );
 
 alter table public.enrollments enable row level security;
+
+create index if not exists enrollments_course_id_idx
+on public.enrollments (course_id);
+
+revoke all privileges on public.enrollments from anon, authenticated, public;
+grant select on public.enrollments to authenticated;
 
 create policy "Users can read their own enrollments"
 on public.enrollments
@@ -69,7 +78,20 @@ create index if not exists admin_role_assignments_active_role_idx
 on public.admin_role_assignments (user_id, role)
 where revoked_at is null;
 
+create index if not exists admin_role_assignments_granted_by_idx
+on public.admin_role_assignments (granted_by)
+where granted_by is not null;
+
+create index if not exists admin_role_assignments_revoked_by_idx
+on public.admin_role_assignments (revoked_by)
+where revoked_by is not null;
+
 alter table public.admin_role_assignments enable row level security;
+
+revoke all privileges on public.admin_role_assignments from anon, authenticated, public;
+revoke all privileges on type public.admin_role from anon, authenticated, public;
+grant usage on type public.admin_role to authenticated;
+grant select, insert, update on public.admin_role_assignments to authenticated;
 
 create or replace function app_private.admin_role_rank(role public.admin_role)
 returns integer
@@ -109,11 +131,18 @@ stable
 security definer
 set search_path = ''
 as $$
+  with current_admin as (
+    select app_private.current_admin_role() as role
+  )
   select coalesce(
-    app_private.admin_role_rank(app_private.current_admin_role())
-      >= app_private.admin_role_rank(minimum_role),
+    case
+      when role = 'super_administrator' then true
+      when role = 'administrator' then minimum_role <> 'super_administrator'
+      else role = minimum_role
+    end,
     false
   )
+  from current_admin
 $$;
 
 create or replace function app_private.can_manage_admin_role(target_role public.admin_role)
@@ -131,12 +160,39 @@ as $$
   end
 $$;
 
+create or replace function public.prevent_admin_role_assignment_identity_update()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if new.user_id <> old.user_id
+    or new.role <> old.role
+    or new.granted_by is distinct from old.granted_by
+    or new.granted_at <> old.granted_at then
+    raise exception 'admin role assignments must be revoked and recreated, not reassigned';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_admin_role_assignment_identity_update
+on public.admin_role_assignments;
+
+create trigger prevent_admin_role_assignment_identity_update
+before update on public.admin_role_assignments
+for each row
+execute function public.prevent_admin_role_assignment_identity_update();
+
 revoke all on schema app_private from public;
 grant usage on schema app_private to authenticated;
 revoke execute on all functions in schema app_private from public;
 grant execute on function app_private.current_admin_role() to authenticated;
 grant execute on function app_private.has_admin_role(public.admin_role) to authenticated;
 grant execute on function app_private.can_manage_admin_role(public.admin_role) to authenticated;
+revoke execute on function public.prevent_admin_role_assignment_identity_update() from public;
 
 create policy "Users can read their own active admin role"
 on public.admin_role_assignments
@@ -171,6 +227,64 @@ using ((select app_private.can_manage_admin_role(role)))
 with check (
   revoked_at is not null
   and revoked_by = (select auth.uid())
-  and role = admin_role_assignments.role
-  and user_id = admin_role_assignments.user_id
+  and revoke_reason is not null
 );
+
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'admin_audit_action') then
+    create type public.admin_audit_action as enum (
+      'create',
+      'update',
+      'publish',
+      'archive',
+      'moderate',
+      'role_change'
+    );
+  end if;
+end $$;
+
+create table if not exists public.admin_audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid references auth.users(id) on delete set null,
+  action public.admin_audit_action not null,
+  resource_type text not null check (
+    resource_type in (
+      'course',
+      'admin_role_assignment',
+      'moderation_case',
+      'support_case',
+      'admin_settings'
+    )
+  ),
+  resource_id text not null,
+  occurred_at timestamptz not null default now(),
+  context jsonb not null default '{}'::jsonb,
+  constraint admin_audit_logs_context_is_object check (jsonb_typeof(context) = 'object')
+);
+
+alter table public.admin_audit_logs enable row level security;
+
+revoke all privileges on public.admin_audit_logs from anon, authenticated, public;
+revoke all privileges on type public.admin_audit_action from anon, authenticated, public;
+grant usage on type public.admin_audit_action to authenticated;
+grant select on public.admin_audit_logs to authenticated;
+
+create index if not exists admin_audit_logs_occurred_at_idx
+on public.admin_audit_logs (occurred_at desc);
+
+create index if not exists admin_audit_logs_actor_user_id_idx
+on public.admin_audit_logs (actor_user_id)
+where actor_user_id is not null;
+
+create index if not exists admin_audit_logs_resource_idx
+on public.admin_audit_logs (resource_type, resource_id);
+
+create index if not exists admin_audit_logs_action_idx
+on public.admin_audit_logs (action);
+
+create policy "Administrators can read audit logs"
+on public.admin_audit_logs
+for select
+to authenticated
+using ((select app_private.has_admin_role('administrator')));

@@ -33,6 +33,8 @@ servir aux décisions d’autorisation.
 ## Règles de sécurité
 
 - Les routes admin demandent une session Supabase valide et un rôle actif non révoqué.
-- Le retrait d’un rôle renseigne `revoked_at` et prend effet au prochain contrôle serveur ou rechargement de session.
+- Le retrait d’un rôle renseigne `revoked_at`, `revoked_by` et `revoke_reason`. Il prend effet au prochain contrôle serveur ou rechargement de session.
 - Les politiques RLS vérifient les rôles en base via des fonctions `app_private` sécurisées.
 - Les changements de rôle ne sont pas autorisés depuis des claims contrôlables par l’utilisateur.
+- Un rôle existant ne doit pas être réassigné par `UPDATE`. Il doit être révoqué, puis recréé avec le nouveau rôle.
+- `editor`, `moderator` et `support` sont des rôles opérationnels distincts. `administrator` hérite des permissions opérationnelles pour l’administration courante, et `super_administrator` hérite de toutes les permissions.

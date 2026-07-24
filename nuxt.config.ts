@@ -9,6 +9,15 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  runtimeConfig: {
+    supabaseServiceRoleKey: '',
+    public: {
+      siteUrl: 'http://localhost:3000',
+      supabaseUrl: '',
+      supabasePublishableKey: '',
+    },
+  },
+
   typescript: {
     strict: true,
     typeCheck: true,

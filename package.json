@@ -12,12 +12,16 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "supabase:types": "supabase gen types typescript --local --schema public > shared/supabase/database.types.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.3",
+    "@supabase/supabase-js": "2.110.8",
     "@tailwindcss/vite": "4.3.3",
     "nuxt": "4.5.0",
-    "vue": "3.5.40"
+    "vue": "3.5.40",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@nuxt/eslint": "1.16.0",
@@ -27,6 +31,7 @@
     "eslint": "10.8.0",
     "jsdom": "29.1.1",
     "prettier": "3.9.6",
+    "supabase": "2.109.1",
     "typescript": "5.9.3",
     "vitest": "4.1.10",
     "vue-tsc": "3.3.8"

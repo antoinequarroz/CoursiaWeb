@@ -29,9 +29,12 @@ cp .env.example .env
 
 ## Variables d’environnement
 
-| Variable               | Obligatoire | Description                                                                                |
-| ---------------------- | ----------- | ------------------------------------------------------------------------------------------ |
-| `NUXT_PUBLIC_SITE_URL` | Non         | URL publique de base utilisée par l’application. La valeur locale est dans `.env.example`. |
+| Variable                               | Obligatoire        | Description                                                                          |
+| -------------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| `NUXT_PUBLIC_SITE_URL`                 | Non                | URL publique de base utilisée par l’application.                                     |
+| `NUXT_PUBLIC_SUPABASE_URL`             | Oui                | URL publique du projet Supabase.                                                     |
+| `NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Oui                | Clé publique/publishable utilisable côté navigateur.                                 |
+| `NUXT_SUPABASE_SERVICE_ROLE_KEY`       | Serveur uniquement | Clé privilégiée réservée aux traitements serveur. Ne jamais ajouter `PUBLIC` au nom. |
 
 ## Commandes
 
@@ -41,6 +44,7 @@ npm run typecheck
 npm run lint
 npm run test
 npm run build
+npm run supabase:types
 ```
 
 ## Architecture
@@ -53,7 +57,10 @@ npm run build
 - `app/admin` contient les modules et composables spécifiques à l’administration.
 - `shared` contient le code partagé entre l’app et le serveur.
 - `shared/design-system` contient les tokens Coursia partageables avec d’autres clients.
+- `shared/supabase` contient les types et helpers Supabase partagés.
+- `shared/validation` contient les schémas Zod partagés.
 - `server` contient les routes Nuxt server et le code serveur.
+- `supabase/schemas` contient le schéma SQL versionné.
 - `app/pages/design-system.vue` documente la palette, les thèmes et les variantes de composants.
 
 Alias configurés :
@@ -78,3 +85,22 @@ Le design system couvre :
 - variantes accessibles avec focus visible.
 
 La page de démonstration est disponible sur `/design-system`.
+
+## Supabase
+
+L’intégration Supabase sépare explicitement les accès navigateur et serveur :
+
+- `app/utils/supabase/browser.ts` crée le client navigateur avec uniquement les variables publiques.
+- `server/utils/supabase/server.ts` crée le client serveur SSR et le client `service_role` serveur uniquement.
+- `shared/supabase/database.types.ts` contient les types de base alignés sur le schéma versionné.
+- `shared/validation` contient les schémas Zod partagés entre formulaires et routes serveur.
+- `server/api/courses/public.get.ts` expose une requête publique.
+- `server/api/courses/me.get.ts` expose une requête authentifiée basée sur l’utilisateur Supabase courant.
+
+Le schéma versionné est dans `supabase/schemas/public.sql`.
+
+Après démarrage d’un environnement Supabase local, les types peuvent être régénérés avec :
+
+```bash
+npm run supabase:types
+```

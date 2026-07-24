@@ -10,7 +10,7 @@ describe('siteConfig', () => {
 
 describe('coursiaDesignTokens', () => {
   it('defines light and dark theme primary colors', () => {
-    expect(coursiaDesignTokens.color.light.primary).toBe('#1746a2')
-    expect(coursiaDesignTokens.color.dark.primary).toBe('#80a7ff')
+    expect(coursiaDesignTokens.color.light.primary).toBe('#0f2d27')
+    expect(coursiaDesignTokens.color.dark.primary).toBe('#0b1f1a')
   })
 })

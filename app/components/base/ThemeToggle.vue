@@ -37,6 +37,6 @@ const toggleTheme = () => {
     :aria-label="`Activer le thème ${currentTheme === 'light' ? 'sombre' : 'clair'}`"
     @click="toggleTheme"
   >
-    {{ currentTheme === 'light' ? 'Thème sombre' : 'Thème clair' }}
+    {{ currentTheme === 'light' ? 'Dark' : 'Light' }}
   </BaseButton>
 </template>

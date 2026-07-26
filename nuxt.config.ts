@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
+import { publicSeoContent } from './shared/public-site/seo-content'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-24',
@@ -17,6 +18,16 @@ export default defineNuxtConfig({
       supabasePublishableKey: '',
     },
   },
+
+  nitro: {
+    prerender: {
+      routes: [...publicSeoContent.prerenderRoutes, '/robots.txt', '/sitemap.xml'],
+    },
+  },
+
+  routeRules: Object.fromEntries(
+    publicSeoContent.prerenderRoutes.map((route) => [route, { prerender: true }]),
+  ),
 
   typescript: {
     strict: true,

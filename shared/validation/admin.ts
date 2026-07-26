@@ -19,6 +19,8 @@ export const adminAuditActionSchema = z.enum([
 
 export const adminAuditResourceTypeSchema = z.enum([
   'course',
+  'official_recipe',
+  'canonical_ingredient',
   'admin_role_assignment',
   'moderation_case',
   'support_case',

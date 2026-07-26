@@ -102,6 +102,8 @@ export type Database = {
           action: Database['public']['Enums']['admin_audit_action']
           resource_type:
             | 'course'
+            | 'official_recipe'
+            | 'canonical_ingredient'
             | 'admin_role_assignment'
             | 'moderation_case'
             | 'support_case'
@@ -116,6 +118,8 @@ export type Database = {
           action: Database['public']['Enums']['admin_audit_action']
           resource_type:
             | 'course'
+            | 'official_recipe'
+            | 'canonical_ingredient'
             | 'admin_role_assignment'
             | 'moderation_case'
             | 'support_case'
@@ -130,6 +134,8 @@ export type Database = {
           action?: Database['public']['Enums']['admin_audit_action']
           resource_type?:
             | 'course'
+            | 'official_recipe'
+            | 'canonical_ingredient'
             | 'admin_role_assignment'
             | 'moderation_case'
             | 'support_case'
@@ -137,6 +143,108 @@ export type Database = {
           resource_id?: string
           occurred_at?: string
           context?: Json
+        }
+        Relationships: []
+      }
+      official_recipes: {
+        Row: {
+          id: string
+          title: string
+          slug: string
+          status: 'draft' | 'published' | 'archived'
+          portions: number | null
+          duration_minutes: number | null
+          difficulty: 'easy' | 'medium' | 'hard' | null
+          ingredients: Json
+          steps: Json
+          nutrition: Json
+          categories: string[]
+          source: string | null
+          created_at: string
+          updated_at: string
+          archived_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          slug: string
+          status?: 'draft' | 'published' | 'archived'
+          portions?: number | null
+          duration_minutes?: number | null
+          difficulty?: 'easy' | 'medium' | 'hard' | null
+          ingredients?: Json
+          steps?: Json
+          nutrition?: Json
+          categories?: string[]
+          source?: string | null
+          created_at?: string
+          updated_at?: string
+          archived_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          slug?: string
+          status?: 'draft' | 'published' | 'archived'
+          portions?: number | null
+          duration_minutes?: number | null
+          difficulty?: 'easy' | 'medium' | 'hard' | null
+          ingredients?: Json
+          steps?: Json
+          nutrition?: Json
+          categories?: string[]
+          source?: string | null
+          created_at?: string
+          updated_at?: string
+          archived_at?: string | null
+        }
+        Relationships: []
+      }
+      canonical_ingredients: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          status: 'active' | 'archived'
+          synonyms: string[]
+          units: string[]
+          categories: string[]
+          allergens: string[]
+          diets: string[]
+          sensitive: boolean
+          created_at: string
+          updated_at: string
+          archived_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          status?: 'active' | 'archived'
+          synonyms?: string[]
+          units: string[]
+          categories?: string[]
+          allergens?: string[]
+          diets?: string[]
+          sensitive?: boolean
+          created_at?: string
+          updated_at?: string
+          archived_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          status?: 'active' | 'archived'
+          synonyms?: string[]
+          units?: string[]
+          categories?: string[]
+          allergens?: string[]
+          diets?: string[]
+          sensitive?: boolean
+          created_at?: string
+          updated_at?: string
+          archived_at?: string | null
         }
         Relationships: []
       }

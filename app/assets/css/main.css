@@ -94,3 +94,330 @@ body {
   box-shadow: var(--ds-shadow-glass);
   backdrop-filter: blur(18px);
 }
+
+@layer components {
+  .coursia-leaf {
+    position: absolute;
+    z-index: 0;
+    width: 2.8rem;
+    height: 1.35rem;
+    border-radius: 999px 0 999px 0;
+    background:
+      linear-gradient(135deg, rgb(34 197 94 / 76%), rgb(166 193 177 / 45%)),
+      var(--color-coursia-secondary);
+    box-shadow: 0 18px 36px rgb(15 45 39 / 8%);
+    opacity: 0.42;
+    animation: coursia-float 7s ease-in-out infinite;
+  }
+
+  .coursia-leaf::after {
+    position: absolute;
+    inset: 50% 12% auto;
+    height: 1px;
+    content: '';
+    background: rgb(255 255 255 / 70%);
+    transform: rotate(-20deg);
+    transform-origin: left;
+  }
+
+  .leaf-a {
+    top: 7.5rem;
+    right: 22%;
+    transform: rotate(24deg);
+  }
+
+  .leaf-b {
+    top: 26rem;
+    left: 45%;
+    width: 2.2rem;
+    height: 1rem;
+    animation-delay: -2s;
+    transform: rotate(-18deg);
+  }
+
+  .leaf-c {
+    right: 4%;
+    bottom: 13rem;
+    width: 1.8rem;
+    height: 0.9rem;
+    animation-delay: -4s;
+    transform: rotate(54deg);
+  }
+
+  .leaf-d {
+    top: 5rem;
+    right: 0;
+    width: 2rem;
+    height: 1rem;
+    animation-delay: -1s;
+  }
+
+  .leaf-e {
+    top: 31rem;
+    left: 5rem;
+    width: 2.4rem;
+    height: 1.1rem;
+    animation-delay: -3s;
+  }
+
+  .leaf-f {
+    top: 2rem;
+    right: 42%;
+    width: 2.2rem;
+    height: 1rem;
+    animation-delay: -5s;
+  }
+
+  .leaf-g {
+    top: 1.5rem;
+    left: 2rem;
+    opacity: 0.45;
+  }
+
+  .phone-shell {
+    width: min(18rem, 44vw);
+    padding: 0.62rem;
+    border: 1px solid rgb(255 255 255 / 18%);
+    border-radius: 2.75rem;
+    background: linear-gradient(145deg, #0d1715, #1f2b29 42%, #080d0c);
+    box-shadow:
+      0 38px 90px rgb(15 45 39 / 24%),
+      inset 0 0 0 1px rgb(255 255 255 / 8%);
+  }
+
+  .phone-left {
+    transform: rotate(-8deg);
+    animation: coursia-phone-left 8s ease-in-out infinite;
+  }
+
+  .phone-right {
+    transform: rotate(7deg);
+    animation: coursia-phone-right 8s ease-in-out infinite;
+    animation-delay: -1.5s;
+  }
+
+  .phone-screen {
+    min-height: 36rem;
+    overflow: hidden;
+    border-radius: 2.1rem;
+    background:
+      radial-gradient(circle at 80% 12%, rgb(166 193 177 / 24%), transparent 28%),
+      linear-gradient(180deg, var(--color-coursia-surface), var(--color-coursia-background));
+    padding: 1.15rem;
+    color: var(--color-coursia-foreground);
+  }
+
+  .phone-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.15rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+
+  .phone-notch {
+    width: 5rem;
+    height: 1.1rem;
+    border-radius: 999px;
+    background: #0a0f0e;
+  }
+
+  .phone-tabbar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-coursia-border);
+  }
+
+  .phone-tabbar span {
+    height: 0.38rem;
+    border-radius: 999px;
+    background: var(--color-coursia-border);
+  }
+
+  .phone-tabbar .active {
+    background: var(--color-coursia-primary);
+  }
+
+  .meal-photo {
+    position: relative;
+    display: grid;
+    min-height: 11rem;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 1.75rem;
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / 30%), transparent 35%),
+      radial-gradient(circle at 24% 18%, rgb(166 193 177 / 80%), transparent 28%),
+      radial-gradient(circle at 70% 32%, rgb(255 122 89 / 36%), transparent 24%),
+      linear-gradient(135deg, #efe7da, #dfe9df 48%, #fff7ec);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 48%);
+  }
+
+  .meal-photo::before,
+  .meal-photo::after {
+    position: absolute;
+    content: '';
+    border-radius: 2rem;
+    background: rgb(15 45 39 / 7%);
+  }
+
+  .meal-photo::before {
+    width: 12rem;
+    height: 6rem;
+    right: -2rem;
+    bottom: -1.2rem;
+    transform: rotate(-12deg);
+  }
+
+  .meal-photo::after {
+    width: 8rem;
+    height: 4rem;
+    left: -1.5rem;
+    top: 1.5rem;
+    transform: rotate(16deg);
+  }
+
+  .meal-photo-surface {
+    position: relative;
+    z-index: 1;
+    width: min(78%, 13rem);
+    height: 68%;
+    border-radius: 1.6rem;
+    background:
+      radial-gradient(circle at 30% 34%, #ff7a59 0 9%, transparent 10%),
+      radial-gradient(circle at 58% 46%, #fbbf24 0 7%, transparent 8%),
+      radial-gradient(circle at 68% 28%, #22c55e 0 8%, transparent 9%),
+      radial-gradient(circle at 42% 58%, #0f2d27 0 5%, transparent 6%),
+      linear-gradient(145deg, rgb(255 255 255 / 86%), rgb(255 245 232 / 78));
+    box-shadow:
+      0 22px 55px rgb(15 45 39 / 18%),
+      inset 0 0 0 1px rgb(255 255 255 / 80%);
+  }
+
+  .mini-chart {
+    display: flex;
+    align-items: end;
+    gap: 0.25rem;
+    height: 2rem;
+  }
+
+  .mini-chart span {
+    width: 0.38rem;
+    border-radius: 999px;
+    background: var(--color-coursia-success);
+  }
+
+  .mini-chart span:nth-child(1) {
+    height: 0.8rem;
+  }
+
+  .mini-chart span:nth-child(2) {
+    height: 1.25rem;
+  }
+
+  .mini-chart span:nth-child(3) {
+    height: 1rem;
+  }
+
+  .mini-chart span:nth-child(4) {
+    height: 1.8rem;
+  }
+
+  .recipe-stack,
+  .recipe-card-premium {
+    position: absolute;
+    left: 5rem;
+    top: 2rem;
+    width: min(20rem, 72vw);
+    border: 1px solid var(--color-coursia-border);
+    border-radius: 2rem;
+    background: var(--color-coursia-surface);
+    box-shadow: var(--shadow-coursia-glass);
+  }
+
+  .stack-back {
+    height: 20rem;
+    opacity: 0.28;
+    transform: translate(-3rem, 2.5rem) rotate(-10deg);
+  }
+
+  .stack-mid {
+    height: 21rem;
+    opacity: 0.52;
+    transform: translate(-1.5rem, 1rem) rotate(-4deg);
+  }
+
+  .recipe-card-premium {
+    padding: 1rem;
+    animation: coursia-card 8s ease-in-out infinite;
+  }
+
+  .cta-device-card {
+    position: relative;
+    width: 13rem;
+    min-height: 16rem;
+    padding: 1.2rem;
+    border: 1px solid rgb(255 255 255 / 18%);
+    border-radius: 2rem;
+    background: linear-gradient(160deg, rgb(255 255 255 / 24%), rgb(255 255 255 / 8%));
+    box-shadow: 0 26px 70px rgb(0 0 0 / 20%);
+    backdrop-filter: blur(18px);
+  }
+}
+
+@keyframes coursia-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -14px;
+  }
+}
+
+@keyframes coursia-phone-left {
+  0%,
+  100% {
+    transform: rotate(-8deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(-6deg) translateY(-10px);
+  }
+}
+
+@keyframes coursia-phone-right {
+  0%,
+  100% {
+    transform: rotate(7deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(5deg) translateY(12px);
+  }
+}
+
+@keyframes coursia-card {
+  0%,
+  100% {
+    transform: rotate(3deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(2deg) translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coursia-leaf,
+  .phone-left,
+  .phone-right,
+  .recipe-card-premium {
+    animation: none;
+  }
+}

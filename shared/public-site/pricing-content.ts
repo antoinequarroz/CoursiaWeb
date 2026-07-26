@@ -1,0 +1,91 @@
+export const publicPricingContent = {
+  source: 'COUR-31',
+  validationStatus:
+    'Matrice tarifaire à confirmer avec COUR-31 avant publication commerciale définitive.',
+  currency: 'CHF',
+  renewalNotice:
+    'Les abonnements se renouvellent automatiquement à la période choisie après confirmation dans l’app. La résiliation reste possible avant le renouvellement selon les règles de la plateforme de paiement.',
+  purchaseAvailability:
+    'L’achat web n’est pas disponible sur cette page. Les CTA renvoient vers la liste d’attente ou vers l’app lorsque le paiement sera activé.',
+  plans: [
+    {
+      name: 'Gratuit',
+      audience: 'Découvrir Coursia seul ou en petit foyer.',
+      monthlyPrice: 0,
+      annualPrice: 0,
+      recommended: false,
+      cta: 'Rejoindre la liste d’attente',
+      limits: ['Recettes et planning limités', 'Comparaison simplifiée', 'Sans partage familial avancé'],
+      features: {
+        recipes: 'Sélection limitée',
+        planning: 'Planning hebdomadaire simple',
+        shopping: 'Liste de courses basique',
+        comparison: 'Aperçu multi-enseignes',
+        budget: 'Repères essentiels',
+        household: '1 espace foyer',
+      },
+    },
+    {
+      name: 'Standard',
+      audience: 'Organiser les repas et les courses du quotidien.',
+      monthlyPrice: 6.9,
+      annualPrice: 69,
+      recommended: false,
+      cta: 'Suivre le lancement',
+      limits: ['Fonctions famille limitées', 'Automatisations avancées non incluses'],
+      features: {
+        recipes: 'Recettes personnalisées',
+        planning: 'Planning repas complet',
+        shopping: 'Liste de courses optimisée',
+        comparison: 'Comparaison multi-enseignes',
+        budget: 'Suivi budget mensuel',
+        household: '1 foyer',
+      },
+    },
+    {
+      name: 'Premium',
+      audience: 'Optimiser budget, temps et variété sur toute la semaine.',
+      monthlyPrice: 11.9,
+      annualPrice: 119,
+      recommended: true,
+      recommendationLabel: 'Recommandé pour les usages réguliers',
+      cta: 'Suivre le lancement',
+      limits: ['Partage familial complet réservé au plan Famille'],
+      features: {
+        recipes: 'Recommandations avancées',
+        planning: 'Planning intelligent',
+        shopping: 'Optimisation panier',
+        comparison: 'Comparaison détaillée',
+        budget: 'Objectifs et économies estimées',
+        household: '1 foyer',
+      },
+    },
+    {
+      name: 'Famille',
+      audience: 'Partager l’organisation entre plusieurs membres du foyer.',
+      monthlyPrice: 17.9,
+      annualPrice: 179,
+      recommended: false,
+      cta: 'Préparer mon foyer',
+      limits: ['Nombre de membres à confirmer avec la matrice COUR-31'],
+      features: {
+        recipes: 'Préférences par membre',
+        planning: 'Planning partagé',
+        shopping: 'Courses collaboratives',
+        comparison: 'Comparaison détaillée',
+        budget: 'Budget foyer partagé',
+        household: 'Espace famille',
+      },
+    },
+  ],
+  comparisonRows: [
+    { key: 'recipes', label: 'Recettes' },
+    { key: 'planning', label: 'Planning' },
+    { key: 'shopping', label: 'Courses' },
+    { key: 'comparison', label: 'Comparaison' },
+    { key: 'budget', label: 'Budget' },
+    { key: 'household', label: 'Foyer' },
+  ],
+} as const
+
+export type PublicPricingFeatureKey = keyof (typeof publicPricingContent.plans)[number]['features']

@@ -1,33 +1,50 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'public',
-})
+import { publicLegalContent } from '#shared/public-site/legal-content'
+
+definePageMeta({ layout: 'public' })
 
 useSeoMeta({
-  title: 'Mentions légales — Coursia',
-  description: 'Informations légales provisoires de Coursia pendant la phase de lancement.',
+  title: 'Informations légales — Coursia',
+  description:
+    'Accédez aux CGU, à la confidentialité, aux cookies, au support et aux demandes de données Coursia.',
+  ogTitle: 'Informations légales Coursia',
+  ogDescription: 'Documents légaux et support Coursia pendant la phase de lancement.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
 })
 </script>
 
 <template>
-  <section class="rounded-coursia-xl bg-coursia-surface p-8 shadow-coursia-sm ring-1 ring-coursia-border">
-    <BaseBadge>Légal</BaseBadge>
-    <h1 class="mt-4 text-4xl font-bold text-coursia-foreground">Mentions légales provisoires</h1>
-    <p class="mt-4 max-w-3xl leading-7 text-coursia-muted">
-      Cette page prépare l’espace légal public de Coursia. Les informations définitives, la
-      politique de confidentialité et les conditions d’utilisation devront être validées avant mise
-      en production publique.
+  <section class="mx-auto max-w-6xl py-10">
+    <BaseBadge tone="neutral">Légal</BaseBadge>
+    <h1 class="mt-5 text-5xl font-black">Informations légales et support.</h1>
+    <p class="mt-5 max-w-3xl text-lg leading-8 text-coursia-muted">
+      Version {{ publicLegalContent.version }} — entrée en vigueur le
+      {{ publicLegalContent.effectiveDate }}. Documents à maintenir cohérents avec
+      {{ publicLegalContent.references.join(' et ') }}.
     </p>
 
-    <div class="mt-8 grid gap-5 md:grid-cols-2">
-      <BaseCard>
-        <h2 class="text-xl font-semibold text-coursia-foreground">Contact</h2>
-        <p class="mt-3 text-coursia-muted">contact@coursia.local</p>
-      </BaseCard>
-      <BaseCard>
-        <h2 class="text-xl font-semibold text-coursia-foreground">Statut</h2>
-        <p class="mt-3 text-coursia-muted">Contenu légal à finaliser avant lancement public.</p>
-      </BaseCard>
+    <div class="mt-10 grid gap-5 md:grid-cols-3">
+      <NuxtLink
+        v-for="document in publicLegalContent.documents"
+        :key="document.slug"
+        :to="`/legal/${document.slug}`"
+        class="rounded-[1.5rem] border border-coursia-border bg-coursia-surface p-6 shadow-coursia-sm"
+      >
+        <h2 class="text-2xl font-black">{{ document.title }}</h2>
+        <p class="mt-4 leading-7 text-coursia-muted">{{ document.summary }}</p>
+      </NuxtLink>
+    </div>
+
+    <div class="mt-8 rounded-[1.5rem] bg-coursia-surface-muted p-6">
+      <h2 class="text-2xl font-black">Demandes données et support</h2>
+      <p class="mt-4 leading-7 text-coursia-muted">
+        Les demandes d’accès, export et suppression sont expliquées sur la page support.
+      </p>
+      <NuxtLink to="/support" class="mt-5 inline-flex font-black text-coursia-primary">
+        Ouvrir la page support →
+      </NuxtLink>
     </div>
   </section>
 </template>
+

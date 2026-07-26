@@ -7,7 +7,7 @@ import {
 } from '../shared/validation/course'
 
 describe('COUR-96 official recipes admin CRUD', () => {
-  const adminRecipesPage = readFileSync(resolve(process.cwd(), 'app/pages/admin/recettes.vue'), 'utf8')
+  const adminRecipesPage = readFileSync(resolve(process.cwd(), 'app/pages/admin/recettes/index.vue'), 'utf8')
   const adminRecipesList = readFileSync(
     resolve(process.cwd(), 'server/api/admin/recipes/index.get.ts'),
     'utf8',

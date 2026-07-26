@@ -9,7 +9,7 @@ export const authenticatedEnrollmentsQuerySchema = z.object({
 })
 
 export const officialRecipeDifficultySchema = z.enum(['easy', 'medium', 'hard'])
-export const officialRecipeStatusSchema = z.enum(['draft', 'published', 'archived'])
+export const officialRecipeStatusSchema = z.enum(['draft', 'review', 'published', 'archived'])
 
 export const officialRecipeStepSchema = z.object({
   order: z.number().int().min(1),
@@ -88,6 +88,7 @@ export const officialRecipePublishSchema = officialRecipeDraftSchema.extend({
 
 export const officialRecipeMutationSchema = z.union([
   officialRecipeDraftSchema.extend({ status: z.literal('draft') }),
+  officialRecipePublishSchema.extend({ status: z.literal('review') }),
   officialRecipePublishSchema.extend({ status: z.literal('published') }),
   officialRecipeDraftSchema.extend({ status: z.literal('archived') }),
 ])
@@ -96,11 +97,16 @@ export const officialRecipeParamsSchema = z.object({
   id: z.uuid(),
 })
 
+export const recipePublicationActionSchema = z.object({
+  reason: z.string().trim().min(3).max(500).optional(),
+})
+
 export type CourseListQuery = z.infer<typeof courseListQuerySchema>
 export type AuthenticatedEnrollmentsQuery = z.infer<typeof authenticatedEnrollmentsQuerySchema>
 export type OfficialRecipeListQuery = z.infer<typeof officialRecipeListQuerySchema>
 export type OfficialRecipeMutation = z.infer<typeof officialRecipeMutationSchema>
 export type OfficialRecipeIngredient = z.infer<typeof officialRecipeIngredientSchema>
+export type RecipePublicationAction = z.infer<typeof recipePublicationActionSchema>
 
 export const findDuplicateRecipeIngredients = (ingredients: OfficialRecipeIngredient[]) => {
   const seen = new Set<string>()
@@ -137,3 +143,32 @@ export const scaleRecipeQuantity = (
 
   return Number(((quantity / fromPortions) * toPortions).toFixed(2))
 }
+
+type OfficialRecipeBlockingCandidate = {
+  title?: string | null | undefined
+  slug?: string | null | undefined
+  portions?: number | null | undefined
+  durationMinutes?: number | null | undefined
+  difficulty?: string | null | undefined
+  ingredients?: unknown[] | null | undefined
+  steps?: unknown[] | null | undefined
+  source?: string | null | undefined
+}
+
+export const getOfficialRecipeBlockingFields = (recipe: OfficialRecipeBlockingCandidate) => {
+  const missing: string[] = []
+
+  if (!recipe.title) missing.push('title')
+  if (!recipe.slug) missing.push('slug')
+  if (!recipe.portions) missing.push('portions')
+  if (!recipe.durationMinutes) missing.push('durationMinutes')
+  if (!recipe.difficulty) missing.push('difficulty')
+  if (!recipe.ingredients || recipe.ingredients.length === 0) missing.push('ingredients')
+  if (!recipe.steps || recipe.steps.length === 0) missing.push('steps')
+  if (!recipe.source) missing.push('source')
+
+  return missing
+}
+
+export const getUnpublishBehaviorMessage = () =>
+  'La recette dépubliée disparaît des listes publiques et reste disponible dans l’administration en brouillon.'

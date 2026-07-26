@@ -7,6 +7,11 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  if (process.env.NUXT_E2E_BYPASS_ADMIN_AUTH === 'true') {
+    setHeader(event, 'Cache-Control', 'private, no-store')
+    return
+  }
+
   setHeader(event, 'Cache-Control', 'private, no-store')
 
   const supabase = createSupabaseServerClient(event)

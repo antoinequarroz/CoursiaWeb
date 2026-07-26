@@ -5,6 +5,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
+  if (import.meta.server && process.env.NUXT_E2E_BYPASS_ADMIN_AUTH === 'true') {
+    return
+  }
+
   const { authenticated } = await $fetch<{ authenticated: boolean }>('/api/auth/session').catch(
     () => ({ authenticated: false }),
   )

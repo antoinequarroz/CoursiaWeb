@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
   encoding: 'utf8',
@@ -44,6 +44,10 @@ const findings = []
 
 for (const file of files) {
   if (isIgnoredFile(file)) {
+    continue
+  }
+
+  if (!existsSync(file)) {
     continue
   }
 

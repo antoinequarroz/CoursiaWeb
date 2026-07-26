@@ -9,7 +9,7 @@ import {
 } from '../shared/validation/course'
 
 describe('COUR-97 structured ingredient quantity and step editor', () => {
-  const adminRecipesPage = readFileSync(resolve(process.cwd(), 'app/pages/admin/recettes.vue'), 'utf8')
+  const adminRecipesPage = readFileSync(resolve(process.cwd(), 'app/pages/admin/recettes/index.vue'), 'utf8')
 
   it('supports canonical ingredient search and selection', () => {
     expect(adminRecipesPage).toContain('canonicalIngredients')

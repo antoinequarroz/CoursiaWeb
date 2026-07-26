@@ -6,8 +6,12 @@ export const adminNavigationSections = [
     title: 'Catalogue',
     items: [
       { label: 'Recettes', path: '/admin/recettes', minimumRole: 'editor' },
+      { label: 'Import recettes', path: '/admin/recettes/import', minimumRole: 'editor' },
+      { label: 'Publication recettes', path: '/admin/recettes/publication', minimumRole: 'editor' },
+      { label: 'Médias recettes', path: '/admin/recettes/medias', minimumRole: 'editor' },
       { label: 'Ingrédients', path: '/admin/ingredients', minimumRole: 'editor' },
       { label: 'Allergènes', path: '/admin/allergenes', minimumRole: 'editor' },
+      { label: 'Correspondances', path: '/admin/correspondances', minimumRole: 'editor' },
       { label: 'Enseignes', path: '/admin/enseignes', minimumRole: 'editor' },
       { label: 'Produits', path: '/admin/produits', minimumRole: 'editor' },
       { label: 'Prix', path: '/admin/prix', minimumRole: 'editor' },
@@ -48,4 +52,3 @@ export const filterAdminNavigationForRole = (role: AdminRole | null | undefined)
     items: section.items.filter((item) => hasAdminRole(role, item.minimumRole as AdminNavigationRole)),
   }))
 }
-

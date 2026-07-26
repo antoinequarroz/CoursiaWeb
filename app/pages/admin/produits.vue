@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { productUnitSchema, type ProductInput } from '#shared/validation/retail-catalog'
+import { webQualityBudgets } from '#shared/quality/performance-budgets'
 
 definePageMeta({
   layout: 'admin',
@@ -26,6 +27,12 @@ const filters = reactive({
 })
 
 const products = ref<Array<Record<string, unknown>>>([])
+const productPage = ref(1)
+const productPageSize = webQualityBudgets.adminPages.maxInitialRows
+const visibleProducts = computed(() =>
+  products.value.slice((productPage.value - 1) * productPageSize, productPage.value * productPageSize),
+)
+const hasMoreProducts = computed(() => products.value.length > productPage.value * productPageSize)
 const selectedProductId = ref<string | null>(null)
 const feedback = ref('')
 const unitOptions = productUnitSchema.options
@@ -35,6 +42,7 @@ const loadProducts = async () => {
     query: filters,
   })
   products.value = response.data
+  productPage.value = 1
 }
 
 const saveProduct = async () => {
@@ -61,9 +69,9 @@ const saveProduct = async () => {
     </div>
 
     <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-3">
-      <input v-model="filters.search" type="search" placeholder="Recherche produit" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
-      <input v-model="filters.retailerId" placeholder="ID enseigne" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
-      <select v-model="filters.status" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
+      <input v-model="filters.search" type="search" aria-label="Recherche produit" placeholder="Recherche produit" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+      <input v-model="filters.retailerId" aria-label="Filtrer par ID enseigne" placeholder="ID enseigne" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+      <select v-model="filters.status" aria-label="Filtrer par statut produit" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
         <option value="">Tous statuts</option>
         <option value="active">Actif</option>
         <option value="archived">ArchivÃ©</option>
@@ -73,14 +81,22 @@ const saveProduct = async () => {
     <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
 
     <div class="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-      <section class="grid gap-4">
-        <article v-for="product in products" :key="String(product.id)" class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
+      <section class="grid gap-4 content-auto">
+        <article v-for="product in visibleProducts" :key="String(product.id)" class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
           <h2 class="text-xl font-black">{{ product.name }}</h2>
           <p class="mt-2 text-sm text-coursia-muted">
             {{ product.slug }} Â· enseigne {{ product.retailer_id }} Â· format {{ product.format }}
           </p>
           <p class="mt-2 text-xs text-coursia-muted">Source : {{ product.source }}</p>
         </article>
+        <BaseButton
+          v-if="hasMoreProducts"
+          type="button"
+          variant="secondary"
+          @click="productPage += 1"
+        >
+          Afficher 50 produits de plus
+        </BaseButton>
       </section>
 
       <form class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5" @submit.prevent="saveProduct">

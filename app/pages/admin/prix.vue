@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { retailCsvColumns, retailCsvTemplate, type PriceEntryInput, type RetailImportPreview } from '#shared/validation/retail-catalog'
+import { webQualityBudgets } from '#shared/quality/performance-budgets'
 
 definePageMeta({
   layout: 'admin',
@@ -22,6 +23,17 @@ const filters = reactive({
 
 const prices = ref<Array<Record<string, unknown>>>([])
 const history = ref<Array<Record<string, unknown>>>([])
+const pricePage = ref(1)
+const historyPage = ref(1)
+const adminPageSize = webQualityBudgets.adminPages.maxInitialRows
+const visiblePrices = computed(() =>
+  prices.value.slice((pricePage.value - 1) * adminPageSize, pricePage.value * adminPageSize),
+)
+const visibleHistory = computed(() =>
+  history.value.slice((historyPage.value - 1) * adminPageSize, historyPage.value * adminPageSize),
+)
+const hasMorePrices = computed(() => prices.value.length > pricePage.value * adminPageSize)
+const hasMoreHistory = computed(() => history.value.length > historyPage.value * adminPageSize)
 const csvContent = ref(retailCsvTemplate)
 const importPreview = ref<RetailImportPreview | null>(null)
 const feedback = ref('')
@@ -31,6 +43,7 @@ const loadPrices = async () => {
     query: filters,
   })
   prices.value = response.data
+  pricePage.value = 1
 }
 
 const loadHistory = async () => {
@@ -38,6 +51,7 @@ const loadHistory = async () => {
     query: filters,
   })
   history.value = response.data
+  historyPage.value = 1
 }
 
 const savePrice = async () => {
@@ -76,8 +90,8 @@ const previewCsvImport = async () => {
     </div>
 
     <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-2">
-      <input v-model="filters.retailerId" placeholder="Filtrer par ID enseigne" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
-      <select v-model="filters.quality" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
+      <input v-model="filters.retailerId" aria-label="Filtrer les prix par ID enseigne" placeholder="Filtrer par ID enseigne" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+      <select v-model="filters.quality" aria-label="Filtrer les prix par qualité" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
         <option value="">Tous Ã©tats qualitÃ©</option>
         <option value="fresh">Frais</option>
         <option value="stale">PÃ©rimÃ©</option>
@@ -128,7 +142,7 @@ const previewCsvImport = async () => {
       <section class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
         <h2 class="text-2xl font-black">Import CSV avec prÃ©visualisation</h2>
         <p class="mt-3 text-sm text-coursia-muted">Colonnes : {{ retailCsvColumns.join(', ') }}</p>
-        <textarea v-model="csvContent" rows="10" class="mt-5 w-full rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 font-mono text-sm" />
+        <textarea v-model="csvContent" aria-label="Contenu CSV prix" rows="10" class="mt-5 w-full rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 font-mono text-sm" />
         <BaseButton class="mt-4" type="button" variant="secondary" @click="previewCsvImport">PrÃ©visualiser lâ€™import</BaseButton>
         <div v-if="importPreview" class="mt-5 grid gap-3 md:grid-cols-4">
           <div class="rounded-2xl bg-coursia-background p-4">CrÃ©ations : {{ importPreview.creates }}</div>
@@ -142,18 +156,24 @@ const previewCsvImport = async () => {
     <section class="mt-8 grid gap-5 lg:grid-cols-2">
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
         <h2 class="text-xl font-black">Prix courants signalÃ©s</h2>
-        <div class="mt-4 grid gap-3">
-          <div v-for="price in prices" :key="String(price.id)" class="rounded-2xl bg-coursia-background p-4 text-sm">
+        <div class="mt-4 grid gap-3 content-auto">
+          <div v-for="price in visiblePrices" :key="String(price.id)" class="rounded-2xl bg-coursia-background p-4 text-sm">
             {{ price.amount_chf }} CHF Â· {{ price.quality_status }} Â· {{ price.source }} Â· collecte {{ price.collected_at }}
           </div>
+          <BaseButton v-if="hasMorePrices" type="button" variant="secondary" @click="pricePage += 1">
+            Afficher 50 prix de plus
+          </BaseButton>
         </div>
       </article>
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
         <h2 class="text-xl font-black">Historique des prix</h2>
-        <div class="mt-4 grid gap-3">
-          <div v-for="entry in history" :key="String(entry.id)" class="rounded-2xl bg-coursia-background p-4 text-sm">
+        <div class="mt-4 grid gap-3 content-auto">
+          <div v-for="entry in visibleHistory" :key="String(entry.id)" class="rounded-2xl bg-coursia-background p-4 text-sm">
             {{ entry.previous_amount_chf ?? '-' }} â†’ {{ entry.amount_chf }} CHF Â· {{ entry.source }} Â· {{ entry.collected_at }}
           </div>
+          <BaseButton v-if="hasMoreHistory" type="button" variant="secondary" @click="historyPage += 1">
+            Afficher 50 lignes d historique de plus
+          </BaseButton>
         </div>
       </article>
     </section>

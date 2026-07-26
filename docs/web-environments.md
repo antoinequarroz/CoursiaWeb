@@ -25,6 +25,7 @@ Le workflow `.github/workflows/ci.yml` s’exécute sur pull request et push ver
 4. `npm run lint`
 5. `npm test`
 6. `npm run build`
+7. `npm run e2e`
 
 Le build CI utilise des valeurs publiques factices pour Supabase et aucune clé service-role.
 
@@ -35,6 +36,7 @@ Chaque pull request doit produire un build valide. La prévisualisation se fait 
 Validation minimale avant promotion :
 
 - la CI est verte ;
+- `npm run release:check` passe sur le commit candidat ;
 - l’URL preview charge l’application ;
 - les routes publiques fonctionnent avec le projet Supabase preview ;
 - les routes admin nécessitent une session et un rôle valide ;
@@ -61,8 +63,10 @@ Les migrations ne doivent pas être appliquées automatiquement par la CI pull r
 2. Déployer en preview avec les variables preview.
 3. Exécuter les migrations Supabase contrôlées sur preview.
 4. Tester les parcours critiques.
-5. Promouvoir le même commit en production.
-6. Exécuter les migrations production après validation explicite.
+5. Exécuter `npm run release:check`.
+6. Promouvoir le même commit en production.
+7. Exécuter les migrations production après validation explicite.
+8. Suivre le runbook `docs/production-release-cour-112.md`.
 
 ## Rollback
 

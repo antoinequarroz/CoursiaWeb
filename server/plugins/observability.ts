@@ -1,0 +1,7 @@
+export default defineNitroPlugin((nitroApp) => {
+  nitroApp.hooks.hook('error', (error, { event }) => {
+    if (event) {
+      captureServerException(event, error)
+    }
+  })
+})

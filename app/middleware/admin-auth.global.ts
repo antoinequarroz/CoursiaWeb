@@ -1,11 +1,12 @@
 import { isAdminRoute } from '#shared/auth/admin-route'
+import { isE2eAdminAuthBypassAllowed } from '#shared/security/admin-auth-bypass'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (!isAdminRoute(to.path)) {
     return
   }
 
-  if (import.meta.server && process.env.NUXT_E2E_BYPASS_ADMIN_AUTH === 'true') {
+  if (import.meta.server && isE2eAdminAuthBypassAllowed()) {
     return
   }
 

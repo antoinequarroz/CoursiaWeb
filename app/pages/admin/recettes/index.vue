@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OfficialRecipeMutation } from '#shared/validation/course'
+import { webQualityBudgets } from '#shared/quality/performance-budgets'
 import {
   canonicalIngredients,
   findDuplicateRecipeIngredients,
@@ -36,7 +37,13 @@ const selectedRecipeId = ref<string | null>(null)
 const feedback = ref('')
 const loading = ref(false)
 const recipes = ref<Array<Record<string, unknown>>>([])
+const recipePage = ref(1)
+const recipePageSize = webQualityBudgets.adminPages.maxInitialRows
 const targetPortions = ref(4)
+const visibleRecipes = computed(() =>
+  recipes.value.slice((recipePage.value - 1) * recipePageSize, recipePage.value * recipePageSize),
+)
+const hasMoreRecipes = computed(() => recipes.value.length > recipePage.value * recipePageSize)
 const formErrors = computed(() => {
   const duplicateIds = findDuplicateRecipeIngredients(form.ingredients)
   const incompatible = findIncompatibleIngredientUnits(form.ingredients)
@@ -66,6 +73,7 @@ const loadRecipes = async () => {
       query: filters,
     })
     recipes.value = response.data
+    recipePage.value = 1
   } catch {
     feedback.value = 'Erreur de chargement des recettes officielles.'
   } finally {
@@ -177,20 +185,20 @@ const deleteRecipe = async (id: string) => {
     </div>
 
     <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-4">
-      <input v-model="filters.search" type="search" placeholder="Recherche" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
-      <select v-model="filters.status" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
+      <input v-model="filters.search" type="search" aria-label="Recherche recette" placeholder="Recherche" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+      <select v-model="filters.status" aria-label="Filtrer par statut" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
         <option value="">Tous statuts</option>
         <option value="draft">Brouillon</option>
         <option value="published">Publié</option>
         <option value="archived">Archivé</option>
       </select>
-      <select v-model="filters.difficulty" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
+      <select v-model="filters.difficulty" aria-label="Filtrer par difficulté" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
         <option value="">Toutes difficultés</option>
         <option value="easy">Facile</option>
         <option value="medium">Moyen</option>
         <option value="hard">Difficile</option>
       </select>
-      <input v-model="filters.category" placeholder="Catégorie" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+      <input v-model="filters.category" aria-label="Filtrer par catégorie" placeholder="Catégorie" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
     </div>
 
     <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
@@ -198,9 +206,9 @@ const deleteRecipe = async (id: string) => {
     <p v-else-if="recipes.length === 0" class="mt-5 text-coursia-muted">Aucune recette ne correspond aux filtres.</p>
 
     <div class="mt-8 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-      <div class="grid gap-4">
+      <div class="grid gap-4 content-auto">
         <article
-          v-for="recipe in recipes"
+          v-for="recipe in visibleRecipes"
           :key="String(recipe.id)"
           class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5"
         >
@@ -219,6 +227,14 @@ const deleteRecipe = async (id: string) => {
             </div>
           </div>
         </article>
+        <BaseButton
+          v-if="hasMoreRecipes"
+          type="button"
+          variant="secondary"
+          @click="recipePage += 1"
+        >
+          Afficher 50 recettes de plus
+        </BaseButton>
       </div>
 
       <form class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5" @submit.prevent="saveRecipe">

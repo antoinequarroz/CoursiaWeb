@@ -16,6 +16,12 @@ const logout = async () => {
 
 <template>
   <div class="min-h-screen bg-coursia-background text-coursia-foreground" data-theme="dark">
+    <a
+      href="#admin-main-content"
+      class="ds-focus-ring sr-only z-50 rounded-full bg-coursia-primary px-4 py-2 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+    >
+      Aller au contenu admin
+    </a>
     <aside
       class="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-coursia-border bg-coursia-surface p-6 md:block"
     >
@@ -68,10 +74,9 @@ const logout = async () => {
           </div>
         </div>
       </header>
-      <main class="px-6 py-8">
+      <main id="admin-main-content" tabindex="-1" class="px-6 py-8">
         <slot />
       </main>
     </div>
   </div>
 </template>
-

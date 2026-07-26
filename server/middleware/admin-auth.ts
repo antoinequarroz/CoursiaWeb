@@ -1,4 +1,5 @@
 import { buildAdminLoginRedirect, isAdminRoute } from '#shared/auth/admin-route'
+import { isE2eAdminAuthBypassAllowed } from '#shared/security/admin-auth-bypass'
 
 export default defineEventHandler(async (event) => {
   const path = event.path.split('?')[0] ?? '/'
@@ -7,7 +8,7 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  if (process.env.NUXT_E2E_BYPASS_ADMIN_AUTH === 'true') {
+  if (isE2eAdminAuthBypassAllowed()) {
     setHeader(event, 'Cache-Control', 'private, no-store')
     return
   }

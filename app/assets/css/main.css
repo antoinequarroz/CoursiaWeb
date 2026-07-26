@@ -84,6 +84,14 @@ body {
   @apply bg-coursia-background font-sans text-coursia-foreground antialiased;
 }
 
+a,
+button,
+input,
+select,
+textarea {
+  @apply ds-focus-ring;
+}
+
 @utility ds-focus-ring {
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coursia-primary focus-visible:ring-offset-2 focus-visible:ring-offset-coursia-background;
 }
@@ -97,6 +105,7 @@ body {
 
 @layer components {
   .coursia-leaf {
+    contain: layout paint;
     position: absolute;
     z-index: 0;
     width: 2.8rem;
@@ -175,6 +184,7 @@ body {
   }
 
   .phone-shell {
+    contain: layout paint style;
     width: min(18rem, 44vw);
     padding: 0.62rem;
     border: 1px solid rgb(255 255 255 / 18%);
@@ -329,6 +339,7 @@ body {
 
   .recipe-stack,
   .recipe-card-premium {
+    contain: layout paint style;
     position: absolute;
     left: 5rem;
     top: 2rem;
@@ -357,6 +368,7 @@ body {
   }
 
   .cta-device-card {
+    contain: layout paint style;
     position: relative;
     width: 13rem;
     min-height: 16rem;
@@ -366,6 +378,13 @@ body {
     background: linear-gradient(160deg, rgb(255 255 255 / 24%), rgb(255 255 255 / 8%));
     box-shadow: 0 26px 70px rgb(0 0 0 / 20%);
     backdrop-filter: blur(18px);
+  }
+}
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 900px;
   }
 }
 

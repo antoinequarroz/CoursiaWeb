@@ -16,6 +16,7 @@
     "e2e": "playwright test",
     "e2e:report": "playwright show-report",
     "ci:secrets": "node scripts/check-no-secrets.mjs",
+    "release:check": "node scripts/check-production-readiness.mjs",
     "ci:pr": "npm run ci:secrets && npm run typecheck && npm run lint && npm test && npm run build && npm run e2e",
     "supabase:types": "supabase gen types typescript --local --schema public > shared/supabase/database.types.ts"
   },

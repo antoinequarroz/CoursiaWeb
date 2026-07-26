@@ -24,6 +24,8 @@ export const publicSeoContent = {
     '/comment-ca-marche',
     '/tarifs',
     '/faq',
+    '/contact',
+    '/liste-attente',
     '/legal',
     '/legal/cgu',
     '/legal/confidentialite',
@@ -56,4 +58,3 @@ export const buildCanonicalUrl = (siteUrl: string, path: string) => {
 
   return `${normalizedBase}${normalizedPath}`
 }
-

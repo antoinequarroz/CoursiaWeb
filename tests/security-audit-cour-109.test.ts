@@ -35,15 +35,16 @@ describe('COUR-109 security audit controls', () => {
     expect(nuxtConfig).toContain('public:')
   })
 
-  it('documents Supabase RLS Storage advisors and negative-test evidence', () => {
+  it('documents Supabase RLS Storage hardening and negative-test evidence', () => {
     const report = read('docs/security-audit-cour-109.md')
 
-    expect(report).toContain('Aucune table `public` sans RLS détectée')
+    expect(report).toContain('Migrations appliquées sur Supabase')
     expect(report).toContain('security_invoker')
     expect(report).toContain('public.rls_auto_enable')
-    expect(report).toContain('bucket `images` public')
+    expect(report).toContain('bucket Storage `images`')
+    expect(report).toContain('5242880')
     expect(report).toContain('npm audit --audit-level=critical')
-    expect(report).toContain('tests négatifs')
+    expect(report).toContain('E2E couvrent des refus')
   })
 
   it('configures baseline browser hardening headers', () => {

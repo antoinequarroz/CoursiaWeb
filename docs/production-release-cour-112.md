@@ -62,11 +62,11 @@ Procédure :
 5. appliquer uniquement les migrations approuvées en production ;
 6. relancer les tests de fumée public, admin et publication recette.
 
-Les findings sécurité de COUR-109 doivent être corrigés ou acceptés explicitement avant go-live, notamment :
+Les findings sécurité principaux de COUR-109 ont été corrigés par migrations Supabase :
 
-- vues publiques sans `security_invoker` ;
-- fonction `public.rls_auto_enable` `SECURITY DEFINER` exécutable publiquement ;
-- bucket Storage `images` public sans limites MIME/taille documentées.
+- vues publiques configurées avec `security_invoker = true` ;
+- exécution publique révoquée sur `public.rls_auto_enable()` ;
+- bucket Storage `images` limité en taille/MIME avec policies `authenticated` pour write/update/delete.
 
 ## Sauvegarde, rollback et responsabilités
 

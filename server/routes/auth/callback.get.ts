@@ -5,7 +5,9 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
   const code = typeof query.code === 'string' ? query.code : null
-  const redirect = sanitizeAdminRedirect(query.redirect)
+  const rawRedirect = typeof query.redirect === 'string' ? query.redirect : ''
+  const isRecovery = query.type === 'recovery' || rawRedirect.startsWith('/auth/reset-password')
+  const redirect = isRecovery ? '/auth/reset-password' : sanitizeAdminRedirect(query.redirect)
 
   if (!code) {
     return sendRedirect(event, `/auth/login?redirect=${encodeURIComponent(redirect)}`)

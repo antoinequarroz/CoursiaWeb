@@ -14,6 +14,7 @@ useSeoMeta({
 
 const route = useRoute()
 const redirect = computed(() => sanitizeAdminRedirect(route.query.redirect))
+const resetDone = computed(() => route.query.reset === 'done')
 const email = ref('')
 const password = ref('')
 const isSubmitting = ref(false)
@@ -198,6 +199,13 @@ const submitLogin = async () => {
               </label>
 
               <p
+                v-if="resetDone"
+                class="rounded-coursia-lg border border-coursia-success/30 bg-coursia-success/10 p-4 text-sm font-bold text-coursia-success"
+              >
+                Mot de passe modifié. Connecte-toi avec le nouveau mot de passe.
+              </p>
+
+              <p
                 v-if="errorMessage"
                 role="alert"
                 class="rounded-coursia-lg border border-coursia-danger/30 bg-coursia-danger/10 p-4 text-sm font-bold text-coursia-danger"
@@ -208,6 +216,13 @@ const submitLogin = async () => {
               <BaseButton type="submit" :disabled="isSubmitting">
                 {{ isSubmitting ? 'Connexion…' : 'Se connecter à l’admin' }}
               </BaseButton>
+
+              <NuxtLink
+                to="/auth/reset-password"
+                class="text-center text-sm font-black text-coursia-primary underline-offset-4 hover:underline"
+              >
+                Mot de passe oublié ?
+              </NuxtLink>
 
               <div class="rounded-coursia-lg bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
                 <p class="font-black text-coursia-foreground">Session sécurisée</p>

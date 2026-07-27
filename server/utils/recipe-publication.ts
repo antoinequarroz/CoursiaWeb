@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '#shared/supabase/database.types'
 import { getOfficialRecipeBlockingFields } from '#shared/validation/course'
+import { mobileTable } from './mobile-admin-mapping'
 
 type OfficialRecipeRow = {
   id: string
@@ -74,7 +75,7 @@ export const buildRecipePreview = (recipe: OfficialRecipeRow) => {
 }
 
 export const writeRecipePublicationHistory = async (
-  _client: SupabaseClient<Database>,
+  client: SupabaseClient<Database>,
   input: {
     recipe: OfficialRecipeRow
     fromStatus: OfficialRecipeStatus | null
@@ -82,10 +83,17 @@ export const writeRecipePublicationHistory = async (
     userId: string
     reason?: string | undefined
   },
-) => ({
-  recipeId: input.recipe.id,
-  fromStatus: input.fromStatus,
-  toStatus: input.toStatus,
-  changedBy: input.userId,
-  reason: input.reason ?? null,
-})
+) => {
+  const { error } = await mobileTable(client, 'recipe_publication_history').insert({
+    recipe_id: input.recipe.id,
+    from_status: input.fromStatus,
+    to_status: input.toStatus,
+    changed_by: input.userId,
+    reason: input.reason ?? null,
+    snapshot: input.recipe as unknown as Json,
+  })
+
+  if (error) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible d’historiser le changement de publication.')
+  }
+}

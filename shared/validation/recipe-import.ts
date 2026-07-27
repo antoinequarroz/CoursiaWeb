@@ -8,11 +8,16 @@ export const recipeCsvColumns = [
   'portions',
   'durationMinutes',
   'difficulty',
-  'categories',
   'source',
+  'ingredients',
+  'steps',
+  'regimes',
+  'allergens',
 ] as const
 
-export const recipeCsvTemplate = `${recipeCsvColumns.join(',')}\none-pot-pasta,One pot pasta,draft,4,25,easy,"Famille;Rapide",Cuisine interne\n`
+export const recipeCsvTemplate = `${recipeCsvColumns.join(',')}
+one-pot-pasta,One pot pasta,draft,4,25,easy,Cuisine interne,"Tomate:200:g;Pâtes:300:g","Faire revenir les tomates;Ajouter les pâtes;Servir chaud","vegetarien",""
+`
 
 export const recipeCsvImportRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(220),
@@ -47,8 +52,11 @@ export type RecipeCsvRow = {
   portions?: string
   durationMinutes?: string
   difficulty?: string
-  categories?: string
   source?: string
+  ingredients?: string
+  steps?: string
+  regimes?: string
+  allergens?: string
 }
 
 export const buildRecipeCsvIdempotencyKey = (content: string) => {
@@ -114,10 +122,10 @@ export const validateRecipeCsvRows = (
       portions: row.portions ? Number(row.portions) : undefined,
       durationMinutes: row.durationMinutes ? Number(row.durationMinutes) : undefined,
       difficulty: row.difficulty || undefined,
-      categories: row.categories ? row.categories.split(';').map((item) => item.trim()) : [],
+      categories: row.regimes ? row.regimes.split(';').map((item) => item.trim()) : [],
       source: row.source || undefined,
-      ingredients: [],
-      steps: [],
+      ingredients: parseRecipeCsvIngredients(row.ingredients),
+      steps: parseRecipeCsvSteps(row.steps),
       nutrition: {},
     })
 
@@ -141,6 +149,34 @@ export const validateRecipeCsvRows = (
 
   return reportRows
 }
+
+export const parseRecipeCsvIngredients = (value: string | undefined) =>
+  (value ?? '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [name = '', quantity = '', unit = 'g'] = item.split(':').map((part) => part.trim())
+
+      return {
+        ingredientId: name,
+        name,
+        quantity: Number(quantity),
+        unit: unit === 'unite' ? 'piece' : unit,
+        group: 'Principal',
+        optional: false,
+      }
+    })
+
+export const parseRecipeCsvSteps = (value: string | undefined) =>
+  (value ?? '')
+    .split(';')
+    .map((instruction) => instruction.trim())
+    .filter(Boolean)
+    .map((instruction, index) => ({
+      order: index + 1,
+      instruction,
+    }))
 
 export const summarizeRecipeCsvImport = (
   rows: RecipeCsvImportReport['rows'],

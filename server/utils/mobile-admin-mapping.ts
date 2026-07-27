@@ -146,7 +146,7 @@ export const toAdminIngredientRow = (ingredient: MobileIngredientRow) => ({
   id: String(ingredient.id),
   name: String(ingredient.nom ?? ''),
   slug: slugify(String(ingredient.nom ?? '')),
-  status: 'active',
+  status: ingredient.archived_at ? 'archived' : 'active',
   synonyms: [],
   units: ingredient.unite_defaut ? [ingredient.unite_defaut === 'unite' ? 'piece' : String(ingredient.unite_defaut)] : ['g'],
   categories: ingredient.rayon ? [String(ingredient.rayon)] : [],
@@ -155,7 +155,7 @@ export const toAdminIngredientRow = (ingredient: MobileIngredientRow) => ({
   sensitive: false,
   created_at: ingredient.created_at,
   updated_at: ingredient.created_at,
-  archived_at: null,
+  archived_at: ingredient.archived_at ?? null,
   mobile: {
     table: 'ingredients',
     name: ingredient.nom,

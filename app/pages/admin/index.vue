@@ -63,11 +63,19 @@ const {
   refresh,
 } = await useFetch<DashboardData>('/api/admin/dashboard', {
   credentials: 'include',
+  immediate: false,
   server: false,
 })
 
+const hasMounted = ref(false)
+
+onMounted(() => {
+  hasMounted.value = true
+  void refresh()
+})
+
 const status = computed<'loading' | 'ready' | 'empty' | 'error'>(() => {
-  if (pending.value) {
+  if (hasMounted.value && pending.value) {
     return 'loading'
   }
 

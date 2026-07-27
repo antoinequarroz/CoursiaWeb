@@ -1,7 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '#shared/supabase/database.types'
 import type { ContentEntryInput, FeatureFlagInput } from '#shared/validation/content-settings'
-import { assertNonTechnicalSettingKey, buildContentPreview } from '#shared/validation/content-settings'
+import {
+  assertNonTechnicalSettingKey,
+  buildContentPreview,
+  contentEntryKindSchema,
+  contentEntryStatusSchema,
+} from '#shared/validation/content-settings'
 
 type ContentEntryRow = Database['public']['Tables']['content_entries']['Row']
 
@@ -96,4 +101,9 @@ export const getContentEntryById = async (
   return data
 }
 
-export const previewContentEntry = (entry: ContentEntryRow) => buildContentPreview(entry)
+export const previewContentEntry = (entry: ContentEntryRow) =>
+  buildContentPreview({
+    ...entry,
+    kind: contentEntryKindSchema.parse(entry.kind),
+    status: contentEntryStatusSchema.parse(entry.status),
+  })

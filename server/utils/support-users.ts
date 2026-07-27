@@ -4,7 +4,9 @@ import type { SupportControlledProcedure, SupportUserSearch } from '#shared/vali
 import {
   impersonationDisabledMessage,
   maskSupportUser,
+  supportAccountStatusSchema,
   supportProcedureDescriptions,
+  supportSubscriptionTierSchema,
 } from '#shared/validation/support-users'
 
 type SupportProfileRow = Database['public']['Tables']['support_user_profiles']['Row']
@@ -25,9 +27,9 @@ export const sanitizeSupportProfile = (profile: SupportProfileRow) =>
   maskSupportUser({
     id: profile.user_id,
     email: profile.email,
-    accountStatus: profile.account_status,
+    accountStatus: supportAccountStatusSchema.parse(profile.account_status),
     appVersion: profile.app_version,
-    subscriptionTier: profile.subscription_tier,
+    subscriptionTier: supportSubscriptionTierSchema.parse(profile.subscription_tier),
   })
 
 export const findSupportUserProfile = async (

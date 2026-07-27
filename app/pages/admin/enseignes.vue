@@ -53,7 +53,7 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
 </script>
 
 <template>
-  <section>
+  <section class="admin-page">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <p class="text-sm font-black uppercase tracking-[0.24em] text-coursia-primary">COUR-102</p>

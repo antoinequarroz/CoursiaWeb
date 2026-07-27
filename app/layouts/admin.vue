@@ -36,7 +36,7 @@ const isActiveNavigationItem = (path: string) => {
     return route.path === '/admin'
   }
 
-  return route.path === path || route.path.startsWith(`${path}/`)
+  return route.path === path
 }
 
 const logout = async () => {
@@ -55,9 +55,9 @@ const logout = async () => {
       Aller au contenu admin
     </a>
 
-    <aside class="fixed inset-y-0 left-0 hidden w-[19rem] border-r border-[#e6e1d8] bg-white/88 p-4 backdrop-blur-xl md:block">
-      <div class="flex h-full flex-col">
-        <div class="flex items-center justify-between px-2 py-2">
+    <aside class="fixed inset-y-0 left-0 z-40 hidden w-[19rem] overflow-hidden border-r border-[#e6e1d8] bg-white/88 p-4 backdrop-blur-xl md:block">
+      <div class="flex h-full min-h-0 flex-col">
+        <div class="shrink-0 flex items-center justify-between px-2 py-2">
           <NuxtLink to="/admin" class="flex items-center gap-3" aria-label="Coursia admin">
             <svg class="h-11 w-11 text-[#0f5a3d]" viewBox="0 0 48 48" fill="none" aria-hidden="true">
               <path d="M20 7c-7 1-11 6-11 13 7 1 13-3 14-10 4 2 7 6 7 11v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
@@ -69,7 +69,7 @@ const logout = async () => {
           <button type="button" class="rounded-lg px-2 py-1 text-xl text-[#667085] hover:bg-[#f2f0ea]">‹</button>
         </div>
 
-        <nav class="mt-8 grid gap-5 text-[0.95rem]" aria-label="Navigation administration">
+        <nav class="admin-sidebar-nav mt-8 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 text-[0.95rem]" aria-label="Navigation administration">
           <NuxtLink
             to="/admin"
             class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition"
@@ -81,7 +81,7 @@ const logout = async () => {
             <span>Tableau de bord</span>
           </NuxtLink>
 
-          <section v-for="section in visibleNavigation" :key="section.title">
+          <section v-for="section in visibleNavigation" :key="section.title" class="mt-5 first:mt-5">
             <h2 class="px-4 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#98a2b3]">
               {{ section.title }}
             </h2>
@@ -102,7 +102,7 @@ const logout = async () => {
           </section>
         </nav>
 
-        <div class="mt-auto rounded-2xl border border-[#e6e1d8] bg-white p-3 shadow-sm">
+        <div class="mt-4 shrink-0 rounded-2xl border border-[#e6e1d8] bg-white p-3 shadow-sm">
           <div class="flex items-center gap-3">
             <span class="grid h-11 w-11 place-items-center rounded-full bg-[#e8f3ea] text-sm font-black text-[#0f5a3d]">AQ</span>
             <div class="min-w-0 flex-1">
@@ -122,7 +122,7 @@ const logout = async () => {
       </div>
     </aside>
 
-    <div class="md:pl-[19rem]">
+    <div class="relative z-10 md:pl-[19rem]">
       <header class="sticky top-0 z-30 border-b border-[#e6e1d8] bg-white/82 px-6 py-4 backdrop-blur-xl">
         <div class="flex items-center justify-between gap-5">
           <label class="relative hidden min-w-[24rem] flex-1 md:block md:max-w-2xl">

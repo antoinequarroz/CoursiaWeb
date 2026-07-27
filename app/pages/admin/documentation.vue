@@ -43,7 +43,7 @@ const markReloaded = () => {
 </script>
 
 <template>
-  <section class="grid gap-8">
+  <section class="admin-page grid gap-8">
     <div class="rounded-[2rem] border border-coursia-border bg-coursia-surface p-6 shadow-coursia-sm">
       <div class="flex flex-wrap items-start justify-between gap-5">
         <div class="max-w-3xl">

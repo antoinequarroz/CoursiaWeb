@@ -40,7 +40,7 @@ const runImport = async () => {
 </script>
 
 <template>
-  <section>
+  <section class="admin-page">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-3xl font-black">Import CSV de recettes</h1>

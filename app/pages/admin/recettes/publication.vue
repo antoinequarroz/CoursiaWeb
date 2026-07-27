@@ -95,7 +95,7 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
 </script>
 
 <template>
-  <section>
+  <section class="admin-page">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="text-sm font-black uppercase tracking-[0.24em] text-coursia-primary">COUR-101</p>

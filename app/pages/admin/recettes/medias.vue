@@ -89,7 +89,7 @@ const loadOrphans = async () => {
 </script>
 
 <template>
-  <section>
+  <section class="admin-page">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-3xl font-black">Photos de recettes</h1>

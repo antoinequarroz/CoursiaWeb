@@ -14,8 +14,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig()
+  const requestUrl = getRequestURL(event)
+  const siteOrigin = requestUrl.origin || config.public.siteUrl
   const supabase = createSupabaseServerClient(event)
-  const redirectTo = `${config.public.siteUrl}/auth/reset-password`
+  const redirectTo = `${siteOrigin}/auth/reset-password`
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo,
   })

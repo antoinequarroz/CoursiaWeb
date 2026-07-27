@@ -131,7 +131,7 @@ const storeExamples = ['COOP', 'MIGROS', 'ALDI', 'LIDL']
         </nav>
 
         <div class="flex items-center gap-3">
-          <ThemeToggle />
+          <BaseThemeToggle />
           <a
             href="/liste-attente"
             class="rounded-full bg-coursia-primary px-6 py-3 text-sm font-black text-white shadow-coursia-sm transition hover:-translate-y-0.5 hover:bg-coursia-foreground"

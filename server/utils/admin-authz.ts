@@ -17,7 +17,14 @@ export const getSensitiveAdminContext = async (event: H3Event): Promise<Sensitiv
     throwApiError('AUTH_REQUIRED', 'Authentification administrateur requise.')
   }
 
-  const { data: roleAssignment, error: roleError } = await supabase
+  const accessToken = getSupabaseAccessTokenFromCookies(event)
+
+  if (!accessToken) {
+    throwApiError('AUTH_REQUIRED', 'Authentification administrateur requise.')
+  }
+
+  const userScopedSupabase = createSupabaseUserScopedClient(accessToken)
+  const { data: roleAssignment, error: roleError } = await userScopedSupabase
     .from('admin_role_assignments')
     .select('role')
     .eq('user_id', user.id)

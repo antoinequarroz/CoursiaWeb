@@ -379,6 +379,256 @@ textarea {
     box-shadow: 0 26px 70px rgb(0 0 0 / 20%);
     backdrop-filter: blur(18px);
   }
+
+  .admin-console {
+    --admin-background: #f8f4ed;
+    --admin-card: rgb(255 255 255 / 90%);
+    --admin-card-strong: #ffffff;
+    --admin-border: #e2d9cc;
+    --admin-border-soft: #eee7dc;
+    --admin-muted-panel: #fbf7f0;
+    --admin-sidebar: #0d241f;
+    --admin-shadow: 0 1px 2px rgb(15 45 39 / 5%), 0 18px 46px rgb(15 45 39 / 6%);
+    --admin-shadow-strong: 0 20px 60px rgb(15 45 39 / 10%);
+    position: relative;
+    background:
+      radial-gradient(circle at 16% 10%, rgb(166 193 177 / 24%), transparent 22rem),
+      radial-gradient(circle at 84% 16%, rgb(255 207 168 / 22%), transparent 24rem),
+      linear-gradient(180deg, rgb(255 255 255 / 36%), transparent 18rem),
+      var(--admin-background);
+  }
+
+  .admin-console::before,
+  .admin-console::after {
+    position: fixed;
+    z-index: 0;
+    pointer-events: none;
+    content: '';
+    border-radius: 999px;
+    filter: blur(2px);
+  }
+
+  .admin-console::before {
+    top: 7rem;
+    right: 19%;
+    width: 2.2rem;
+    height: 1rem;
+    background: #a6c1b1;
+    opacity: 0.45;
+    transform: rotate(18deg);
+  }
+
+  .admin-console::after {
+    bottom: 7rem;
+    left: 21rem;
+    width: 2.8rem;
+    height: 1.25rem;
+    background: #dfe9df;
+    opacity: 0.5;
+    transform: rotate(-24deg);
+  }
+
+  .admin-console > aside,
+  .admin-console > div {
+    position: relative;
+    z-index: 1;
+  }
+
+  .admin-console main > section {
+    display: grid;
+    gap: 1.4rem;
+  }
+
+  .admin-console main > section > .flex:first-child {
+    align-items: flex-end;
+    padding-bottom: 1.35rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-console main h1 {
+    font-size: clamp(1.75rem, 2.6vw, 2.35rem);
+    line-height: 1.08;
+    letter-spacing: -0.045em;
+    color: #101828;
+  }
+
+  .admin-console main h2 {
+    letter-spacing: -0.025em;
+    color: #101828;
+  }
+
+  .admin-console main p {
+    line-height: 1.6;
+  }
+
+  .admin-console main :where(
+    .bg-coursia-surface,
+    .bg-coursia-surface\/90,
+    .bg-coursia-surface\/82
+  ) {
+    border: 1px solid var(--admin-border);
+    border-radius: 1.25rem;
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 92%), rgb(255 255 255 / 76%)),
+      var(--admin-card);
+    box-shadow: var(--admin-shadow);
+    backdrop-filter: blur(16px);
+  }
+
+  .admin-console main :where(
+    .bg-coursia-background,
+    .bg-coursia-background\/65,
+    .bg-coursia-surface-muted
+  ) {
+    border: 1px solid var(--admin-border-soft);
+    border-radius: 1rem;
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 62%), rgb(248 244 237 / 82%)),
+      var(--admin-muted-panel);
+    box-shadow: none;
+  }
+
+  .admin-console main :where(
+    .rounded-\[1\.2rem\],
+    .rounded-\[1\.4rem\],
+    .rounded-\[1\.5rem\],
+    .rounded-\[1\.6rem\],
+    .rounded-\[2rem\],
+    .rounded-2xl,
+    .rounded-coursia-xl
+  ) {
+    border-radius: 1.2rem;
+  }
+
+  .admin-console main :where(input, select, textarea) {
+    width: 100%;
+    min-height: 2.65rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.9rem;
+    background: rgb(255 255 255 / 84%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 70%),
+      0 1px 2px rgb(15 45 39 / 4%);
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  }
+
+  .admin-console main :where(input, select, textarea):focus {
+    outline: none;
+    border-color: rgb(31 107 74 / 48%);
+    background: #fff;
+    box-shadow:
+      0 0 0 4px rgb(31 107 74 / 10%),
+      inset 0 1px 0 rgb(255 255 255 / 70%);
+  }
+
+  .admin-console main :where(input, select, textarea)::placeholder {
+    color: rgb(95 111 103 / 62%);
+  }
+
+  .admin-console main :where(label, legend) {
+    color: var(--color-coursia-foreground);
+    font-weight: 700;
+  }
+
+  .admin-console main :where(fieldset) {
+    padding: 1rem;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: 1rem;
+    background: var(--admin-muted-panel);
+  }
+
+  .admin-console main :where(form.bg-coursia-surface, div.bg-coursia-surface):has(input, select, textarea) {
+    border-color: rgb(226 217 204 / 92%);
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(255 251 245 / 84%)),
+      var(--admin-card-strong);
+  }
+
+  .admin-console main :where(table) {
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+  }
+
+  .admin-console main :where(th) {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--admin-border);
+    color: var(--color-coursia-muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+  }
+
+  .admin-console main :where(td) {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+
+  .admin-console main :where(tbody tr) {
+    transition: background 160ms ease;
+  }
+
+  .admin-console main :where(tbody tr:hover) {
+    background: rgb(248 244 237 / 74%);
+  }
+
+  .admin-console main :where(.content-auto) {
+    gap: 0.75rem;
+  }
+
+  .admin-console main :where(article, form, section, div):where(.border-coursia-border, .bg-coursia-surface) {
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  .admin-console main :where(article):hover {
+    border-color: rgb(15 45 39 / 18%);
+    box-shadow: var(--admin-shadow-strong);
+    transform: translateY(-1px);
+  }
+
+  .admin-console main :where(.text-coursia-primary) {
+    color: #0d241f;
+  }
+
+  .admin-console main :where(.shadow-coursia-glass, .shadow-coursia-md, .shadow-soft) {
+    box-shadow: var(--admin-shadow);
+  }
+
+  .admin-console :where(button, a) {
+    text-decoration: none;
+  }
+
+  .admin-console main :where(button) {
+    min-height: 2.4rem;
+    border-radius: 0.9rem;
+    font-weight: 700;
+  }
+
+  .admin-console main :where(.rounded-full) {
+    border-radius: 999px;
+  }
+
+  .admin-console main :where(.text-coursia-muted) {
+    color: #667085;
+  }
+
+  .admin-console main :where(.bg-coursia-primary, .from-coursia-primary) {
+    background-color: #1f6b4a;
+  }
+
+  .admin-console main :where(.text-coursia-success) {
+    color: #1f6b4a;
+  }
+
+  .admin-console main :where(.rounded-coursia-sm) {
+    border-radius: 0.5rem;
+  }
+
+  .admin-console main :where([class*='tracking-\[0.24em\]']) {
+    letter-spacing: 0.18em;
+  }
 }
 
 @layer utilities {

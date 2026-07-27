@@ -12,19 +12,24 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase.from('retailers').insert(toRetailerRow(parsed.data)).select('*').single()
+  const { data, error } = await mobileTable(supabase, 'enseignes')
+    .insert(toMobileRetailerRow(parsed.data))
+    .select('*')
+    .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de crÃ©er lâ€™enseigne.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de créer l’enseigne mobile.')
   }
+
+  const retailer = toAdminRetailerRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'create',
-    resourceType: 'retailer',
-    resourceId: data.id,
-    context: { slug: data.slug, status: data.status },
+    resourceType: 'course',
+    resourceId: String(retailer.id),
+    context: { slug: retailer.slug, table: 'enseignes' },
   })
 
-  return { data }
+  return { data: retailer }
 })

@@ -6,21 +6,28 @@ export default defineEventHandler(async (event) => {
 
   const params = await getValidatedRouterParams(event, officialRecipeParamsSchema.parse)
   const supabase = createSupabaseServiceRoleClient()
-  const recipe = await getOfficialRecipeById(supabase, params.id)
-  const { error } = await supabase.from('official_recipes').delete().eq('id', params.id)
+  const { data: recipe } = await mobileTable(supabase, 'recettes')
+    .select('id, titre, cle_externe')
+    .eq('id', params.id)
+    .maybeSingle()
+  const { error } = await mobileTable(supabase, 'recettes').delete().eq('id', params.id)
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de supprimer définitivement la recette officielle.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de supprimer définitivement la recette mobile.')
   }
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'archive',
-    resourceType: 'official_recipe',
-    resourceId: recipe.id,
-    context: { permanentDelete: true, slug: recipe.slug },
+    resourceType: 'course',
+    resourceId: params.id,
+    context: {
+      permanentDelete: true,
+      table: 'recettes',
+      recipeId: String((recipe as Record<string, unknown> | null)?.id ?? params.id),
+      recipeTitle: String((recipe as Record<string, unknown> | null)?.titre ?? ''),
+    },
   })
 
   return { data: { id: params.id, deleted: true } }
 })
-

@@ -20,25 +20,25 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase
-    .from('canonical_ingredients')
-    .update(toCanonicalIngredientRow(parsed.data))
+  const { data, error } = await mobileTable(supabase, 'ingredients')
+    .update(toMobileIngredientRow(parsed.data))
     .eq('id', params.id)
     .select('*')
     .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de modifier l’ingrédient canonique.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de modifier l’ingrédient mobile.')
   }
+
+  const ingredient = toAdminIngredientRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'update',
-    resourceType: 'canonical_ingredient',
-    resourceId: data.id,
-    context: { slug: data.slug, sensitive: data.sensitive },
+    resourceType: 'course',
+    resourceId: String(ingredient.id),
+    context: { slug: ingredient.slug, table: 'ingredients' },
   })
 
-  return { data }
+  return { data: ingredient }
 })
-

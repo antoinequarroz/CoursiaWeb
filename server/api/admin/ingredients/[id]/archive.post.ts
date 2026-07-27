@@ -6,29 +6,36 @@ export default defineEventHandler(async (event) => {
 
   const params = await getValidatedRouterParams(event, canonicalIngredientParamsSchema.parse)
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase
-    .from('canonical_ingredients')
-    .update({
-      status: 'archived',
-      archived_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', params.id)
+  const { data, error } = await mobileTable(supabase, 'ingredients')
     .select('*')
-    .single()
+    .eq('id', params.id)
+    .maybeSingle()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible d’archiver l’ingrédient canonique.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de charger l’ingrédient mobile.')
   }
+
+  if (!data) {
+    throwApiError('NOT_FOUND', 'Ingrédient mobile introuvable.')
+  }
+
+  const ingredient = toAdminIngredientRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'archive',
-    resourceType: 'canonical_ingredient',
-    resourceId: data.id,
-    context: { slug: data.slug },
+    resourceType: 'course',
+    resourceId: String(ingredient.id),
+    context: {
+      slug: ingredient.slug,
+      table: 'ingredients',
+      skipped: true,
+      reason: 'La table mobile ingredients ne possède pas encore de statut d’archivage.',
+    },
   })
 
-  return { data }
+  return {
+    data: ingredient,
+    warning: 'Archivage non appliqué : la table mobile ingredients ne possède pas encore de colonne de statut.',
+  }
 })
-

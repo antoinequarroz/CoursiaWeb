@@ -6,31 +6,20 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, canonicalIngredientListQuerySchema.parse)
   const supabase = createSupabaseServiceRoleClient()
-  let request = supabase
-    .from('canonical_ingredients')
+  let request = mobileTable(supabase, 'ingredients')
     .select('*')
-    .order('updated_at', { ascending: false })
+    .order('nom', { ascending: true })
     .limit(query.limit)
 
   if (query.search) {
-    request = request.or(`name.ilike.%${query.search}%,slug.ilike.%${query.search}%`)
-  }
-  if (query.status) {
-    request = request.eq('status', query.status)
-  }
-  if (query.allergen) {
-    request = request.contains('allergens', [query.allergen])
-  }
-  if (query.diet) {
-    request = request.contains('diets', [query.diet])
+    request = request.or(`nom.ilike.%${query.search}%,rayon.ilike.%${query.search}%`)
   }
 
   const { data, error } = await request
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de lister les ingrédients canoniques.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de lister les ingrédients mobile.')
   }
 
-  return { data }
+  return { data: Array.isArray(data) ? data.map(toAdminIngredientRow) : [] }
 })
-

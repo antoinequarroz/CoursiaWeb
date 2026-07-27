@@ -50,7 +50,7 @@ const saveProduct = async () => {
   const method = selectedProductId.value ? 'PUT' : 'POST'
 
   await $fetch(endpoint, { method, body: form })
-  feedback.value = selectedProductId.value ? 'Produit modifiÃ© et auditÃ©.' : 'Produit crÃ©Ã© et auditÃ©.'
+  feedback.value = selectedProductId.value ? 'Produit modifié et audité.' : 'Produit créé et audité.'
   await loadProducts()
 }
 </script>
@@ -62,10 +62,10 @@ const saveProduct = async () => {
         <p class="text-sm font-black uppercase tracking-[0.24em] text-coursia-primary">COUR-102</p>
         <h1 class="mt-2 text-3xl font-black">Produits et formats</h1>
         <p class="mt-3 text-coursia-muted">
-          Gestion des produits comparables : enseigne, marque, format, unitÃ©, source et statut.
+          Gestion des produits comparables : enseigne, marque, format, unité, source et statut.
         </p>
       </div>
-      <BaseButton type="button" @click="loadProducts">RafraÃ®chir</BaseButton>
+      <BaseButton type="button" @click="loadProducts">Rafraîchir</BaseButton>
     </div>
 
     <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-3">
@@ -74,7 +74,7 @@ const saveProduct = async () => {
       <select v-model="filters.status" aria-label="Filtrer par statut produit" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
         <option value="">Tous statuts</option>
         <option value="active">Actif</option>
-        <option value="archived">ArchivÃ©</option>
+        <option value="archived">Archivé</option>
       </select>
     </div>
 
@@ -85,7 +85,7 @@ const saveProduct = async () => {
         <article v-for="product in visibleProducts" :key="String(product.id)" class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
           <h2 class="text-xl font-black">{{ product.name }}</h2>
           <p class="mt-2 text-sm text-coursia-muted">
-            {{ product.slug }} Â· enseigne {{ product.retailer_id }} Â· format {{ product.format }}
+            {{ product.slug }} · enseigne {{ product.retailer_id }} · format {{ product.format }}
           </p>
           <p class="mt-2 text-xs text-coursia-muted">Source : {{ product.source }}</p>
         </article>
@@ -100,7 +100,7 @@ const saveProduct = async () => {
       </section>
 
       <form class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5" @submit.prevent="saveProduct">
-        <h2 class="text-2xl font-black">CrÃ©er ou modifier un produit</h2>
+        <h2 class="text-2xl font-black">Créer ou modifier un produit</h2>
         <label class="mt-5 grid gap-2 text-sm font-bold">
           ID enseigne
           <input v-model="form.retailerId" required class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
@@ -123,11 +123,11 @@ const saveProduct = async () => {
             <input v-model="form.format.label" required class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
           </label>
           <label class="grid gap-2 text-sm font-bold">
-            QuantitÃ©
+            Quantité
             <input v-model.number="form.format.quantity" required type="number" min="0.01" step="0.01" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
           </label>
           <label class="grid gap-2 text-sm font-bold">
-            UnitÃ©
+            Unité
             <select v-model="form.format.unit" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
               <option v-for="unit in unitOptions" :key="unit">{{ unit }}</option>
             </select>

@@ -13,8 +13,32 @@ const getSupabasePublicConfig = () => {
   }
 }
 
+const getSupabaseProjectRef = (url: string) => new URL(url).hostname.split('.')[0]
+
+export const getSupabaseAccessTokenFromCookies = (event: H3Event) => {
+  const { url } = getSupabasePublicConfig()
+  const cookies = parseCookies(event)
+  const authCookie = cookies[`sb-${getSupabaseProjectRef(url)}-auth-token`]
+
+  if (!authCookie) {
+    return null
+  }
+
+  try {
+    const sessionJson = authCookie.startsWith('base64-')
+      ? Buffer.from(authCookie.slice('base64-'.length), 'base64').toString('utf8')
+      : decodeURIComponent(authCookie)
+    const session = JSON.parse(sessionJson) as { access_token?: unknown }
+
+    return typeof session.access_token === 'string' ? session.access_token : null
+  } catch {
+    return null
+  }
+}
+
 export const createSupabaseServerClient = (event: H3Event) => {
   const { url, publishableKey } = getSupabasePublicConfig()
+  const authorization = getHeader(event, 'authorization')
 
   return createServerClient<Database>(url, publishableKey, {
     cookies: {
@@ -31,9 +55,30 @@ export const createSupabaseServerClient = (event: H3Event) => {
         setHeader(event, 'Cache-Control', 'private, no-store')
       },
     },
+    ...(authorization
+      ? {
+          global: {
+            headers: {
+              authorization,
+            },
+          },
+        }
+      : {}),
+  })
+}
+
+export const createSupabaseUserScopedClient = (accessToken: string) => {
+  const { url, publishableKey } = getSupabasePublicConfig()
+
+  return createClient<Database>(url, publishableKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
     global: {
       headers: {
-        authorization: getHeader(event, 'authorization') ?? '',
+        Authorization: `Bearer ${accessToken}`,
       },
     },
   })

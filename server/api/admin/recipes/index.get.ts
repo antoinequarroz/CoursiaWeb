@@ -6,30 +6,31 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, officialRecipeListQuerySchema.parse)
   const supabase = createSupabaseServiceRoleClient()
-  let request = supabase.from('official_recipes').select('*').order('updated_at', { ascending: false }).limit(query.limit)
+  let request = mobileTable(supabase, 'recettes')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(query.limit)
 
   if (query.search) {
-    request = request.or(`title.ilike.%${query.search}%,slug.ilike.%${query.search}%`)
+    request = request.or(`titre.ilike.%${query.search}%,cle_externe.ilike.%${query.search}%`)
   }
 
   if (query.status) {
-    request = request.eq('status', query.status)
+    request = request.eq('statut_publication', toMobileRecipeStatus(query.status))
   }
 
   if (query.difficulty) {
-    request = request.eq('difficulty', query.difficulty)
+    request = request.eq('difficulte', toMobileDifficulty(query.difficulty))
   }
 
-  if (query.category) {
-    request = request.contains('categories', [query.category])
-  }
+  // La table mobile `recettes` n'a pas encore de colonne catégories directe.
+  // Le filtre est conservé côté contrat API, mais ignoré jusqu'au rattachement via `recette_regimes`/tags.
 
   const { data, error } = await request
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de lister les recettes officielles.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de lister les recettes mobile.')
   }
 
-  return { data }
+  return { data: Array.isArray(data) ? data.map(toAdminRecipeRow) : [] }
 })
-

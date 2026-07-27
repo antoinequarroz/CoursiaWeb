@@ -12,19 +12,37 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase.from('products').insert(toProductRow(parsed.data)).select('*').single()
+  const { data: productData, error: productError } = await mobileTable(supabase, 'produits_canoniques')
+    .insert(toMobileProductRow(parsed.data))
+    .select('*')
+    .single()
 
-  if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de crÃ©er le produit.')
+  if (productError) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible de créer le produit mobile.')
+  }
+
+  const product = toAdminProductRow(productData as never)
+  const { data: offerData, error: offerError } = await mobileTable(supabase, 'offres_magasin')
+    .insert(toMobileOfferRow(parsed.data, String(product.id)))
+    .select('*')
+    .single()
+
+  if (offerError) {
+    throwApiError('UPSTREAM_ERROR', 'Produit créé, mais impossible de créer son offre magasin.')
   }
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'create',
-    resourceType: 'product',
-    resourceId: data.id,
-    context: { slug: data.slug, retailerId: data.retailer_id, format: data.format },
+    resourceType: 'course',
+    resourceId: String(product.id),
+    context: {
+      table: 'produits_canoniques',
+      offerTable: 'offres_magasin',
+      offerId: String((offerData as Record<string, unknown>).id ?? ''),
+      retailerId: parsed.data.retailerId,
+    },
   })
 
-  return { data }
+  return { data: { ...product, retailer_id: parsed.data.retailerId, offer: offerData } }
 })

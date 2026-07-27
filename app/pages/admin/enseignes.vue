@@ -33,7 +33,7 @@ const saveRetailer = async () => {
   const method = selectedRetailerId.value ? 'PUT' : 'POST'
 
   await $fetch(endpoint, { method, body: form })
-  feedback.value = selectedRetailerId.value ? 'Enseigne modifiÃ©e et auditÃ©e.' : 'Enseigne crÃ©Ã©e et auditÃ©e.'
+  feedback.value = selectedRetailerId.value ? 'Enseigne modifiée et auditée.' : 'Enseigne créée et auditée.'
   await loadRetailers()
 }
 
@@ -47,7 +47,7 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
       websiteUrl: retailer.website_url || undefined,
     },
   })
-  feedback.value = 'Enseigne archivÃ©e sans suppression des historiques de prix.'
+  feedback.value = 'Enseigne archivée sans suppression des historiques de prix.'
   await loadRetailers()
 }
 </script>
@@ -59,10 +59,10 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
         <p class="text-sm font-black uppercase tracking-[0.24em] text-coursia-primary">COUR-102</p>
         <h1 class="mt-2 text-3xl font-black">Enseignes du comparateur</h1>
         <p class="mt-3 text-coursia-muted">
-          CRUD des enseignes utilisÃ©es par les produits, les prix courants et lâ€™historique.
+          CRUD des enseignes utilisées par les produits, les prix courants et lâ€™historique.
         </p>
       </div>
-      <BaseButton type="button" @click="loadRetailers">RafraÃ®chir</BaseButton>
+      <BaseButton type="button" @click="loadRetailers">Rafraîchir</BaseButton>
     </div>
 
     <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-2">
@@ -70,7 +70,7 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
       <select v-model="filters.status" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
         <option value="">Tous statuts</option>
         <option value="active">Actif</option>
-        <option value="archived">ArchivÃ©</option>
+        <option value="archived">Archivé</option>
       </select>
     </div>
 
@@ -80,7 +80,7 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
       <section class="grid gap-4">
         <article v-for="retailer in retailers" :key="String(retailer.id)" class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
           <h2 class="text-xl font-black">{{ retailer.name }}</h2>
-          <p class="mt-2 text-sm text-coursia-muted">{{ retailer.slug }} Â· {{ retailer.status }} Â· {{ retailer.website_url || 'source interne' }}</p>
+          <p class="mt-2 text-sm text-coursia-muted">{{ retailer.slug }} · {{ retailer.status }} · {{ retailer.website_url || 'source interne' }}</p>
           <BaseButton class="mt-4" size="sm" variant="secondary" type="button" @click="archiveRetailer(retailer)">
             Archiver
           </BaseButton>
@@ -88,7 +88,7 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
       </section>
 
       <form class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5" @submit.prevent="saveRetailer">
-        <h2 class="text-2xl font-black">CrÃ©er ou modifier une enseigne</h2>
+        <h2 class="text-2xl font-black">Créer ou modifier une enseigne</h2>
         <label class="mt-5 grid gap-2 text-sm font-bold">
           Nom
           <input v-model="form.name" required class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />

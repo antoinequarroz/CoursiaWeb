@@ -6,11 +6,9 @@ export default defineEventHandler(async (event) => {
 
   const params = await getValidatedRouterParams(event, officialRecipeParamsSchema.parse)
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase
-    .from('official_recipes')
+  const { data, error } = await mobileTable(supabase, 'recettes')
     .update({
-      status: 'archived',
-      archived_at: new Date().toISOString(),
+      statut_publication: 'archivee',
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.id)
@@ -18,17 +16,18 @@ export default defineEventHandler(async (event) => {
     .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible d’archiver la recette officielle.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible d’archiver la recette mobile.')
   }
+
+  const recipe = toAdminRecipeRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'archive',
-    resourceType: 'official_recipe',
-    resourceId: data.id,
-    context: { slug: data.slug },
+    resourceType: 'course',
+    resourceId: String(recipe.id),
+    context: { slug: recipe.slug, table: 'recettes' },
   })
 
-  return { data }
+  return { data: recipe }
 })
-

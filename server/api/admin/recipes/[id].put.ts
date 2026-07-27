@@ -13,25 +13,25 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase
-    .from('official_recipes')
-    .update(toOfficialRecipeRow(parsed.data))
+  const { data, error } = await mobileTable(supabase, 'recettes')
+    .update(toMobileRecipeRow(parsed.data))
     .eq('id', params.id)
     .select('*')
     .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de modifier la recette officielle.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de modifier la recette mobile.')
   }
+
+  const recipe = toAdminRecipeRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: parsed.data.status === 'published' ? 'publish' : 'update',
-    resourceType: 'official_recipe',
-    resourceId: data.id,
-    context: { slug: data.slug, status: data.status },
+    resourceType: 'course',
+    resourceId: String(recipe.id),
+    context: { slug: recipe.slug, status: recipe.status, table: 'recettes' },
   })
 
-  return { data }
+  return { data: recipe }
 })
-

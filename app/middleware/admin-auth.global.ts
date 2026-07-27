@@ -10,9 +10,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  const { authenticated } = await $fetch<{ authenticated: boolean }>('/api/auth/session').catch(
-    () => ({ authenticated: false }),
-  )
+  const fetchOptions = import.meta.server ? { headers: useRequestHeaders(['cookie']) } : {}
+  const { authenticated } = await $fetch<{ authenticated: boolean }>(
+    '/api/auth/session',
+    fetchOptions,
+  ).catch(() => ({ authenticated: false }))
 
   if (authenticated) {
     return

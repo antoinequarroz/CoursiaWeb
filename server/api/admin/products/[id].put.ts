@@ -13,24 +13,25 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase
-    .from('products')
-    .update(toProductRow(parsed.data))
+  const { data, error } = await mobileTable(supabase, 'produits_canoniques')
+    .update(toMobileProductRow(parsed.data))
     .eq('id', params.id)
     .select('*')
     .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de modifier le produit.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de modifier le produit mobile.')
   }
+
+  const product = toAdminProductRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
-    action: data.status === 'archived' ? 'archive' : 'update',
-    resourceType: 'product',
-    resourceId: data.id,
-    context: { slug: data.slug, retailerId: data.retailer_id, status: data.status },
+    action: parsed.data.status === 'archived' ? 'archive' : 'update',
+    resourceType: 'course',
+    resourceId: String(product.id),
+    context: { table: 'produits_canoniques', retailerId: parsed.data.retailerId },
   })
 
-  return { data }
+  return { data: { ...product, retailer_id: parsed.data.retailerId } }
 })

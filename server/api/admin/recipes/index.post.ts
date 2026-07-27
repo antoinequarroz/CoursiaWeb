@@ -12,24 +12,24 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const { data, error } = await supabase
-    .from('official_recipes')
-    .insert(toOfficialRecipeRow(parsed.data))
+  const { data, error } = await mobileTable(supabase, 'recettes')
+    .insert(toMobileRecipeRow(parsed.data))
     .select('*')
     .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de créer la recette officielle.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de créer la recette mobile.')
   }
+
+  const recipe = toAdminRecipeRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: parsed.data.status === 'published' ? 'publish' : 'create',
-    resourceType: 'official_recipe',
-    resourceId: data.id,
-    context: { slug: data.slug, status: data.status },
+    resourceType: 'course',
+    resourceId: String(recipe.id),
+    context: { slug: recipe.slug, status: recipe.status, table: 'recettes' },
   })
 
-  return { data }
+  return { data: recipe }
 })
-

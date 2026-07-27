@@ -22,7 +22,14 @@ export default defineEventHandler(async (event) => {
   } = await supabase.auth.getUser()
 
   if (!error && user) {
-    const { data: roleAssignment } = await supabase
+    const accessToken = getSupabaseAccessTokenFromCookies(event)
+
+    if (!accessToken) {
+      return sendRedirect(event, buildAdminLoginRedirect(event.path), 302)
+    }
+
+    const userScopedSupabase = createSupabaseUserScopedClient(accessToken)
+    const { data: roleAssignment } = await userScopedSupabase
       .from('admin_role_assignments')
       .select('role')
       .eq('user_id', user.id)

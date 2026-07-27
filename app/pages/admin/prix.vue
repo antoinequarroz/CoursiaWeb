@@ -56,7 +56,7 @@ const loadHistory = async () => {
 
 const savePrice = async () => {
   await $fetch('/api/admin/prices', { method: 'POST', body: form })
-  feedback.value = 'Prix courant enregistrÃ©, historique conservÃ© et mutation auditÃ©e.'
+  feedback.value = 'Prix courant enregistré, historique conservé et mutation auditée.'
   await Promise.all([loadPrices(), loadHistory()])
 }
 
@@ -69,7 +69,7 @@ const previewCsvImport = async () => {
     },
   })
   importPreview.value = response.data
-  feedback.value = `PrÃ©visualisation CSV conservÃ©e (${response.reportId}).`
+  feedback.value = `Prévisualisation CSV conservée (${response.reportId}).`
 }
 </script>
 
@@ -78,23 +78,23 @@ const previewCsvImport = async () => {
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <p class="text-sm font-black uppercase tracking-[0.24em] text-coursia-primary">COUR-102</p>
-        <h1 class="mt-2 text-3xl font-black">Prix et qualitÃ© du comparateur</h1>
+        <h1 class="mt-2 text-3xl font-black">Prix et qualité du comparateur</h1>
         <p class="mt-3 text-coursia-muted">
-          Prix courant, promotions, source, date de collecte, historique, prix pÃ©rimÃ©s, variations anormales et preview CSV.
+          Prix courant, promotions, source, date de collecte, historique, prix périmés, variations anormales et preview CSV.
         </p>
       </div>
       <div class="flex gap-2">
         <BaseButton type="button" variant="secondary" @click="loadHistory">Historique</BaseButton>
-        <BaseButton type="button" @click="loadPrices">RafraÃ®chir</BaseButton>
+        <BaseButton type="button" @click="loadPrices">Rafraîchir</BaseButton>
       </div>
     </div>
 
     <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-2">
       <input v-model="filters.retailerId" aria-label="Filtrer les prix par ID enseigne" placeholder="Filtrer par ID enseigne" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
       <select v-model="filters.quality" aria-label="Filtrer les prix par qualité" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
-        <option value="">Tous Ã©tats qualitÃ©</option>
+        <option value="">Tous états qualité</option>
         <option value="fresh">Frais</option>
-        <option value="stale">PÃ©rimÃ©</option>
+        <option value="stale">Périmé</option>
         <option value="anomaly">Variation anormale</option>
       </select>
     </div>
@@ -120,7 +120,7 @@ const previewCsvImport = async () => {
             <input v-model.number="form.amountChf" required type="number" min="0.01" step="0.01" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
           </label>
           <label class="grid gap-2 text-sm font-bold">
-            Prix unitÃ© CHF
+            Prix unité CHF
             <input v-model.number="form.unitPriceChf" type="number" min="0.01" step="0.01" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
           </label>
         </div>
@@ -140,12 +140,12 @@ const previewCsvImport = async () => {
       </form>
 
       <section class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
-        <h2 class="text-2xl font-black">Import CSV avec prÃ©visualisation</h2>
+        <h2 class="text-2xl font-black">Import CSV avec prévisualisation</h2>
         <p class="mt-3 text-sm text-coursia-muted">Colonnes : {{ retailCsvColumns.join(', ') }}</p>
         <textarea v-model="csvContent" aria-label="Contenu CSV prix" rows="10" class="mt-5 w-full rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 font-mono text-sm" />
-        <BaseButton class="mt-4" type="button" variant="secondary" @click="previewCsvImport">PrÃ©visualiser lâ€™import</BaseButton>
+        <BaseButton class="mt-4" type="button" variant="secondary" @click="previewCsvImport">Prévisualiser lâ€™import</BaseButton>
         <div v-if="importPreview" class="mt-5 grid gap-3 md:grid-cols-4">
-          <div class="rounded-2xl bg-coursia-background p-4">CrÃ©ations : {{ importPreview.creates }}</div>
+          <div class="rounded-2xl bg-coursia-background p-4">Créations : {{ importPreview.creates }}</div>
           <div class="rounded-2xl bg-coursia-background p-4">Mises a jour : {{ importPreview.updates }}</div>
           <div class="rounded-2xl bg-coursia-background p-4">Erreurs : {{ importPreview.errors }}</div>
           <div class="rounded-2xl bg-coursia-background p-4">Anomalies : {{ importPreview.anomalies }}</div>
@@ -155,10 +155,10 @@ const previewCsvImport = async () => {
 
     <section class="mt-8 grid gap-5 lg:grid-cols-2">
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
-        <h2 class="text-xl font-black">Prix courants signalÃ©s</h2>
+        <h2 class="text-xl font-black">Prix courants signalés</h2>
         <div class="mt-4 grid gap-3 content-auto">
           <div v-for="price in visiblePrices" :key="String(price.id)" class="rounded-2xl bg-coursia-background p-4 text-sm">
-            {{ price.amount_chf }} CHF Â· {{ price.quality_status }} Â· {{ price.source }} Â· collecte {{ price.collected_at }}
+            {{ price.amount_chf }} CHF · {{ price.quality_status }} · {{ price.source }} · collecte {{ price.collected_at }}
           </div>
           <BaseButton v-if="hasMorePrices" type="button" variant="secondary" @click="pricePage += 1">
             Afficher 50 prix de plus
@@ -169,7 +169,7 @@ const previewCsvImport = async () => {
         <h2 class="text-xl font-black">Historique des prix</h2>
         <div class="mt-4 grid gap-3 content-auto">
           <div v-for="entry in visibleHistory" :key="String(entry.id)" class="rounded-2xl bg-coursia-background p-4 text-sm">
-            {{ entry.previous_amount_chf ?? '-' }} â†’ {{ entry.amount_chf }} CHF Â· {{ entry.source }} Â· {{ entry.collected_at }}
+            {{ entry.previous_amount_chf ?? '-' }} â†’ {{ entry.amount_chf }} CHF · {{ entry.source }} · {{ entry.collected_at }}
           </div>
           <BaseButton v-if="hasMoreHistory" type="button" variant="secondary" @click="historyPage += 1">
             Afficher 50 lignes d historique de plus

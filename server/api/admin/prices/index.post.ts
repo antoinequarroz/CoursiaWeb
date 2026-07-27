@@ -12,31 +12,28 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const previousPrice = await getLatestPriceForProduct(supabase, parsed.data.productId)
-  const { data, error } = await supabase
-    .from('price_entries')
-    .insert(toPriceEntryRow(parsed.data, previousPrice))
+  const { data, error } = await mobileTable(supabase, 'prix_historique')
+    .insert(toMobilePriceRow(parsed.data))
     .select('*')
     .single()
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible dâ€™enregistrer le prix.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible d’enregistrer le prix mobile.')
   }
 
-  await writePriceHistory(supabase, { priceEntry: data, previousPrice, userId: admin.userId })
+  const price = toAdminPriceRow(data as never)
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'create',
-    resourceType: 'price_entry',
-    resourceId: data.id,
+    resourceType: 'course',
+    resourceId: String(price.id),
     context: {
-      productId: data.product_id,
-      retailerId: data.retailer_id,
-      amountChf: data.amount_chf,
-      qualityStatus: data.quality_status,
+      table: 'prix_historique',
+      offerId: price.product_id,
+      amountChf: Number(price.amount_chf),
     },
   })
 
-  return { data, previousPrice }
+  return { data: price, previousPrice: null }
 })

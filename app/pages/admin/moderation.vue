@@ -51,47 +51,83 @@ const decisions = ref<Array<Record<string, unknown>>>([])
 const selectedSubmissionId = ref('')
 const feedback = ref('')
 const allergenInput = ref('')
+const errorMessage = ref('')
+const isLoading = ref(false)
+const isSaving = ref(false)
 
 const missingChecks = computed(() => getCommunitySubmissionMissingChecks(decisionForm.checklist))
 
 const loadQueue = async () => {
-  const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/community-moderation', {
-    query: filters,
-  })
-  submissions.value = response.data
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/community-moderation', {
+      query: filters,
+    })
+    submissions.value = response.data
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger la file de moderation.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const loadDecisions = async () => {
-  const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/community-moderation/decisions')
-  decisions.value = response.data
+  try {
+    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/community-moderation/decisions')
+    decisions.value = response.data
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les decisions.'
+  }
 }
 
 const createSubmission = async () => {
-  await $fetch('/api/admin/community-moderation', {
-    method: 'POST',
-    body: submissionForm,
-  })
-  feedback.value = 'Soumission ajoutee dans la file avec priorite et anciennete.'
-  await loadQueue()
+  isSaving.value = true
+  feedback.value = ''
+  errorMessage.value = ''
+
+  try {
+    await $fetch('/api/admin/community-moderation', {
+      method: 'POST',
+      body: submissionForm,
+    })
+    feedback.value = 'Soumission ajoutee dans la file avec priorite et anciennete.'
+    await loadQueue()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d ajouter la soumission.'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const decide = async (decision: CommunityModerationDecisionInput['decision']) => {
   decisionForm.decision = decision
+  feedback.value = ''
+  errorMessage.value = ''
 
   if (!selectedSubmissionId.value) {
     feedback.value = 'Selectionne une soumission avant de decider.'
     return
   }
 
-  await $fetch(`/api/admin/community-moderation/${selectedSubmissionId.value}/decision`, {
-    method: 'POST',
-    body: decisionForm,
-  })
+  isSaving.value = true
 
-  feedback.value = decision === 'reject'
-    ? 'Refus enregistre avec raison obligatoire et decision auditee.'
-    : 'Decision de moderation enregistree et auditee.'
-  await Promise.all([loadQueue(), loadDecisions()])
+  try {
+    await $fetch(`/api/admin/community-moderation/${selectedSubmissionId.value}/decision`, {
+      method: 'POST',
+      body: decisionForm,
+    })
+
+    feedback.value = decision === 'reject'
+      ? 'Refus enregistre avec raison obligatoire et decision auditee.'
+      : 'Decision de moderation enregistree et auditee.'
+    await Promise.all([loadQueue(), loadDecisions()])
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d enregistrer la decision.'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const addAllergen = () => {
@@ -100,6 +136,27 @@ const addAllergen = () => {
     allergenInput.value = ''
   }
 }
+
+const selectSubmission = (submission: Record<string, unknown>) => {
+  selectedSubmissionId.value = String(submission.id)
+
+  if (submission.checklist && typeof submission.checklist === 'object') {
+    const checklist = submission.checklist as Partial<CommunityModerationDecisionInput['checklist']>
+    decisionForm.checklist.recipeChecked = Boolean(checklist.recipeChecked)
+    decisionForm.checklist.photoChecked = Boolean(checklist.photoChecked)
+    decisionForm.checklist.sourceChecked = Boolean(checklist.sourceChecked)
+    decisionForm.checklist.rightsChecked = Boolean(checklist.rightsChecked)
+    decisionForm.checklist.allergensChecked = Boolean(checklist.allergensChecked)
+  }
+}
+
+watch(filters, () => {
+  void loadQueue()
+})
+
+onMounted(() => {
+  void Promise.all([loadQueue(), loadDecisions()])
+})
 </script>
 
 <template>
@@ -142,17 +199,20 @@ const addAllergen = () => {
     </div>
 
     <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
+    <p v-if="errorMessage" class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 
     <section class="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
         <h2 class="text-2xl font-black">Soumissions</h2>
+        <p v-if="isLoading" class="mt-5 text-sm text-coursia-muted">Chargement de la file...</p>
+        <p v-else-if="submissions.length === 0" class="mt-5 text-sm text-coursia-muted">Aucune soumission pour ces filtres.</p>
         <div class="mt-5 grid gap-4">
           <button
             v-for="submission in submissions"
             :key="String(submission.id)"
             type="button"
             class="rounded-2xl border border-coursia-border bg-coursia-background p-4 text-left"
-            @click="selectedSubmissionId = String(submission.id)"
+            @click="selectSubmission(submission)"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h3 class="font-black">{{ submission.title }}</h3>
@@ -201,7 +261,9 @@ const addAllergen = () => {
             </label>
             <BaseButton class="mt-2" type="button" size="sm" variant="secondary" @click="addAllergen">Ajouter</BaseButton>
           </div>
-          <BaseButton class="mt-6" type="submit">Ajouter a la file</BaseButton>
+          <BaseButton class="mt-6" type="submit" :disabled="isSaving">
+            {{ isSaving ? 'Ajout...' : 'Ajouter a la file' }}
+          </BaseButton>
         </form>
 
         <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
@@ -226,10 +288,10 @@ const addAllergen = () => {
             <textarea v-model="decisionForm.reason" rows="4" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
           </label>
           <div class="mt-5 flex flex-wrap gap-2">
-            <BaseButton type="button" @click="decide('accept')">Accepter</BaseButton>
-            <BaseButton type="button" variant="secondary" @click="decide('request_correction')">Demander correction</BaseButton>
-            <BaseButton type="button" variant="secondary" @click="decide('reject')">Refuser</BaseButton>
-            <BaseButton type="button" variant="ghost" @click="decide('archive')">Archiver</BaseButton>
+            <BaseButton type="button" :disabled="isSaving" @click="decide('accept')">Accepter</BaseButton>
+            <BaseButton type="button" :disabled="isSaving" variant="secondary" @click="decide('request_correction')">Demander correction</BaseButton>
+            <BaseButton type="button" :disabled="isSaving" variant="secondary" @click="decide('reject')">Refuser</BaseButton>
+            <BaseButton type="button" :disabled="isSaving" variant="ghost" @click="decide('archive')">Archiver</BaseButton>
           </div>
         </article>
       </section>

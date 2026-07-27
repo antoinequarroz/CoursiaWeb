@@ -17,21 +17,43 @@ const flagForm = reactive<FeatureFlagInput>({
 
 const flags = ref<Array<Record<string, unknown>>>([])
 const feedback = ref('')
+const errorMessage = ref('')
+const isLoading = ref(false)
+const isSaving = ref(false)
 
 const loadFlags = async () => {
-  const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/feature-flags')
-  flags.value = response.data
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/feature-flags')
+    flags.value = response.data
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les feature flags.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const saveFlag = async () => {
-  await $fetch('/api/admin/feature-flags', {
-    method: 'POST',
-    body: flagForm,
-  })
-  feedback.value = flagForm.critical
-    ? 'Feature flag critique protege et audite avec raison.'
-    : 'Feature flag non technique enregistre et audite.'
-  await loadFlags()
+  isSaving.value = true
+  feedback.value = ''
+  errorMessage.value = ''
+
+  try {
+    await $fetch('/api/admin/feature-flags', {
+      method: 'POST',
+      body: flagForm,
+    })
+    feedback.value = flagForm.critical
+      ? 'Feature flag critique protege et audite avec raison.'
+      : 'Feature flag non technique enregistre et audite.'
+    await loadFlags()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d enregistrer le feature flag.'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const selectFlag = (flag: Record<string, unknown>) => {
@@ -41,8 +63,12 @@ const selectFlag = (flag: Record<string, unknown>) => {
   flagForm.enabled = Boolean(flag.enabled)
   flagForm.critical = Boolean(flag.critical)
   flagForm.rolloutPercentage = Number(flag.rollout_percentage ?? 0)
-  flagForm.reason = ''
+  flagForm.reason = flagForm.critical ? `Mise a jour controlee du flag ${flagForm.key}` : ''
 }
+
+onMounted(() => {
+  void loadFlags()
+})
 </script>
 
 <template>
@@ -60,10 +86,13 @@ const selectFlag = (flag: Record<string, unknown>) => {
     </div>
 
     <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
+    <p v-if="errorMessage" class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 
     <section class="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
         <h2 class="text-2xl font-black">Feature flags</h2>
+        <p v-if="isLoading" class="mt-5 text-sm text-coursia-muted">Chargement des flags...</p>
+        <p v-else-if="flags.length === 0" class="mt-5 text-sm text-coursia-muted">Aucun flag trouve. Le seed doit afficher les flags de depart.</p>
         <div class="mt-5 grid gap-4">
           <button
             v-for="flag in flags"
@@ -119,7 +148,9 @@ const selectFlag = (flag: Record<string, unknown>) => {
         <p class="mt-4 text-sm text-coursia-muted">
           Les cles contenant secret, token, password, service_role ou api_key sont refusees.
         </p>
-        <BaseButton class="mt-6" type="submit">Enregistrer le flag</BaseButton>
+        <BaseButton class="mt-6" type="submit" :disabled="isSaving">
+          {{ isSaving ? 'Enregistrement...' : 'Enregistrer le flag' }}
+        </BaseButton>
       </form>
     </section>
   </section>

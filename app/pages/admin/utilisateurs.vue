@@ -25,36 +25,66 @@ const procedure = reactive<SupportControlledProcedure>({
 const user = ref<Record<string, unknown> | null>(null)
 const revenueCatEvents = ref<Array<Record<string, unknown>>>([])
 const feedback = ref('')
+const errorMessage = ref('')
+const isLoading = ref(false)
+const isSaving = ref(false)
 
 const lookupUser = async () => {
-  const response = await $fetch<{
-    data: Record<string, unknown>
-    revenueCatEvents: Array<Record<string, unknown>>
-    sensitiveDataMasked: boolean
-    impersonationEnabled: boolean
-  }>('/api/admin/support-users/lookup', {
-    query: {
-      userId: search.userId || undefined,
-      email: search.email || undefined,
-    },
-  })
+  isLoading.value = true
+  feedback.value = ''
+  errorMessage.value = ''
 
-  user.value = response.data
-  revenueCatEvents.value = response.revenueCatEvents
-  procedure.userId = String(response.data.id)
-  feedback.value = response.sensitiveDataMasked
-    ? 'Consultation auditee. Donnees sensibles masquees.'
-    : 'Consultation chargee.'
+  try {
+    const response = await $fetch<{
+      data: Record<string, unknown>
+      revenueCatEvents: Array<Record<string, unknown>>
+      sensitiveDataMasked: boolean
+      impersonationEnabled: boolean
+    }>('/api/admin/support-users/lookup', {
+      query: {
+        userId: search.userId || undefined,
+        email: search.email || undefined,
+      },
+    })
+
+    user.value = response.data
+    revenueCatEvents.value = response.revenueCatEvents
+    procedure.userId = String(response.data.id)
+    feedback.value = response.sensitiveDataMasked
+      ? 'Consultation auditee. Donnees sensibles masquees.'
+      : 'Consultation chargee.'
+  } catch (error) {
+    user.value = null
+    revenueCatEvents.value = []
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger le profil support.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const requestProcedure = async () => {
-  const response = await $fetch<{ data: Record<string, unknown> }>('/api/admin/support-users/procedure', {
-    method: 'POST',
-    body: procedure,
-  })
+  isSaving.value = true
+  feedback.value = ''
+  errorMessage.value = ''
 
-  feedback.value = `Procedure controlee creee : ${response.data.action}.`
+  try {
+    const response = await $fetch<{ data: Record<string, unknown> }>('/api/admin/support-users/procedure', {
+      method: 'POST',
+      body: procedure,
+    })
+
+    feedback.value = `Procedure controlee creee : ${response.data.action}.`
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de creer la procedure support.'
+  } finally {
+    isSaving.value = false
+  }
 }
+
+onMounted(() => {
+  search.email = 'info@antoinequarroz.ch'
+  void lookupUser()
+})
 </script>
 
 <template>
@@ -82,10 +112,13 @@ const requestProcedure = async () => {
         Email
         <input v-model="search.email" type="email" placeholder="email exact" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
       </label>
-      <BaseButton class="self-end" type="submit">Rechercher</BaseButton>
+      <BaseButton class="self-end" type="submit" :disabled="isLoading">
+        {{ isLoading ? 'Recherche...' : 'Rechercher' }}
+      </BaseButton>
     </form>
 
     <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
+    <p v-if="errorMessage" class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 
     <section class="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
@@ -128,7 +161,9 @@ const requestProcedure = async () => {
           <input v-model="procedure.confirmed" type="checkbox" />
           Confirmation procedure controlee
         </label>
-        <BaseButton class="mt-6" type="submit">Creer la procedure</BaseButton>
+        <BaseButton class="mt-6" type="submit" :disabled="isSaving || !user">
+          {{ isSaving ? 'Creation...' : 'Creer la procedure' }}
+        </BaseButton>
       </form>
     </section>
 

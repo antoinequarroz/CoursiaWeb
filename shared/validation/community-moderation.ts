@@ -41,7 +41,16 @@ export const communitySubmissionSchema = z.object({
 export const communitySubmissionQuerySchema = z.object({
   status: communitySubmissionStatusSchema.optional(),
   priority: communitySubmissionPrioritySchema.optional(),
-  oldestFirst: z.coerce.boolean().default(false),
+  oldestFirst: z
+    .preprocess((value) => {
+      if (typeof value === 'string') {
+        if (value === 'true') return true
+        if (value === 'false') return false
+      }
+
+      return value
+    }, z.boolean())
+    .default(false),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 

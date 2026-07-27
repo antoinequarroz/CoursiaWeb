@@ -29,29 +29,79 @@ const history = ref<Array<Record<string, unknown>>>([])
 const preview = ref<Record<string, unknown> | null>(null)
 const selectedContentId = ref('')
 const feedback = ref('')
+const errorMessage = ref('')
+const isLoading = ref(false)
+const isSaving = ref(false)
+
+const toIsoDateTime = (value?: string) => {
+  if (!value) return undefined
+  return new Date(value).toISOString()
+}
+
+const toLocalDateTimeInput = (value?: string) => {
+  if (!value) return undefined
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return undefined
+
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16)
+}
+
+const resetMessages = () => {
+  feedback.value = ''
+  errorMessage.value = ''
+}
 
 const loadContents = async () => {
-  const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/content', {
-    query: filters,
-  })
-  contents.value = response.data
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/content', {
+      query: filters,
+    })
+    contents.value = response.data
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les contenus.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const loadHistory = async () => {
-  const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/content/history', {
-    query: selectedContentId.value ? { contentEntryId: selectedContentId.value } : {},
-  })
-  history.value = response.data
+  try {
+    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/content/history', {
+      query: selectedContentId.value ? { contentEntryId: selectedContentId.value } : {},
+    })
+    history.value = response.data
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger l historique.'
+  }
 }
 
 const saveContent = async () => {
+  isSaving.value = true
+  resetMessages()
+
   const route = selectedContentId.value ? `/api/admin/content/${selectedContentId.value}` : '/api/admin/content'
-  await $fetch(route, {
-    method: selectedContentId.value ? 'PUT' : 'POST',
-    body: form,
-  })
-  feedback.value = 'Contenu enregistre sans redeploiement et historise avec auteur.'
-  await Promise.all([loadContents(), loadHistory()])
+  const body = {
+    ...form,
+    publishAt: toIsoDateTime(form.publishAt),
+    archiveAt: toIsoDateTime(form.archiveAt),
+  }
+
+  try {
+    await $fetch(route, {
+      method: selectedContentId.value ? 'PUT' : 'POST',
+      body,
+    })
+    feedback.value = 'Contenu enregistre sans redeploiement et historise avec auteur.'
+    await Promise.all([loadContents(), loadHistory()])
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d enregistrer le contenu.'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const selectContent = (content: Record<string, unknown>) => {
@@ -63,30 +113,50 @@ const selectContent = (content: Record<string, unknown>) => {
   form.url = content.url ? String(content.url) : undefined
   form.locale = String(content.locale ?? 'fr-CH')
   form.status = String(content.status ?? 'draft') as ContentEntryInput['status']
-  form.publishAt = content.publish_at ? String(content.publish_at) : undefined
-  form.archiveAt = content.archive_at ? String(content.archive_at) : undefined
+  form.publishAt = toLocalDateTimeInput(content.publish_at ? String(content.publish_at) : undefined)
+  form.archiveAt = toLocalDateTimeInput(content.archive_at ? String(content.archive_at) : undefined)
 }
 
 const previewContent = async () => {
+  resetMessages()
+
   if (!selectedContentId.value) {
     feedback.value = 'Selectionne un contenu pour afficher un apercu.'
     return
   }
 
-  const response = await $fetch<{ data: Record<string, unknown> }>(`/api/admin/content/${selectedContentId.value}/preview`)
-  preview.value = response.data
+  try {
+    const response = await $fetch<{ data: Record<string, unknown> }>(`/api/admin/content/${selectedContentId.value}/preview`)
+    preview.value = response.data
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de generer l apercu.'
+  }
 }
 
 const archiveContent = async () => {
+  resetMessages()
+
   if (!selectedContentId.value) {
     feedback.value = 'Selectionne un contenu avant archivage.'
     return
   }
 
-  await $fetch(`/api/admin/content/${selectedContentId.value}/archive`, { method: 'POST' })
-  feedback.value = 'Archivage programme et audite.'
-  await Promise.all([loadContents(), loadHistory()])
+  try {
+    await $fetch(`/api/admin/content/${selectedContentId.value}/archive`, { method: 'POST' })
+    feedback.value = 'Archivage programme et audite.'
+    await Promise.all([loadContents(), loadHistory()])
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d archiver le contenu.'
+  }
 }
+
+watch(filters, () => {
+  void loadContents()
+})
+
+onMounted(() => {
+  void Promise.all([loadContents(), loadHistory()])
+})
 </script>
 
 <template>
@@ -125,10 +195,13 @@ const archiveContent = async () => {
     </div>
 
     <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
+    <p v-if="errorMessage" class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 
     <section class="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
       <article class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
         <h2 class="text-2xl font-black">FAQ, marketing, liens et annonces</h2>
+        <p v-if="isLoading" class="mt-5 text-sm text-coursia-muted">Chargement des contenus...</p>
+        <p v-else-if="contents.length === 0" class="mt-5 text-sm text-coursia-muted">Aucun contenu trouve. Le seed doit afficher des exemples si la session admin est valide.</p>
         <div class="mt-5 grid gap-4">
           <button
             v-for="content in contents"
@@ -201,7 +274,7 @@ const archiveContent = async () => {
           Parametres techniques et secrets hors module : pas de token, password, service_role ou API key.
         </p>
         <div class="mt-6 flex flex-wrap gap-2">
-          <BaseButton type="submit">Enregistrer</BaseButton>
+          <BaseButton type="submit" :disabled="isSaving">{{ isSaving ? 'Enregistrement...' : 'Enregistrer' }}</BaseButton>
           <BaseButton type="button" variant="secondary" @click="previewContent">Apercu</BaseButton>
           <BaseButton type="button" variant="ghost" @click="archiveContent">Archiver</BaseButton>
         </div>

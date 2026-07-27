@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Json } from '#shared/supabase/database.types'
+import type { Database } from '#shared/supabase/database.types'
 import type {
   IngredientProductMatchInput,
   IngredientProductMatchUpdate,
@@ -10,68 +10,81 @@ import {
   estimateMatchingImpact,
   getSuggestedMatchStatus,
 } from '#shared/validation/ingredient-product-matching'
+import { mobileTable } from './mobile-admin-mapping'
 
-type MatchRow = Database['public']['Tables']['ingredient_product_matches']['Row']
-type ProductRow = Database['public']['Tables']['products']['Row']
+type ProductRow = Record<string, unknown>
+type MatchRow = {
+  id: string
+  ingredient_id: string | null
+  product_id: string
+  retailer_id: string | null
+  confidence: number
+  status: 'suggested' | 'confirmed' | 'ambiguous' | 'rejected'
+  source: 'automatic' | 'manual'
+  unit_comparison: Record<string, unknown>
+  notes: string | null
+  updated_at: string
+}
 
 export const toIngredientProductMatchRow = (
   input: IngredientProductMatchInput,
-  userId: string,
+  _userId: string,
 ) => ({
-  ingredient_id: input.ingredientId,
-  product_id: input.productId,
-  retailer_id: input.retailerId,
-  confidence: input.confidence,
-  status: input.status,
-  source: input.source,
-  unit_comparison: input.unitComparison as unknown as Json,
-  notes: input.notes ?? null,
-  updated_at: new Date().toISOString(),
-  confirmed_at: input.status === 'confirmed' ? new Date().toISOString() : null,
-  confirmed_by: input.status === 'confirmed' ? userId : null,
+  ingredient_id: input.status === 'rejected' ? null : input.ingredientId,
 })
 
 export const toIngredientProductMatchUpdateRow = (
   input: IngredientProductMatchUpdate,
   existing: MatchRow,
-  userId: string,
+  _userId: string,
 ) => ({
-  ingredient_id: input.ingredientId ?? existing.ingredient_id,
-  product_id: input.productId ?? existing.product_id,
-  retailer_id: input.retailerId ?? existing.retailer_id,
-  confidence: input.confidence ?? existing.confidence,
-  status: input.status,
-  source: input.source ?? existing.source,
-  unit_comparison: (input.unitComparison ?? existing.unit_comparison) as unknown as Json,
-  notes: input.notes ?? existing.notes,
-  updated_at: new Date().toISOString(),
-  confirmed_at: input.status === 'confirmed' ? new Date().toISOString() : existing.confirmed_at,
-  confirmed_by: input.status === 'confirmed' ? userId : existing.confirmed_by,
+  ingredient_id: input.status === 'rejected'
+    ? null
+    : input.ingredientId ?? existing.ingredient_id,
+})
+
+export const toVirtualIngredientProductMatch = (
+  product: ProductRow,
+  offer?: ProductRow | null,
+): MatchRow => ({
+  id: String(product.id),
+  ingredient_id: product.ingredient_id ? String(product.ingredient_id) : null,
+  product_id: String(product.id),
+  retailer_id: offer?.enseigne_id ? String(offer.enseigne_id) : null,
+  confidence: product.ingredient_id ? 1 : 0,
+  status: product.ingredient_id ? 'confirmed' : 'ambiguous',
+  source: 'manual',
+  unit_comparison: {
+    ingredientUnit: offer?.unite === 'unite' ? 'piece' : offer?.unite ?? 'piece',
+    productUnit: offer?.unite === 'unite' ? 'piece' : offer?.unite ?? 'piece',
+    comparable: true,
+  },
+  notes: product.ingredient_id
+    ? 'Correspondance réelle stockée sur produits_canoniques.ingredient_id.'
+    : 'Produit canonique non relié à un ingrédient.',
+  updated_at: String(product.created_at ?? new Date().toISOString()),
 })
 
 export const buildAutomaticMatchSuggestion = (
   ingredient: { id: string; name: string; units?: string[] },
   product: ProductRow,
 ) => {
-  const format = product.format && typeof product.format === 'object' && !Array.isArray(product.format)
-    ? product.format
-    : {}
-  const productUnit = typeof format.unit === 'string' ? format.unit : 'pack'
+  const productUnit = String(product.unit ?? 'piece')
   const ingredientUnit = ingredient.units?.[0] ?? 'g'
   const unitComparison = buildUnitComparison(ingredientUnit as never, productUnit as never)
-  const confidence = estimateMatchConfidence(ingredient.name, product.name)
+  const confidence = estimateMatchConfidence(ingredient.name, String(product.name ?? product.nom ?? ''))
 
   return {
     ingredientId: ingredient.id,
-    productId: product.id,
-    retailerId: product.retailer_id,
+    productId: String(product.id),
+    retailerId: String(product.retailer_id ?? product.enseigne_id ?? ''),
     confidence,
     status: getSuggestedMatchStatus(confidence, unitComparison.comparable),
     source: 'automatic',
     unitComparison,
     notes: unitComparison.comparable
       ? 'Suggestion automatique confirmable manuellement.'
-      : 'Cas ambigu: format ou unitÃ© non comparable.',
+      : 'Cas ambigu: format ou unité non comparable.',
   }
 }
 
@@ -79,8 +92,7 @@ export const getMatchById = async (
   client: SupabaseClient<Database>,
   id: string,
 ) => {
-  const { data, error } = await client
-    .from('ingredient_product_matches')
+  const { data, error } = await mobileTable(client, 'produits_canoniques')
     .select('*')
     .eq('id', id)
     .maybeSingle()
@@ -93,37 +105,38 @@ export const getMatchById = async (
     throwApiError('NOT_FOUND', 'Correspondance introuvable.')
   }
 
-  return data
+  const { data: offer } = await mobileTable(client, 'offres_magasin')
+    .select('*')
+    .eq('produit_canonique_id', id)
+    .limit(1)
+    .maybeSingle()
+
+  return toVirtualIngredientProductMatch(
+    data as Record<string, unknown>,
+    offer as Record<string, unknown> | null,
+  )
 }
 
 export const buildIngredientMatchingImpact = async (
   client: SupabaseClient<Database>,
   ingredientId: string,
 ) => {
-  const { data: recipes, error } = await client
-    .from('official_recipes')
-    .select('id,title,ingredients')
+  const { data: recipeLinks, error } = await mobileTable(client, 'recette_ingredients')
+    .select('recette_id')
+    .eq('ingredient_id', ingredientId)
     .limit(500)
 
   if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de calculer lâ€™impact recettes.')
+    throwApiError('UPSTREAM_ERROR', 'Impossible de calculer l’impact recettes.')
   }
 
-  const affectedRecipes = (recipes ?? []).filter((recipe) =>
-    Array.isArray(recipe.ingredients)
-      ? recipe.ingredients.some((ingredient) =>
-          Boolean(
-            ingredient
-            && typeof ingredient === 'object'
-            && !Array.isArray(ingredient)
-            && ingredient.ingredientId === ingredientId,
-          ),
-        )
-      : false,
-  )
+  const affectedRecipes = Array.isArray(recipeLinks) ? recipeLinks : []
 
   return {
-    recipes: affectedRecipes.map((recipe) => ({ id: recipe.id, title: recipe.title })),
+    recipes: affectedRecipes.map((recipe) => ({
+      id: String((recipe as Record<string, unknown>).recette_id),
+      title: 'Recette liée',
+    })),
     baskets: [],
     summary: estimateMatchingImpact(affectedRecipes.length, 0),
   }

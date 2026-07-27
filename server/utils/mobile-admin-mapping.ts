@@ -2,8 +2,6 @@ import type { OfficialRecipeMutation } from '#shared/validation/course'
 import type { CanonicalIngredientInput } from '#shared/validation/ingredient-catalog'
 import type { PriceEntryInput, ProductInput, RetailerInput } from '#shared/validation/retail-catalog'
 
-type SupabaseAdminClient = ReturnType<typeof createSupabaseServiceRoleClient>
-
 type QueryResult = {
   count: number | null
   data: unknown
@@ -17,6 +15,7 @@ type QueryBuilder = PromiseLike<QueryResult> & {
   delete: () => QueryBuilder
   eq: (column: string, value: unknown) => QueryBuilder
   is: (column: string, value: unknown) => QueryBuilder
+  not: (column: string, operator: string, value: unknown) => QueryBuilder
   or: (filters: string) => QueryBuilder
   contains: (column: string, value: unknown) => QueryBuilder
   order: (column: string, options?: { ascending?: boolean }) => QueryBuilder
@@ -29,7 +28,7 @@ type UntypedSupabaseClient = {
   from: (table: string) => QueryBuilder
 }
 
-export const mobileTable = (supabase: SupabaseAdminClient, table: string) =>
+export const mobileTable = (supabase: unknown, table: string) =>
   (supabase as unknown as UntypedSupabaseClient).from(table)
 
 const slugify = (value: string) =>
@@ -88,13 +87,19 @@ export const toAdminDifficulty = (difficulty: unknown) => {
 
 type MobileRecipeRow = Record<string, unknown>
 
+const numberOrNull = (value: unknown) => {
+  const numberValue = Number(value)
+
+  return Number.isFinite(numberValue) ? numberValue : null
+}
+
 export const toAdminRecipeRow = (recipe: MobileRecipeRow) => ({
   id: String(recipe.id),
   title: String(recipe.titre ?? ''),
   slug: String(recipe.cle_externe ?? slugify(String(recipe.titre ?? ''))),
   status: toAdminRecipeStatus(recipe.statut_publication),
-  portions: recipe.portions ?? null,
-  duration_minutes: recipe.temps_preparation ?? null,
+  portions: numberOrNull(recipe.portions),
+  duration_minutes: numberOrNull(recipe.temps_preparation),
   difficulty: recipe.difficulte ? toAdminDifficulty(recipe.difficulte) : null,
   ingredients: [],
   steps: [],
@@ -105,7 +110,7 @@ export const toAdminRecipeRow = (recipe: MobileRecipeRow) => ({
     fatGrams: typeof recipe.lipides_g === 'number' ? recipe.lipides_g : undefined,
   },
   categories: [],
-  source: recipe.source ?? null,
+  source: typeof recipe.source === 'string' ? recipe.source : null,
   created_at: recipe.created_at ?? null,
   updated_at: recipe.updated_at ?? null,
   archived_at: recipe.statut_publication === 'archivee' ? recipe.updated_at : null,

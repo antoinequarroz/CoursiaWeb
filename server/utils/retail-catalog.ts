@@ -1,10 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Json } from '#shared/supabase/database.types'
+import type { Database } from '#shared/supabase/database.types'
 import type { PriceEntryInput, ProductInput, RetailerInput } from '#shared/validation/retail-catalog'
 import { isPriceAnomaly, isPriceStale } from '#shared/validation/retail-catalog'
+import {
+  mobileTable,
+  toMobileOfferRow,
+  toMobilePriceRow,
+  toMobileProductRow,
+  toMobileRetailerRow,
+} from './mobile-admin-mapping'
 
-type PriceEntryRow = Database['public']['Tables']['price_entries']['Row']
-type PriceQualityStatus = PriceEntryRow['quality_status']
+type MobilePriceEntryRow = {
+  id: string
+  offre_id: string
+  prix: number
+  prix_unitaire: number
+  promotion: string | null
+  source: string
+  collecte_le: string
+}
+
+type PriceQualityStatus = 'fresh' | 'stale' | 'anomaly'
 
 export const requireRetailCatalogAccess = (role: string) => {
   if (!['editor', 'administrator', 'super_administrator'].includes(role)) {
@@ -12,32 +28,18 @@ export const requireRetailCatalogAccess = (role: string) => {
   }
 }
 
-export const toRetailerRow = (input: RetailerInput) => ({
-  name: input.name,
-  slug: input.slug,
-  status: input.status,
-  website_url: input.websiteUrl ?? null,
-  updated_at: new Date().toISOString(),
-  archived_at: input.status === 'archived' ? new Date().toISOString() : null,
-})
+export const toRetailerRow = (input: RetailerInput) => toMobileRetailerRow(input)
 
 export const toProductRow = (input: ProductInput) => ({
-  retailer_id: input.retailerId,
-  name: input.name,
-  slug: input.slug,
-  brand: input.brand ?? null,
-  status: input.status,
-  format: input.format as unknown as Json,
-  source: input.source,
-  updated_at: new Date().toISOString(),
-  archived_at: input.status === 'archived' ? new Date().toISOString() : null,
+  product: toMobileProductRow(input),
+  offer: toMobileOfferRow(input, ''),
 })
 
 export const getPriceQualityStatus = (
   input: PriceEntryInput,
-  previousPrice?: PriceEntryRow | null,
+  previousPrice?: MobilePriceEntryRow | null,
 ): PriceQualityStatus => {
-  if (isPriceAnomaly(input.amountChf, previousPrice?.amount_chf)) {
+  if (isPriceAnomaly(input.amountChf, previousPrice?.prix)) {
     return 'anomaly'
   }
 
@@ -48,27 +50,16 @@ export const getPriceQualityStatus = (
   return 'fresh'
 }
 
-export const toPriceEntryRow = (input: PriceEntryInput, previousPrice?: PriceEntryRow | null) => ({
-  product_id: input.productId,
-  retailer_id: input.retailerId,
-  amount_chf: input.amountChf,
-  unit_price_chf: input.unitPriceChf ?? null,
-  promotion_label: input.promotionLabel ?? null,
-  source: input.source,
-  collected_at: input.collectedAt,
-  quality_status: getPriceQualityStatus(input, previousPrice),
-  updated_at: new Date().toISOString(),
-})
+export const toPriceEntryRow = (input: PriceEntryInput) => toMobilePriceRow(input)
 
 export const getLatestPriceForProduct = async (
   client: SupabaseClient<Database>,
   productId: string,
 ) => {
-  const { data, error } = await client
-    .from('price_entries')
+  const { data, error } = await mobileTable(client, 'prix_historique')
     .select('*')
-    .eq('product_id', productId)
-    .order('collected_at', { ascending: false })
+    .eq('offre_id', productId)
+    .order('collecte_le', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -76,30 +67,16 @@ export const getLatestPriceForProduct = async (
     throwApiError('UPSTREAM_ERROR', 'Impossible de charger le dernier prix.')
   }
 
-  return data
+  return data as MobilePriceEntryRow | null
 }
 
 export const writePriceHistory = async (
-  client: SupabaseClient<Database>,
-  input: {
-    priceEntry: PriceEntryRow
-    previousPrice?: PriceEntryRow | null
+  _client: SupabaseClient<Database>,
+  _input: {
+    priceEntry: MobilePriceEntryRow
+    previousPrice?: MobilePriceEntryRow | null
     userId: string
   },
 ) => {
-  const { error } = await client.from('price_history').insert({
-    price_entry_id: input.priceEntry.id,
-    product_id: input.priceEntry.product_id,
-    retailer_id: input.priceEntry.retailer_id,
-    previous_amount_chf: input.previousPrice?.amount_chf ?? null,
-    amount_chf: input.priceEntry.amount_chf,
-    promotion_label: input.priceEntry.promotion_label,
-    source: input.priceEntry.source,
-    collected_at: input.priceEntry.collected_at,
-    changed_by: input.userId,
-  })
-
-  if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible dâ€™historiser le prix.')
-  }
+  return { storedIn: 'prix_historique' }
 }

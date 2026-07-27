@@ -1,21 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Json } from '#shared/supabase/database.types'
+import type { Database } from '#shared/supabase/database.types'
 import type { OfficialRecipeMutation } from '#shared/validation/course'
+import {
+  mobileTable,
+  toAdminRecipeRow,
+  toMobileRecipeRow,
+} from './mobile-admin-mapping'
 
 export const toOfficialRecipeRow = (input: OfficialRecipeMutation) => ({
-  title: input.title,
-  slug: input.slug,
-  status: input.status,
-  portions: input.portions ?? null,
-  duration_minutes: input.durationMinutes ?? null,
-  difficulty: input.difficulty ?? null,
-  ingredients: input.ingredients as unknown as Json,
-  steps: input.steps as unknown as Json,
-  nutrition: input.nutrition as unknown as Json,
-  categories: input.categories,
-  source: input.source ?? null,
-  updated_at: new Date().toISOString(),
-  archived_at: input.status === 'archived' ? new Date().toISOString() : null,
+  ...toMobileRecipeRow(input),
 })
 
 export const requireRecipeWriteAccess = (role: string) => {
@@ -34,7 +27,7 @@ export const getOfficialRecipeById = async (
   client: SupabaseClient<Database>,
   id: string,
 ) => {
-  const { data, error } = await client.from('official_recipes').select('*').eq('id', id).maybeSingle()
+  const { data, error } = await mobileTable(client, 'recettes').select('*').eq('id', id).maybeSingle()
 
   if (error) {
     throwApiError('UPSTREAM_ERROR', 'Impossible de charger la recette officielle.')
@@ -44,5 +37,41 @@ export const getOfficialRecipeById = async (
     throwApiError('NOT_FOUND', 'Recette officielle introuvable.')
   }
 
-  return data
+  const [ingredientsResult, stepsResult] = await Promise.all([
+    mobileTable(client, 'recette_ingredients')
+      .select('id,ingredient_id,quantite,unite,ordre,optionnel,ingredients(nom)')
+      .eq('recette_id', id)
+      .order('ordre', { ascending: true }),
+    mobileTable(client, 'recette_etapes')
+      .select('id,numero,instruction')
+      .eq('recette_id', id)
+      .order('numero', { ascending: true }),
+  ])
+
+  const ingredientRows = Array.isArray(ingredientsResult.data)
+    ? ingredientsResult.data as Array<Record<string, unknown>>
+    : []
+  const stepRows = Array.isArray(stepsResult.data)
+    ? stepsResult.data as Array<Record<string, unknown>>
+    : []
+
+  return {
+    ...toAdminRecipeRow(data as Record<string, unknown>),
+    ingredients: ingredientRows.map((ingredient) => {
+      const linkedIngredient = ingredient.ingredients as Record<string, unknown> | null | undefined
+
+      return {
+        ingredientId: String(ingredient.ingredient_id ?? ''),
+        name: String(linkedIngredient?.nom ?? ingredient.ingredient_id ?? ''),
+        quantity: Number(ingredient.quantite ?? 0),
+        unit: ingredient.unite === 'unite' ? 'piece' : String(ingredient.unite ?? 'g'),
+        group: 'Principal',
+        optional: Boolean(ingredient.optionnel),
+      }
+    }),
+    steps: stepRows.map((step) => ({
+      order: Number(step.numero ?? 0),
+      instruction: String(step.instruction ?? ''),
+    })),
+  }
 }

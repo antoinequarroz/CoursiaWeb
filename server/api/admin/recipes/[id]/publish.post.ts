@@ -1,4 +1,5 @@
 import { getUnpublishBehaviorMessage, officialRecipeParamsSchema, recipePublicationActionSchema } from '#shared/validation/course'
+import { mobileTable } from '../../../../utils/mobile-admin-mapping'
 
 export default defineEventHandler(async (event) => {
   const admin = await getSensitiveAdminContext(event)
@@ -20,9 +21,8 @@ export default defineEventHandler(async (event) => {
     throwApiError('INVALID_REQUEST', 'Publication refusÃ©e: des champs bloquants sont manquants.')
   }
 
-  const { data, error } = await supabase
-    .from('official_recipes')
-    .update({ status: 'published', updated_at: new Date().toISOString(), archived_at: null })
+  const { data, error } = await mobileTable(supabase, 'recettes')
+    .update({ statut_publication: 'publiee', updated_at: new Date().toISOString() })
     .eq('id', params.id)
     .select('*')
     .single()
@@ -31,8 +31,10 @@ export default defineEventHandler(async (event) => {
     throwApiError('UPSTREAM_ERROR', 'Impossible de publier la recette officielle.')
   }
 
+  const updatedRow = data as Record<string, unknown>
+
   await writeRecipePublicationHistory(supabase, {
-    recipe: data,
+    recipe: { ...existing, status: 'published' },
     fromStatus: existing.status,
     toStatus: 'published',
     userId: admin.userId,
@@ -42,15 +44,18 @@ export default defineEventHandler(async (event) => {
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'publish',
-    resourceType: 'official_recipe',
-    resourceId: data.id,
+    resourceType: 'course',
+    resourceId: String(updatedRow.id),
     context: {
-      slug: data.slug,
+      slug: existing.slug,
       fromStatus: existing.status,
-      toStatus: data.status,
+      toStatus: 'published',
       unpublishBehavior: getUnpublishBehaviorMessage(),
+      table: 'recettes',
     },
   })
 
-  return { data, preview: buildRecipePreview(data) }
+  const updated = await getOfficialRecipeById(supabase, params.id)
+
+  return { data: updated, preview: buildRecipePreview(updated) }
 })

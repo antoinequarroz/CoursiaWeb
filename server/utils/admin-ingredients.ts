@@ -1,19 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '#shared/supabase/database.types'
 import type { CanonicalIngredientInput } from '#shared/validation/ingredient-catalog'
+import { mobileTable, toAdminIngredientRow, toMobileIngredientRow } from './mobile-admin-mapping'
 
 export const toCanonicalIngredientRow = (input: CanonicalIngredientInput) => ({
-  name: input.name,
-  slug: input.slug,
-  status: input.status,
-  synonyms: input.synonyms,
-  units: input.units,
-  categories: input.categories,
-  allergens: input.allergens,
-  diets: input.diets,
-  sensitive: input.sensitive,
-  updated_at: new Date().toISOString(),
-  archived_at: input.status === 'archived' ? new Date().toISOString() : null,
+  ...toMobileIngredientRow(input),
 })
 
 export const requireIngredientWriteAccess = (role: string) => {
@@ -35,8 +26,7 @@ export const getCanonicalIngredientById = async (
   client: SupabaseClient<Database>,
   id: string,
 ) => {
-  const { data, error } = await client
-    .from('canonical_ingredients')
+  const { data, error } = await mobileTable(client, 'ingredients')
     .select('*')
     .eq('id', id)
     .maybeSingle()
@@ -49,6 +39,5 @@ export const getCanonicalIngredientById = async (
     throwApiError('NOT_FOUND', 'Ingrédient canonique introuvable.')
   }
 
-  return data
+  return toAdminIngredientRow(data as Record<string, unknown>)
 }
-

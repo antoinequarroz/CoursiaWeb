@@ -2,14 +2,28 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '#shared/supabase/database.types'
 import { getOfficialRecipeBlockingFields } from '#shared/validation/course'
 
-type OfficialRecipeRow = Database['public']['Tables']['official_recipes']['Row']
+type OfficialRecipeRow = {
+  id: string
+  title: string
+  slug: string
+  status: 'draft' | 'review' | 'published' | 'archived'
+  portions: number | null
+  duration_minutes: number | null
+  difficulty: string | null
+  ingredients: unknown[]
+  steps: unknown[]
+  nutrition: Json
+  categories: string[]
+  source: string | null
+}
+
 type OfficialRecipeStatus = OfficialRecipeRow['status']
 
-const safeArray = (value: Json) => (Array.isArray(value) ? value : [])
+const safeArray = (value: unknown) => (Array.isArray(value) ? value : [])
 
 export const requireRecipePublicationAccess = (role: string) => {
   if (!['administrator', 'super_administrator'].includes(role)) {
-    throwApiError('FORBIDDEN', 'La publication des recettes est rÃ©servÃ©e aux administrateurs.')
+    throwApiError('FORBIDDEN', 'La publication des recettes est réservée aux administrateurs.')
   }
 }
 
@@ -60,7 +74,7 @@ export const buildRecipePreview = (recipe: OfficialRecipeRow) => {
 }
 
 export const writeRecipePublicationHistory = async (
-  client: SupabaseClient<Database>,
+  _client: SupabaseClient<Database>,
   input: {
     recipe: OfficialRecipeRow
     fromStatus: OfficialRecipeStatus | null
@@ -68,17 +82,10 @@ export const writeRecipePublicationHistory = async (
     userId: string
     reason?: string | undefined
   },
-) => {
-  const { error } = await client.from('recipe_publication_history').insert({
-    recipe_id: input.recipe.id,
-    from_status: input.fromStatus,
-    to_status: input.toStatus,
-    changed_by: input.userId,
-    reason: input.reason ?? null,
-    snapshot: input.recipe as unknown as Json,
-  })
-
-  if (error) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible dâ€™historiser le changement de publication.')
-  }
-}
+) => ({
+  recipeId: input.recipe.id,
+  fromStatus: input.fromStatus,
+  toStatus: input.toStatus,
+  changedBy: input.userId,
+  reason: input.reason ?? null,
+})

@@ -1,4 +1,5 @@
 import { getUnpublishBehaviorMessage, officialRecipeParamsSchema, recipePublicationActionSchema } from '#shared/validation/course'
+import { mobileTable } from '../../../../utils/mobile-admin-mapping'
 
 export default defineEventHandler(async (event) => {
   const admin = await getSensitiveAdminContext(event)
@@ -14,9 +15,8 @@ export default defineEventHandler(async (event) => {
 
   const supabase = createSupabaseServiceRoleClient()
   const existing = await getOfficialRecipeById(supabase, params.id)
-  const { data, error } = await supabase
-    .from('official_recipes')
-    .update({ status: 'draft', updated_at: new Date().toISOString(), archived_at: null })
+  const { data, error } = await mobileTable(supabase, 'recettes')
+    .update({ statut_publication: 'brouillon', updated_at: new Date().toISOString() })
     .eq('id', params.id)
     .select('*')
     .single()
@@ -26,24 +26,28 @@ export default defineEventHandler(async (event) => {
   }
 
   await writeRecipePublicationHistory(supabase, {
-    recipe: data,
+    recipe: { ...existing, status: 'draft' },
     fromStatus: existing.status,
     toStatus: 'draft',
     userId: admin.userId,
     reason: parsed.data.reason,
   })
 
+  const updatedRow = data as Record<string, unknown>
+
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'update',
-    resourceType: 'official_recipe',
-    resourceId: data.id,
-    context: { slug: data.slug, fromStatus: existing.status, toStatus: data.status },
+    resourceType: 'course',
+    resourceId: String(updatedRow.id),
+    context: { slug: existing.slug, fromStatus: existing.status, toStatus: 'draft', table: 'recettes' },
   })
 
+  const updated = await getOfficialRecipeById(supabase, params.id)
+
   return {
-    data,
-    preview: buildRecipePreview(data),
+    data: updated,
+    preview: buildRecipePreview(updated),
     behavior: getUnpublishBehaviorMessage(),
   }
 })

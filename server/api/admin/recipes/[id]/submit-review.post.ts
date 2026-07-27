@@ -1,4 +1,5 @@
 import { officialRecipeParamsSchema, recipePublicationActionSchema } from '#shared/validation/course'
+import { mobileTable } from '../../../../utils/mobile-admin-mapping'
 
 export default defineEventHandler(async (event) => {
   const admin = await getSensitiveAdminContext(event)
@@ -20,9 +21,8 @@ export default defineEventHandler(async (event) => {
     throwApiError('INVALID_REQUEST', 'La recette contient encore des champs bloquants avant validation.')
   }
 
-  const { data, error } = await supabase
-    .from('official_recipes')
-    .update({ status: 'review', updated_at: new Date().toISOString(), archived_at: null })
+  const { data, error } = await mobileTable(supabase, 'recettes')
+    .update({ statut_publication: 'en_attente', updated_at: new Date().toISOString() })
     .eq('id', params.id)
     .select('*')
     .single()
@@ -32,20 +32,24 @@ export default defineEventHandler(async (event) => {
   }
 
   await writeRecipePublicationHistory(supabase, {
-    recipe: data,
+    recipe: { ...existing, status: 'review' },
     fromStatus: existing.status,
     toStatus: 'review',
     userId: admin.userId,
     reason: parsed.data.reason,
   })
 
+  const updatedRow = data as Record<string, unknown>
+
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'update',
-    resourceType: 'official_recipe',
-    resourceId: data.id,
-    context: { slug: data.slug, fromStatus: existing.status, toStatus: data.status },
+    resourceType: 'course',
+    resourceId: String(updatedRow.id),
+    context: { slug: existing.slug, fromStatus: existing.status, toStatus: 'review', table: 'recettes' },
   })
 
-  return { data, preview: buildRecipePreview(data) }
+  const updated = await getOfficialRecipeById(supabase, params.id)
+
+  return { data: updated, preview: buildRecipePreview(updated) }
 })

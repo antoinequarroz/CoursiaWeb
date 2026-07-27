@@ -1,4 +1,6 @@
 import { ingredientProductMatchQuerySchema } from '#shared/validation/ingredient-product-matching'
+import { mobileTable } from '../../../utils/mobile-admin-mapping'
+import { toVirtualIngredientProductMatch } from '../../../utils/ingredient-product-matching'
 
 export default defineEventHandler(async (event) => {
   const admin = await getSensitiveAdminContext(event)
@@ -6,16 +8,15 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, ingredientProductMatchQuerySchema.parse)
   const supabase = createSupabaseServiceRoleClient()
-  let request = supabase
-    .from('ingredient_product_matches')
+  let request = mobileTable(supabase, 'produits_canoniques')
     .select('*')
-    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(query.limit)
 
   if (query.ingredientId) request = request.eq('ingredient_id', query.ingredientId)
-  if (query.productId) request = request.eq('product_id', query.productId)
-  if (query.retailerId) request = request.eq('retailer_id', query.retailerId)
-  if (query.status) request = request.eq('status', query.status)
+  if (query.productId) request = request.eq('id', query.productId)
+  if (query.status === 'confirmed') request = request.not('ingredient_id', 'is', null)
+  if (query.status === 'ambiguous') request = request.is('ingredient_id', null)
 
   const { data, error } = await request
 
@@ -23,5 +24,20 @@ export default defineEventHandler(async (event) => {
     throwApiError('UPSTREAM_ERROR', 'Impossible de lister les correspondances.')
   }
 
-  return { data }
+  const productRows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const matches = await Promise.all(productRows.map(async (product) => {
+    const { data: offer } = await mobileTable(supabase, 'offres_magasin')
+      .select('*')
+      .eq('produit_canonique_id', product.id)
+      .limit(1)
+      .maybeSingle()
+
+    return toVirtualIngredientProductMatch(product, offer as Record<string, unknown> | null)
+  }))
+
+  return {
+    data: query.retailerId
+      ? matches.filter((match) => match.retailer_id === query.retailerId)
+      : matches,
+  }
 })

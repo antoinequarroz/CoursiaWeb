@@ -3,9 +3,38 @@ import {
   buildRecipeCsvIdempotencyKey,
   parseRecipeCsv,
   recipeCsvImportRequestSchema,
-  summarizeRecipeCsvImport,
-  validateRecipeCsvRows,
 } from '#shared/validation/recipe-import'
+
+type SupabaseRpcClient = {
+  rpc: (
+    functionName: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{
+    data: unknown
+    error: { message: string } | null
+  }>
+}
+
+const toMobileStatus = (status: string | undefined) => {
+  const statuses: Record<string, string> = {
+    draft: 'brouillon',
+    review: 'en_attente',
+    published: 'publiee',
+    archived: 'archivee',
+  }
+
+  return statuses[status ?? ''] ?? status ?? 'brouillon'
+}
+
+const toMobileDifficulty = (difficulty: string | undefined) => {
+  const difficulties: Record<string, string> = {
+    easy: 'facile',
+    medium: 'moyen',
+    hard: 'difficile',
+  }
+
+  return difficulties[difficulty ?? ''] ?? difficulty ?? ''
+}
 
 export default defineEventHandler(async (event) => {
   const admin = await getSensitiveAdminContext(event)
@@ -19,48 +48,30 @@ export default defineEventHandler(async (event) => {
   }
 
   const idempotencyKey = buildRecipeCsvIdempotencyKey(parsed.data.content)
-  const supabase = createSupabaseServiceRoleClient()
-  const { data: previousReport } = await supabase
-    .from('recipe_import_reports')
-    .select('*')
-    .eq('idempotency_key', idempotencyKey)
-    .maybeSingle()
-
-  if (previousReport) {
-    return { data: previousReport.report, idempotentReplay: true }
-  }
-
   const rows = parseRecipeCsv(parsed.data.content)
-  const { data: existingRecipes, error: existingError } = await supabase
-    .from('official_recipes')
-    .select('slug')
+  const lignes = rows.map((row) => ({
+    ligne: row.rowNumber,
+    cle_externe: row.slug ?? '',
+    titre: row.title ?? '',
+    statut_publication: toMobileStatus(row.status),
+    portions: row.portions ?? '',
+    temps_preparation: row.durationMinutes ?? '',
+    difficulte: toMobileDifficulty(row.difficulty),
+    source: row.source ?? '',
+    ingredients: [],
+    etapes: [],
+    regimes: row.categories ? row.categories.split(';').map((item) => item.trim()).filter(Boolean) : [],
+    allergenes: [],
+  }))
 
-  if (existingError) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de vérifier les recettes existantes.')
-  }
-
-  const existingSlugs = new Set((existingRecipes ?? []).map((recipe) => recipe.slug))
-  const reportRows = validateRecipeCsvRows(rows, existingSlugs)
-  const report = summarizeRecipeCsvImport(reportRows, idempotencyKey, parsed.data.dryRun)
-
-  if (!parsed.data.dryRun && (report.errors > 0 || report.duplicates > 0)) {
-    throwApiError(
-      'INVALID_REQUEST',
-      'Import refusé : corrigez les erreurs et doublons pour éviter un import partiel silencieux.',
-      report,
-    )
-  }
-
-  const { error: reportError } = await supabase.from('recipe_import_reports').insert({
-    idempotency_key: idempotencyKey,
-    file_name: parsed.data.fileName,
+  const supabase = createSupabaseServiceRoleClient()
+  const { data, error } = await (supabase as unknown as SupabaseRpcClient).rpc('fn_importer_recettes_csv', {
+    lignes: lignes as unknown as Json,
     dry_run: parsed.data.dryRun,
-    report: report as unknown as Json,
-    created_by: admin.userId,
   })
 
-  if (reportError) {
-    throwApiError('UPSTREAM_ERROR', 'Impossible de conserver le rapport d’import.')
+  if (error) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible d’exécuter l’import CSV des recettes.')
   }
 
   await writeAdminAuditLog(supabase, {
@@ -68,9 +79,18 @@ export default defineEventHandler(async (event) => {
     action: 'create',
     resourceType: 'official_recipe',
     resourceId: idempotencyKey,
-    context: { importReport: true, dryRun: parsed.data.dryRun, fileName: parsed.data.fileName },
+    context: {
+      importReport: true,
+      dryRun: parsed.data.dryRun,
+      fileName: parsed.data.fileName,
+      table: 'recettes',
+      importer: 'fn_importer_recettes_csv',
+    },
   })
 
-  return { data: report, idempotentReplay: false }
+  return {
+    data,
+    idempotencyKey,
+    idempotentReplay: false,
+  }
 })
-

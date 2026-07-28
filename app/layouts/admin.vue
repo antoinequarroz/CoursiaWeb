@@ -124,8 +124,14 @@ const logout = async () => {
               <p class="truncate text-sm font-bold text-[#101828]">Antoine Quarroz</p>
               <p class="truncate text-xs text-[#667085]">Profil admin</p>
             </div>
-            <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-[#667085] hover:bg-[#f7f4ed]" @click="logout">
-              OUT
+            <button
+              type="button"
+              class="grid h-8 w-8 place-items-center rounded-lg text-[#667085] transition hover:bg-[#f7f4ed] hover:text-[#101828]"
+              aria-label="Déconnexion"
+              title="Déconnexion"
+              @click="logout"
+            >
+              <AdminNavIcon name="logout" />
             </button>
           </div>
           <button
@@ -149,7 +155,9 @@ const logout = async () => {
 
           <label class="relative hidden min-w-[20rem] flex-1 md:block md:max-w-xl">
             <span class="sr-only">Recherche admin</span>
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-[#667085]">⌕</span>
+            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]">
+              <AdminNavIcon name="search" />
+            </span>
             <input
               v-model="search"
               type="search"
@@ -160,8 +168,13 @@ const logout = async () => {
           </label>
 
           <div class="flex shrink-0 items-center gap-2">
-            <button type="button" class="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e6e1d8] bg-white text-xs font-black text-[#344054] shadow-sm">
-              N
+            <button
+              type="button"
+              class="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e6e1d8] bg-white text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] hover:text-[#0f5a3d]"
+              aria-label="Notifications"
+              title="Notifications"
+            >
+              <AdminNavIcon name="notifications" />
               <span class="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#ff4d3d] text-[0.58rem] font-black text-white">3</span>
             </button>
             <BaseThemeToggle />

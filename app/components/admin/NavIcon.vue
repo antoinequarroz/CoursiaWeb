@@ -117,6 +117,22 @@ defineProps<{
       <path d="M13 13h5v5h-5z" />
     </template>
 
+    <template v-else-if="name === 'notifications'">
+      <path d="M18 9.8a6 6 0 0 0-12 0c0 7-2 7.2-2 8.2h16c0-1-2-.9-2-8.2Z" />
+      <path d="M9.8 20a2.4 2.4 0 0 0 4.4 0" />
+    </template>
+
+    <template v-else-if="name === 'logout'">
+      <path d="M10 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H10" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M18 12H9" />
+    </template>
+
+    <template v-else-if="name === 'search'">
+      <path d="M10.8 17.1a6.3 6.3 0 1 0 0-12.6 6.3 6.3 0 0 0 0 12.6Z" />
+      <path d="m16 16 3.5 3.5" />
+    </template>
+
     <template v-else>
       <path d="M12 5v14" />
       <path d="M5 12h14" />

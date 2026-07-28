@@ -71,13 +71,8 @@ const logout = async () => {
     <aside class="fixed inset-y-0 left-0 z-40 hidden w-[17.25rem] overflow-hidden border-r border-[#e6e1d8] bg-white/92 p-3 backdrop-blur-xl md:block">
       <div class="flex h-full min-h-0 flex-col">
         <div class="shrink-0 flex items-center justify-between rounded-2xl px-2 py-2">
-          <NuxtLink to="/admin" class="flex items-center gap-3" aria-label="Coursia admin">
-            <svg class="h-9 w-9 text-[#0f5a3d]" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-              <path d="M20 7c-7 1-11 6-11 13 7 1 13-3 14-10 4 2 7 6 7 11v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M15 28c8-2 17 1 22 8-10 6-21 3-24-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M14 35h20" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
-            </svg>
-            <span class="text-lg font-black tracking-[0.16em] text-[#0f2d27]">COURSIA</span>
+          <NuxtLink to="/admin" aria-label="Coursia admin">
+            <BaseBrandLogo icon-class="h-10 w-10" text-class="text-lg" />
           </NuxtLink>
           <span class="rounded-lg border border-[#e6e1d8] px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-[#667085]">
             admin

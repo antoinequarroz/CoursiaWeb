@@ -66,7 +66,7 @@ const createEmptyForm = (): OfficialRecipeMutation => ({
 const form = reactive<OfficialRecipeMutation>(createEmptyForm())
 const selectedRecipeId = ref<string | null>(null)
 const feedback = ref('')
-const loading = ref(false)
+const loading = ref(true)
 const saving = ref(false)
 const recipes = ref<AdminRecipeRow[]>([])
 const ingredientsCatalog = ref<AdminIngredientRow[]>([])
@@ -85,6 +85,36 @@ const visibleRecipes = computed(() =>
 )
 
 const hasMoreRecipes = computed(() => recipes.value.length > visibleRecipes.value.length)
+
+const activeFilterCount = computed(() =>
+  [filters.search.trim(), filters.status, filters.difficulty, filters.category.trim()].filter(Boolean).length,
+)
+
+const selectedRecipe = computed(() =>
+  recipes.value.find((recipe) => recipe.id === selectedRecipeId.value) ?? null,
+)
+
+const recipeQuery = computed(() => {
+  const query: Record<string, string | number> = { limit: 100 }
+
+  if (filters.search.trim()) {
+    query.search = filters.search.trim()
+  }
+
+  if (filters.status) {
+    query.status = filters.status
+  }
+
+  if (filters.difficulty) {
+    query.difficulty = filters.difficulty
+  }
+
+  if (filters.category.trim()) {
+    query.category = filters.category.trim()
+  }
+
+  return query
+})
 
 const recipeStats = computed(() => {
   const totals = {
@@ -182,6 +212,13 @@ const statusTone = (status: AdminRecipeRow['status'] | OfficialRecipeMutation['s
   return tones[status]
 }
 
+const statusDescriptions = {
+  draft: 'Travail interne, invisible dans l’app.',
+  review: 'Prêt à contrôler avant publication.',
+  published: 'Disponible côté utilisateur.',
+  archived: 'Retiré du catalogue actif.',
+} as const
+
 const difficultyLabel = (difficulty: AdminRecipeRow['difficulty'] | OfficialRecipeMutation['difficulty']) => {
   if (!difficulty) return 'À compléter'
 
@@ -221,6 +258,14 @@ const resetForm = () => {
   selectedRecipeId.value = null
   targetPortions.value = 4
   activeEditorTab.value = 'identity'
+}
+
+const clearFilters = async () => {
+  filters.search = ''
+  filters.status = ''
+  filters.difficulty = ''
+  filters.category = ''
+  await loadRecipes()
 }
 
 const scrollToEditor = () => {
@@ -287,13 +332,7 @@ const loadRecipes = async () => {
 
   try {
     const response = await $fetch<{ data: AdminRecipeRow[] }>('/api/admin/recipes', {
-      query: {
-        search: filters.search || undefined,
-        status: filters.status || undefined,
-        difficulty: filters.difficulty || undefined,
-        category: filters.category || undefined,
-        limit: 100,
-      },
+      query: recipeQuery.value,
     })
     recipes.value = response.data
     recipePage.value = 1
@@ -516,25 +555,45 @@ onMounted(() => {
     </div>
 
     <div class="grid gap-3 md:grid-cols-4">
-      <button type="button" class="admin-stat-card" @click="filters.status = ''; loadRecipes()">
-        <span>Total</span>
-        <strong>{{ recipeStats.all }}</strong>
+      <button
+        type="button"
+        class="admin-stat-card text-left transition hover:-translate-y-0.5"
+        :class="!filters.status ? 'ring-2 ring-[#0f2d27]/20' : ''"
+        @click="filters.status = ''; loadRecipes()"
+      >
+        <span class="admin-stat-label">Total</span>
+        <strong class="admin-stat-value">{{ recipeStats.all }}</strong>
       </button>
-      <button type="button" class="admin-stat-card" @click="filters.status = 'published'; loadRecipes()">
-        <span>Publiées</span>
-        <strong class="text-[#1f6b4a]">{{ recipeStats.published }}</strong>
+      <button
+        type="button"
+        class="admin-stat-card text-left transition hover:-translate-y-0.5"
+        :class="filters.status === 'published' ? 'ring-2 ring-[#22c55e]/25' : ''"
+        @click="filters.status = 'published'; loadRecipes()"
+      >
+        <span class="admin-stat-label">Publiées</span>
+        <strong class="admin-stat-value text-[#1f6b4a]">{{ recipeStats.published }}</strong>
       </button>
-      <button type="button" class="admin-stat-card" @click="filters.status = 'draft'; loadRecipes()">
-        <span>Brouillons</span>
-        <strong class="text-[#b85f16]">{{ recipeStats.draft }}</strong>
+      <button
+        type="button"
+        class="admin-stat-card text-left transition hover:-translate-y-0.5"
+        :class="filters.status === 'draft' ? 'ring-2 ring-[#f59e0b]/25' : ''"
+        @click="filters.status = 'draft'; loadRecipes()"
+      >
+        <span class="admin-stat-label">Brouillons</span>
+        <strong class="admin-stat-value text-[#b85f16]">{{ recipeStats.draft }}</strong>
       </button>
-      <button type="button" class="admin-stat-card" @click="filters.status = 'review'; loadRecipes()">
-        <span>En validation</span>
-        <strong class="text-[#d88400]">{{ recipeStats.review }}</strong>
+      <button
+        type="button"
+        class="admin-stat-card text-left transition hover:-translate-y-0.5"
+        :class="filters.status === 'review' ? 'ring-2 ring-[#ffb020]/25' : ''"
+        @click="filters.status = 'review'; loadRecipes()"
+      >
+        <span class="admin-stat-label">En validation</span>
+        <strong class="admin-stat-value text-[#d88400]">{{ recipeStats.review }}</strong>
       </button>
     </div>
 
-    <form class="admin-toolbar grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.8fr_auto]" @submit.prevent="loadRecipes">
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_auto]" @submit.prevent="loadRecipes">
       <label class="grid gap-1 text-sm font-bold text-[#344054]">
         Recherche
         <input v-model="filters.search" type="search" placeholder="Nom, slug, ingrédient..." />
@@ -558,8 +617,20 @@ onMounted(() => {
           <option value="hard">Difficile</option>
         </select>
       </label>
-      <div class="flex items-end">
+      <label class="grid gap-1 text-sm font-bold text-[#344054]">
+        Catégorie
+        <input v-model="filters.category" type="search" placeholder="rapide, famille..." />
+      </label>
+      <div class="flex items-end gap-2">
         <BaseButton type="submit" class="w-full" :disabled="loading">Appliquer</BaseButton>
+        <BaseButton
+          v-if="activeFilterCount"
+          type="button"
+          variant="ghost"
+          @click="clearFilters"
+        >
+          Effacer
+        </BaseButton>
       </div>
     </form>
 
@@ -568,7 +639,7 @@ onMounted(() => {
     </p>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]">
-      <section class="rounded-xl border border-[#e6e1d8] bg-white p-4 shadow-sm">
+      <section class="rounded-2xl border border-[#e6e1d8] bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between gap-4">
           <div>
             <h2 class="text-base font-black text-[#101828]">Catalogue</h2>
@@ -582,8 +653,19 @@ onMounted(() => {
         <div v-if="loading" class="mt-4 rounded-xl bg-[#fbf7f0] p-4 text-sm text-[#667085]">
           Chargement des recettes...
         </div>
-        <div v-else-if="recipes.length === 0" class="mt-4 rounded-xl bg-[#fbf7f0] p-4 text-sm text-[#667085]">
-          Aucune recette ne correspond aux filtres.
+        <div v-else-if="recipes.length === 0" class="mt-4 grid place-items-center rounded-2xl bg-[#fbf7f0] p-8 text-center">
+          <div class="max-w-sm">
+            <p class="text-sm font-semibold text-[#101828]">Aucune recette trouvée</p>
+            <p class="mt-2 text-sm text-[#667085]">
+              Aucun résultat ne correspond aux filtres actuels. Réinitialise les filtres ou crée une nouvelle fiche.
+            </p>
+            <div class="mt-4 flex justify-center gap-2">
+              <BaseButton v-if="activeFilterCount" type="button" variant="secondary" @click="clearFilters">
+                Réinitialiser
+              </BaseButton>
+              <BaseButton type="button" @click="startNewRecipe">Créer</BaseButton>
+            </div>
+          </div>
         </div>
 
         <div v-else class="mt-4 overflow-x-auto">
@@ -602,15 +684,23 @@ onMounted(() => {
               <tr
                 v-for="recipe in visibleRecipes"
                 :key="recipe.id"
-                :class="selectedRecipeId === recipe.id ? 'bg-[#eef7f1]' : ''"
+                class="transition hover:bg-[#fbfaf7]"
+                :class="selectedRecipeId === recipe.id ? 'bg-[#eef7f1] shadow-[inset_4px_0_0_#0f2d27]' : ''"
               >
                 <td>
-                  <button type="button" class="block max-w-[24rem] text-left" @click="selectRecipe(recipe)">
+                  <button type="button" class="block w-full max-w-[24rem] text-left" @click="selectRecipe(recipe)">
                     <span class="block truncate font-black text-[#101828]">{{ recipe.title || 'Recette sans titre' }}</span>
-                    <span class="block truncate text-xs text-[#667085]">{{ recipe.slug }} · {{ difficultyLabel(recipe.difficulty) }}</span>
+                    <span class="block truncate text-xs text-[#667085]">
+                      {{ recipe.slug }} · {{ difficultyLabel(recipe.difficulty) }} · {{ recipe.portions ?? '—' }} portions
+                    </span>
                   </button>
                 </td>
-                <td><BaseBadge :tone="statusTone(recipe.status)">{{ statusLabel(recipe.status) }}</BaseBadge></td>
+                <td>
+                  <div class="grid gap-1">
+                    <BaseBadge :tone="statusTone(recipe.status)">{{ statusLabel(recipe.status) }}</BaseBadge>
+                    <span class="text-xs text-[#98a2b3]">{{ statusDescriptions[recipe.status] }}</span>
+                  </div>
+                </td>
                 <td>{{ recipe.duration_minutes ?? '—' }} min</td>
                 <td>{{ formatCurrency(recipe.mobile?.estimatedCost) }}</td>
                 <td>{{ formatDate(recipe.updated_at) }}</td>
@@ -632,24 +722,31 @@ onMounted(() => {
       </section>
 
       <aside ref="editorRef" class="grid gap-4 scroll-mt-8">
-        <form class="rounded-xl border border-[#e6e1d8] bg-white p-4 shadow-sm" @submit.prevent="saveRecipe">
+        <form class="rounded-2xl border border-[#e6e1d8] bg-white p-4 shadow-sm" @submit.prevent="saveRecipe">
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-base font-black text-[#101828]">{{ editorTitle }}</h2>
               <p class="mt-1 text-sm text-[#667085]">{{ editorSubtitle }}</p>
+              <p v-if="selectedRecipe" class="mt-2 text-xs font-semibold text-[#667085]">
+                Sélection : {{ selectedRecipe.title }} · {{ formatDate(selectedRecipe.updated_at) }}
+              </p>
             </div>
             <BaseBadge :tone="statusTone(form.status)">{{ statusLabel(form.status) }}</BaseBadge>
           </div>
 
-          <div class="mt-3 rounded-xl border border-[#e6e1d8] bg-[#fbf7f0] px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#667085]">
-            {{ draftStatusLabel }}
+          <div class="mt-4 grid gap-2 rounded-2xl border border-[#e6e1d8] bg-[#fbf7f0] p-3 text-xs text-[#667085]">
+            <div class="flex items-center justify-between gap-3">
+              <span class="font-bold uppercase tracking-[0.12em]">{{ draftStatusLabel }}</span>
+              <span>{{ form.ingredients.length }} ingrédient(s) · {{ form.steps.length }} étape(s)</span>
+            </div>
+            <p>{{ statusDescriptions[form.status] }}</p>
           </div>
 
-          <div class="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-[#f4efe7] p-1 text-xs font-black text-[#667085]">
-            <button type="button" class="rounded-lg px-2 py-2 transition" :class="activeEditorTab === 'identity' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'identity'">Infos</button>
-            <button type="button" class="rounded-lg px-2 py-2 transition" :class="activeEditorTab === 'ingredients' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'ingredients'">Ingrédients</button>
-            <button type="button" class="rounded-lg px-2 py-2 transition" :class="activeEditorTab === 'steps' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'steps'">Étapes</button>
-            <button type="button" class="rounded-lg px-2 py-2 transition" :class="activeEditorTab === 'preview' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'preview'">Aperçu</button>
+          <div class="mt-4 grid grid-cols-4 gap-1 rounded-2xl bg-[#f4efe7] p-1 text-xs font-black text-[#667085]">
+            <button type="button" class="rounded-xl px-2 py-2 transition" :class="activeEditorTab === 'identity' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'identity'">Infos</button>
+            <button type="button" class="rounded-xl px-2 py-2 transition" :class="activeEditorTab === 'ingredients' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'ingredients'">Ingrédients</button>
+            <button type="button" class="rounded-xl px-2 py-2 transition" :class="activeEditorTab === 'steps' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'steps'">Étapes</button>
+            <button type="button" class="rounded-xl px-2 py-2 transition" :class="activeEditorTab === 'preview' ? 'bg-white text-[#0f3d34] shadow-sm' : 'hover:bg-white/60'" @click="activeEditorTab = 'preview'">Aperçu</button>
           </div>
 
           <div v-show="activeEditorTab === 'identity'" class="mt-4 grid gap-3">

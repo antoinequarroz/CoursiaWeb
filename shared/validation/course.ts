@@ -56,11 +56,14 @@ export const officialRecipeIngredientSchema = z.object({
   optional: z.boolean().default(false),
 })
 
+const optionalQueryString = <Schema extends z.ZodTypeAny>(schema: Schema) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
+
 export const officialRecipeListQuerySchema = z.object({
-  search: z.string().trim().max(120).optional(),
-  status: officialRecipeStatusSchema.optional(),
-  difficulty: officialRecipeDifficultySchema.optional(),
-  category: z.string().trim().max(80).optional(),
+  search: optionalQueryString(z.string().trim().max(120)),
+  status: optionalQueryString(officialRecipeStatusSchema),
+  difficulty: optionalQueryString(officialRecipeDifficultySchema),
+  category: optionalQueryString(z.string().trim().max(80)),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 })
 

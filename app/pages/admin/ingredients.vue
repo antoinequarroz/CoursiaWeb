@@ -1,159 +1,134 @@
 <script setup lang="ts">
-import {
-  allergenCodeSchema,
-  dietCodeSchema,
-  estimateIngredientCatalogImpact,
-  findIngredientCatalogConflicts,
-  type CanonicalIngredientInput,
-} from '#shared/validation/ingredient-catalog'
+import type { CanonicalIngredientInput } from '#shared/validation/ingredient-catalog'
 
 definePageMeta({
   layout: 'admin',
 })
 
-type IngredientRecord = Record<string, unknown>
 type IngredientUnit = CanonicalIngredientInput['units'][number]
-type AllergenCode = CanonicalIngredientInput['allergens'][number]
-type DietCode = CanonicalIngredientInput['diets'][number]
+type IngredientStatus = 'active' | 'archived'
 
-const unitOptions: IngredientUnit[] = ['g', 'kg', 'ml', 'l', 'piece', 'tbsp', 'tsp']
-const allergenOptions = allergenCodeSchema.options
-const dietOptions = dietCodeSchema.options
+type LinkedAllergen = {
+  code: string
+  label: string
+  certainty: string | null
+}
 
-const createEmptyForm = (): CanonicalIngredientInput => ({
-  name: '',
-  slug: '',
-  status: 'active',
-  synonyms: [],
-  units: ['g'],
-  categories: [],
-  allergens: [],
-  diets: [],
-  sensitive: false,
-})
+type IngredientRow = {
+  id: string
+  name: string
+  slug: string
+  status: IngredientStatus
+  units: IngredientUnit[]
+  categories: string[]
+  allergens: string[]
+  diets: string[]
+  sensitive: boolean
+  created_at?: string | null
+  updated_at?: string | null
+  archived_at?: string | null
+  usage_count?: number
+  linked_allergens?: LinkedAllergen[]
+  mobile?: {
+    table?: string
+    name?: string
+    aisle?: string | null
+    defaultUnit?: string | null
+  }
+}
 
-const form = reactive<CanonicalIngredientInput>(createEmptyForm())
+type IngredientForm = {
+  name: string
+  slug: string
+  unit: IngredientUnit
+  category: string
+}
+
+const unitOptions: Array<{ value: IngredientUnit, label: string }> = [
+  { value: 'g', label: 'Grammes' },
+  { value: 'kg', label: 'Kilogrammes' },
+  { value: 'ml', label: 'Millilitres' },
+  { value: 'l', label: 'Litres' },
+  { value: 'piece', label: 'Pièce' },
+  { value: 'tbsp', label: 'C. soupe' },
+  { value: 'tsp', label: 'C. café' },
+]
+
+const categoryOptions = [
+  'Fruits & Legumes',
+  'Viandes',
+  'Produits laitiers',
+  'Epicerie',
+  'Conserves',
+  'Surgeles',
+  'Boissons',
+  'Hygiene',
+]
 
 const filters = reactive({
   search: '',
-  allergen: '',
-  diet: '',
   status: '',
+  category: '',
 })
 
-const ingredients = ref<IngredientRecord[]>([])
-const selectedIngredientId = ref<string | null>(null)
-const mergeTargetId = ref('')
+const ingredients = ref<IngredientRow[]>([])
+const selectedIngredient = ref<IngredientRow | null>(null)
+const editorOpen = ref(false)
+const editingIngredientId = ref<string | null>(null)
+const loading = ref(false)
+const saving = ref(false)
+const actionPending = ref('')
 const feedback = ref('')
 const errorMessage = ref('')
-const loading = ref(true)
-const saving = ref(false)
-const synonymInput = ref('')
-const categoryInput = ref('')
 
-const toStringArray = (value: unknown) =>
-  Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : []
-
-const isIngredientUnit = (value: string): value is IngredientUnit =>
-  unitOptions.includes(value as IngredientUnit)
-
-const isAllergenCode = (value: string): value is AllergenCode =>
-  allergenOptions.includes(value as AllergenCode)
-
-const isDietCode = (value: string): value is DietCode => dietOptions.includes(value as DietCode)
-
-const unitLabels: Record<IngredientUnit, string> = {
-  g: 'Grammes',
-  kg: 'Kilogrammes',
-  ml: 'Millilitres',
-  l: 'Litres',
-  piece: 'Pièce',
-  tbsp: 'C. à soupe',
-  tsp: 'C. à café',
-}
-
-const allergenLabels: Record<AllergenCode, string> = {
-  gluten: 'Gluten',
-  milk: 'Lait',
-  eggs: 'Œufs',
-  peanuts: 'Arachides',
-  nuts: 'Fruits à coque',
-  soy: 'Soja',
-  fish: 'Poisson',
-  shellfish: 'Crustacés',
-  sesame: 'Sésame',
-}
-
-const dietLabels: Record<DietCode, string> = {
-  vegetarian: 'Végétarien',
-  vegan: 'Végan',
-  gluten_free: 'Sans gluten',
-  lactose_free: 'Sans lactose',
-  low_fodmap: 'Low FODMAP',
-}
-
-const impactPreview = computed(() =>
-  estimateIngredientCatalogImpact(Number(ingredients.value.length), form.synonyms.length),
-)
-
-const conflictPreview = computed(() =>
-  findIngredientCatalogConflicts([
-    { name: form.name, slug: form.slug, synonyms: form.synonyms },
-    ...ingredients.value
-      .filter((item) => String(item.id) !== selectedIngredientId.value)
-      .map((item) => ({
-        name: String(item.name ?? ''),
-        slug: String(item.slug ?? ''),
-        synonyms: toStringArray(item.synonyms),
-      })),
-  ]),
-)
-
-const visibleIngredients = computed(() => ingredients.value)
-
-const activeFilterCount = computed(() =>
-  [filters.search.trim(), filters.allergen, filters.diet, filters.status].filter(Boolean).length,
-)
-
-const selectedIngredient = computed(() =>
-  ingredients.value.find((ingredient) => String(ingredient.id) === selectedIngredientId.value) ?? null,
-)
-
-const ingredientStats = computed(() => ({
-  total: ingredients.value.length,
-  archived: ingredients.value.filter((ingredient) => ingredient.status === 'archived').length,
-  sensitive: ingredients.value.filter((ingredient) => Boolean(ingredient.sensitive)).length,
-  missingMetadata: ingredients.value.filter((ingredient) =>
-    !ingredient.sensitive
-    && toStringArray(ingredient.allergens).length === 0
-    && toStringArray(ingredient.diets).length === 0,
-  ).length,
-}))
+const form = reactive<IngredientForm>({
+  name: '',
+  slug: '',
+  unit: 'g',
+  category: '',
+})
 
 const ingredientQuery = computed(() => {
-  const query: Record<string, string | number> = { limit: 50 }
+  const query: Record<string, string | number> = { limit: 100 }
 
-  if (filters.search.trim()) {
-    query.search = filters.search.trim()
-  }
-
-  if (filters.allergen) {
-    query.allergen = filters.allergen
-  }
-
-  if (filters.diet) {
-    query.diet = filters.diet
-  }
-
-  if (filters.status) {
-    query.status = filters.status
-  }
+  if (filters.search.trim()) query.search = filters.search.trim()
+  if (filters.status) query.status = filters.status
 
   return query
 })
 
-const statusLabel = (status: unknown) => (status === 'archived' ? 'Archivé' : 'Actif')
-const statusTone = (status: unknown) => (status === 'archived' ? 'neutral' : 'success')
+const visibleIngredients = computed(() => {
+  if (!filters.category) return ingredients.value
+
+  return ingredients.value.filter((ingredient) =>
+    ingredient.categories.includes(filters.category)
+    || ingredient.mobile?.aisle === filters.category,
+  )
+})
+
+const stats = computed(() => ({
+  total: ingredients.value.length,
+  active: ingredients.value.filter((ingredient) => ingredient.status === 'active').length,
+  archived: ingredients.value.filter((ingredient) => ingredient.status === 'archived').length,
+  used: ingredients.value.filter((ingredient) => (ingredient.usage_count ?? 0) > 0).length,
+}))
+
+const selectedAllergens = computed(() => selectedIngredient.value?.linked_allergens ?? [])
+const selectedUsageCount = computed(() => selectedIngredient.value?.usage_count ?? 0)
+
+const activeFilterCount = computed(() =>
+  [filters.search.trim(), filters.status, filters.category].filter(Boolean).length,
+)
+
+const statusLabel: Record<IngredientStatus, string> = {
+  active: 'Actif',
+  archived: 'Archivé',
+}
+
+const statusTone: Record<IngredientStatus, 'success' | 'neutral'> = {
+  active: 'success',
+  archived: 'neutral',
+}
 
 const toSlug = (value: string) =>
   value
@@ -163,172 +138,161 @@ const toSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-const clearFilters = async () => {
-  filters.search = ''
-  filters.allergen = ''
-  filters.diet = ''
-  filters.status = ''
-  await loadIngredients()
-}
+const formatDate = (value: string | null | undefined) =>
+  value
+    ? new Date(value).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })
+    : 'Jamais'
 
 const resetForm = () => {
-  selectedIngredientId.value = null
-  mergeTargetId.value = ''
-  synonymInput.value = ''
-  categoryInput.value = ''
-  Object.assign(form, createEmptyForm())
-}
-
-const selectIngredient = (ingredient: IngredientRecord) => {
-  const units = toStringArray(ingredient.units).filter(isIngredientUnit)
-  selectedIngredientId.value = String(ingredient.id)
-  mergeTargetId.value = ''
   Object.assign(form, {
-    name: String(ingredient.name ?? ''),
-    slug: String(ingredient.slug ?? ''),
-    status: ingredient.status === 'archived' ? 'archived' : 'active',
-    synonyms: toStringArray(ingredient.synonyms),
-    units: units.length > 0 ? units : ['g'],
-    categories: toStringArray(ingredient.categories),
-    allergens: toStringArray(ingredient.allergens).filter(isAllergenCode),
-    diets: toStringArray(ingredient.diets).filter(isDietCode),
-    sensitive: Boolean(ingredient.sensitive),
+    name: '',
+    slug: '',
+    unit: 'g',
+    category: '',
   })
 }
+
+const buildPayload = (): CanonicalIngredientInput => ({
+  name: form.name,
+  slug: form.slug,
+  status: 'active',
+  synonyms: [],
+  units: [form.unit],
+  categories: form.category ? [form.category] : [],
+  allergens: [],
+  diets: [],
+  sensitive: false,
+})
 
 const loadIngredients = async () => {
   loading.value = true
   errorMessage.value = ''
 
   try {
-    const response = await $fetch<{ data: IngredientRecord[] }>('/api/admin/ingredients', {
+    const response = await $fetch<{ data: IngredientRow[] }>('/api/admin/ingredients', {
       query: ingredientQuery.value,
     })
+
     ingredients.value = response.data
-  } catch (error) {
+
+    if (selectedIngredient.value) {
+      selectedIngredient.value = ingredients.value.find((ingredient) => ingredient.id === selectedIngredient.value?.id) ?? null
+    }
+
+    if (!selectedIngredient.value && ingredients.value[0]) {
+      selectedIngredient.value = ingredients.value[0]
+    }
+  }
+  catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Chargement impossible.'
-  } finally {
+  }
+  finally {
     loading.value = false
   }
 }
 
-const saveIngredient = async () => {
-  if (conflictPreview.value.length > 0) {
-    feedback.value = ''
-    errorMessage.value = 'Conflit détecté : nom, slug ou synonyme déjà utilisé.'
-    return
-  }
+const selectIngredient = (ingredient: IngredientRow) => {
+  selectedIngredient.value = ingredient
+  editorOpen.value = false
+  editingIngredientId.value = null
+}
 
+const startCreate = () => {
+  selectedIngredient.value = null
+  editingIngredientId.value = null
+  resetForm()
+  editorOpen.value = true
+  feedback.value = ''
+  errorMessage.value = ''
+}
+
+const startEdit = () => {
+  if (!selectedIngredient.value) return
+
+  const ingredient = selectedIngredient.value
+  editingIngredientId.value = ingredient.id
+  Object.assign(form, {
+    name: ingredient.name,
+    slug: ingredient.slug,
+    unit: ingredient.units[0] ?? 'g',
+    category: ingredient.categories[0] ?? ingredient.mobile?.aisle ?? '',
+  })
+  editorOpen.value = true
+  feedback.value = ''
+  errorMessage.value = ''
+}
+
+const closeEditor = () => {
+  editorOpen.value = false
+  editingIngredientId.value = null
+  resetForm()
+}
+
+const saveIngredient = async () => {
   saving.value = true
+  feedback.value = ''
   errorMessage.value = ''
 
   try {
-    const endpoint = selectedIngredientId.value
-      ? `/api/admin/ingredients/${selectedIngredientId.value}`
+    const endpoint = editingIngredientId.value
+      ? `/api/admin/ingredients/${editingIngredientId.value}`
       : '/api/admin/ingredients'
-    const method = selectedIngredientId.value ? 'PUT' : 'POST'
+    const method = editingIngredientId.value ? 'PUT' : 'POST'
 
-    await $fetch(endpoint, { method, body: form })
-    feedback.value = selectedIngredientId.value ? 'Ingrédient modifié.' : 'Ingrédient créé.'
-    resetForm()
+    const response = await $fetch<{ data: IngredientRow }>(endpoint, {
+      method,
+      body: buildPayload(),
+    })
+
+    feedback.value = editingIngredientId.value ? 'Ingrédient modifié.' : 'Ingrédient créé.'
+    selectedIngredient.value = response.data
+    editorOpen.value = false
+    editingIngredientId.value = null
     await loadIngredients()
-  } catch (error) {
+  }
+  catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Enregistrement impossible.'
-  } finally {
+  }
+  finally {
     saving.value = false
   }
 }
 
-const addSynonym = () => {
-  const value = synonymInput.value.trim()
+const archiveIngredient = async (ingredient: IngredientRow) => {
+  if (!confirm(`Archiver « ${ingredient.name} » ?`)) return
 
-  if (value && !form.synonyms.includes(value)) {
-    form.synonyms.push(value)
-    synonymInput.value = ''
+  actionPending.value = `archive:${ingredient.id}`
+  feedback.value = ''
+  errorMessage.value = ''
+
+  try {
+    const response = await $fetch<{ data: IngredientRow }>(`/api/admin/ingredients/${ingredient.id}/archive`, {
+      method: 'POST',
+    })
+
+    feedback.value = 'Ingrédient archivé.'
+    selectedIngredient.value = response.data
+    await loadIngredients()
+  }
+  catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Archivage impossible.'
+  }
+  finally {
+    actionPending.value = ''
   }
 }
 
-const toggleUnit = (unit: IngredientUnit) => {
-  if (form.units.includes(unit)) {
-    if (form.units.length === 1) {
-      return
-    }
-
-    form.units = form.units.filter((item) => item !== unit)
-    return
-  }
-
-  form.units.push(unit)
-}
-
-const toggleAllergen = (allergen: AllergenCode) => {
-  if (form.allergens.includes(allergen)) {
-    form.allergens = form.allergens.filter((item) => item !== allergen)
-    return
-  }
-
-  form.allergens.push(allergen)
-}
-
-const toggleDiet = (diet: DietCode) => {
-  if (form.diets.includes(diet)) {
-    form.diets = form.diets.filter((item) => item !== diet)
-    return
-  }
-
-  form.diets.push(diet)
-}
-
-const removeSynonym = (synonym: string) => {
-  form.synonyms = form.synonyms.filter((item) => item !== synonym)
-}
-
-const addCategory = () => {
-  const value = categoryInput.value.trim()
-
-  if (value && !form.categories.includes(value)) {
-    form.categories.push(value)
-    categoryInput.value = ''
-  }
-}
-
-const removeCategory = (category: string) => {
-  form.categories = form.categories.filter((item) => item !== category)
-}
-
-const archiveIngredient = async (id: string) => {
-  const ingredient = ingredients.value.find((item) => String(item.id) === id)
-  if (ingredient && !confirm(`Archiver « ${String(ingredient.name ?? 'cet ingrédient')} » ?`)) {
-    return
-  }
-
-  await $fetch(`/api/admin/ingredients/${id}/archive`, { method: 'POST' })
-  feedback.value = 'Ingrédient archivé et audit enregistré.'
-  await loadIngredients()
-}
-
-const mergeIngredient = async (id: string) => {
-  if (!mergeTargetId.value.trim()) {
-    errorMessage.value = 'Ajoute un ID cible avant de fusionner.'
-    return
-  }
-
-  await $fetch(`/api/admin/ingredients/${id}/merge`, {
-    method: 'POST',
-    body: {
-      targetId: mergeTargetId.value.trim(),
-      reason: 'Fusion depuis l’administration',
-    },
-  })
-  feedback.value = 'Fusion auditée et impact affiché.'
-  resetForm()
+const clearFilters = async () => {
+  filters.search = ''
+  filters.status = ''
+  filters.category = ''
   await loadIngredients()
 }
 
 watch(
   () => form.name,
   (name) => {
-    if (!selectedIngredientId.value && !form.slug) {
+    if (!editingIngredientId.value && !form.slug) {
       form.slug = toSlug(name)
     }
   },
@@ -339,204 +303,172 @@ onMounted(loadIngredients)
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-98</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
-          Référentiel ingrédients
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Référentiel alimentaire</p>
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+          Ingrédients
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Gère les ingrédients canoniques, synonymes, unités, allergènes et régimes utilisés par
-          les recettes, la recherche et les filtres mobiles.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Catalogue canonique utilisé par les recettes, les listes de courses et la correspondance produits.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="secondary" @click="resetForm">Nouvel ingrédient</BaseButton>
-        <BaseButton type="button" :disabled="loading" @click="loadIngredients">
-          {{ loading ? 'Chargement...' : 'Rafraîchir' }}
+        <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadIngredients">
+          Rafraîchir
+        </BaseButton>
+        <BaseButton type="button" @click="startCreate">
+          Nouvel ingrédient
         </BaseButton>
       </div>
     </div>
 
-    <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-3 md:grid-cols-4">
+      <button type="button" class="admin-stat-card cursor-pointer text-left" :class="!filters.status ? 'ring-2 ring-coursia-primary/20' : ''" @click="filters.status = ''; loadIngredients()">
+        <span>Total</span>
+        <strong>{{ stats.total }}</strong>
+      </button>
+      <button type="button" class="admin-stat-card cursor-pointer text-left" :class="filters.status === 'active' ? 'ring-2 ring-coursia-success/25' : ''" @click="filters.status = 'active'; loadIngredients()">
+        <span>Actifs</span>
+        <strong class="text-coursia-success">{{ stats.active }}</strong>
+      </button>
+      <button type="button" class="admin-stat-card cursor-pointer text-left" :class="filters.status === 'archived' ? 'ring-2 ring-coursia-muted/20' : ''" @click="filters.status = 'archived'; loadIngredients()">
+        <span>Archivés</span>
+        <strong>{{ stats.archived }}</strong>
+      </button>
       <article class="admin-stat-card">
-        <span class="admin-stat-label">Ingrédients chargés</span>
-        <strong class="admin-stat-value">{{ ingredientStats.total }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span class="admin-stat-label">Archivés</span>
-        <strong class="admin-stat-value">{{ ingredientStats.archived }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span class="admin-stat-label">Sensibles</span>
-        <strong class="admin-stat-value">{{ ingredientStats.sensitive }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span class="admin-stat-label">À compléter</span>
-        <strong class="admin-stat-value">{{ ingredientStats.missingMetadata }}</strong>
+        <span>Utilisés</span>
+        <strong class="text-coursia-primary">{{ stats.used }}</strong>
       </article>
     </div>
 
-    <div class="admin-toolbar mt-6 grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto]">
-      <input
-        v-model="filters.search"
-        type="search"
-        placeholder="Rechercher un ingrédient ou un synonyme"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-        @keyup.enter="loadIngredients"
-      >
-      <select
-        v-model="filters.allergen"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-      >
-        <option value="">Tous allergènes</option>
-        <option v-for="allergen in allergenOptions" :key="allergen" :value="allergen">
-          {{ allergenLabels[allergen] }}
-        </option>
-      </select>
-      <select
-        v-model="filters.diet"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-      >
-        <option value="">Tous régimes</option>
-        <option v-for="diet in dietOptions" :key="diet" :value="diet">{{ dietLabels[diet] }}</option>
-      </select>
-      <select
-        v-model="filters.status"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-      >
-        <option value="">Tous statuts</option>
-        <option value="active">Actif</option>
-        <option value="archived">Archivé</option>
-      </select>
-      <div class="flex gap-2">
-        <BaseButton type="button" variant="secondary" @click="loadIngredients">Filtrer</BaseButton>
-        <BaseButton
-          v-if="activeFilterCount"
-          type="button"
-          variant="ghost"
-          @click="clearFilters"
-        >
-          Effacer
-        </BaseButton>
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.8fr_auto]" @submit.prevent="loadIngredients">
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Recherche
+        <input v-model="filters.search" type="search" placeholder="Nom ou rayon..." />
+      </label>
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Rayon
+        <select v-model="filters.category">
+          <option value="">Tous</option>
+          <option v-for="category in categoryOptions" :key="category" :value="category">
+            {{ category }}
+          </option>
+        </select>
+      </label>
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Statut
+        <select v-model="filters.status">
+          <option value="">Tous</option>
+          <option value="active">Actif</option>
+          <option value="archived">Archivé</option>
+        </select>
+      </label>
+      <div class="flex items-end gap-2">
+        <BaseButton type="submit" :disabled="loading">Appliquer</BaseButton>
+        <BaseButton v-if="activeFilterCount" type="button" variant="ghost" @click="clearFilters">Effacer</BaseButton>
       </div>
-    </div>
+    </form>
 
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
+    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
+    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
       {{ errorMessage }}
     </p>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-        <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Catalogue</h2>
-            <p class="mt-1 text-xs text-[#667085]">{{ ingredients.length }} ingrédients chargés</p>
+            <h2 class="text-base font-black text-coursia-foreground">Catalogue</h2>
+            <p class="mt-1 text-xs text-coursia-muted">{{ visibleIngredients.length }} ingrédient(s) affiché(s)</p>
           </div>
-          <BaseBadge tone="neutral">Source Supabase</BaseBadge>
+          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
         </div>
 
-        <div v-if="loading" class="p-5 text-sm text-[#667085]">Chargement du catalogue...</div>
+        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
+          Chargement du catalogue...
+        </div>
+
         <div v-else-if="visibleIngredients.length === 0" class="grid place-items-center p-10 text-center">
           <div class="max-w-sm">
-            <p class="text-sm font-semibold text-[#101828]">Aucun ingrédient trouvé</p>
-            <p class="mt-2 text-sm text-[#667085]">
-              Aucun résultat ne correspond aux filtres actuels. Supprime les filtres ou crée un nouvel ingrédient.
-            </p>
+            <p class="font-black text-coursia-foreground">Aucun ingrédient trouvé</p>
+            <p class="mt-2 text-sm text-coursia-muted">Aucun résultat ne correspond aux filtres actuels.</p>
             <div class="mt-4 flex justify-center gap-2">
               <BaseButton v-if="activeFilterCount" type="button" variant="secondary" @click="clearFilters">
                 Réinitialiser
               </BaseButton>
-              <BaseButton type="button" @click="resetForm">Créer</BaseButton>
+              <BaseButton type="button" @click="startCreate">Créer</BaseButton>
             </div>
           </div>
         </div>
+
         <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-            <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+          <table class="min-w-[52rem]">
+            <thead>
               <tr>
-                <th class="px-5 py-3">Ingrédient</th>
-                <th class="px-5 py-3">Unités</th>
-                <th class="px-5 py-3">Sécurité alimentaire</th>
-                <th class="px-5 py-3">Statut</th>
-                <th class="px-5 py-3 text-right">Actions</th>
+                <th>Ingrédient</th>
+                <th>Rayon</th>
+                <th>Unité</th>
+                <th>Usage</th>
+                <th>Allergènes liés</th>
+                <th>Statut</th>
+                <th class="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#eee8df]">
+            <tbody>
               <tr
                 v-for="ingredient in visibleIngredients"
-                :key="String(ingredient.id)"
-                class="cursor-pointer transition hover:bg-[#fbfaf7]"
-                :class="String(ingredient.id) === selectedIngredientId
-                  ? 'bg-[#f0f7f3] shadow-[inset_4px_0_0_#0f2d27]'
-                  : ''"
+                :key="ingredient.id"
+                class="cursor-pointer transition"
+                :class="selectedIngredient?.id === ingredient.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
                 @click="selectIngredient(ingredient)"
               >
-                <td class="px-5 py-4">
-                  <button
-                    type="button"
-                    class="w-full cursor-pointer text-left"
-                    @click="selectIngredient(ingredient)"
-                  >
-                    <span class="block font-semibold text-[#101828]">{{ ingredient.name }}</span>
-                    <span class="mt-1 block text-xs text-[#667085]">{{ ingredient.slug }}</span>
-                    <span v-if="toStringArray(ingredient.synonyms).length" class="mt-2 block text-xs text-[#98a2b3]">
-                      {{ toStringArray(ingredient.synonyms).slice(0, 3).join(', ') }}
-                    </span>
-                  </button>
+                <td>
+                  <span class="block max-w-[18rem] truncate font-black text-coursia-foreground">{{ ingredient.name }}</span>
+                  <span class="mt-1 block max-w-[18rem] truncate text-xs text-coursia-muted">{{ ingredient.slug }}</span>
                 </td>
-                <td class="px-5 py-4 text-[#667085]">
-                  {{ toStringArray(ingredient.units).join(', ') || '—' }}
+                <td class="text-sm text-coursia-muted">
+                  {{ ingredient.categories[0] ?? ingredient.mobile?.aisle ?? '—' }}
                 </td>
-                <td class="px-5 py-4">
-                  <div class="flex max-w-sm flex-wrap gap-1.5">
-                    <BaseBadge
-                      v-if="ingredient.sensitive"
-                      tone="warning"
-                    >
-                      sensible
-                    </BaseBadge>
-                    <BaseBadge
-                      v-for="allergen in toStringArray(ingredient.allergens).slice(0, 3)"
-                      :key="allergen"
-                      tone="danger"
-                    >
-                      {{ isAllergenCode(allergen) ? allergenLabels[allergen] : allergen }}
-                    </BaseBadge>
-                    <BaseBadge
-                      v-for="diet in toStringArray(ingredient.diets).slice(0, 3)"
-                      :key="diet"
-                      tone="success"
-                    >
-                      {{ isDietCode(diet) ? dietLabels[diet] : diet }}
-                    </BaseBadge>
-                    <span
-                      v-if="!ingredient.sensitive && !toStringArray(ingredient.allergens).length && !toStringArray(ingredient.diets).length"
-                      class="text-xs text-[#98a2b3]"
-                    >
-                      Non renseigné
-                    </span>
-                  </div>
+                <td class="text-sm text-coursia-muted">
+                  {{ ingredient.units.join(', ') || '—' }}
                 </td>
-                <td class="px-5 py-4">
-                  <BaseBadge :tone="statusTone(ingredient.status)">
-                    {{ statusLabel(ingredient.status) }}
+                <td>
+                  <BaseBadge :tone="(ingredient.usage_count ?? 0) > 0 ? 'primary' : 'neutral'">
+                    {{ ingredient.usage_count ?? 0 }} recette(s)
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4" @click.stop>
+                <td>
+                  <div class="flex max-w-[16rem] flex-wrap gap-1.5">
+                    <BaseBadge
+                      v-for="allergen in ingredient.linked_allergens?.slice(0, 2)"
+                      :key="`${ingredient.id}-${allergen.code}`"
+                      tone="danger"
+                    >
+                      {{ allergen.label }}
+                    </BaseBadge>
+                    <span v-if="!ingredient.linked_allergens?.length" class="text-xs text-coursia-muted">Aucun</span>
+                  </div>
+                </td>
+                <td>
+                  <BaseBadge :tone="statusTone[ingredient.status]">
+                    {{ statusLabel[ingredient.status] }}
+                  </BaseBadge>
+                </td>
+                <td @click.stop>
                   <div class="flex justify-end gap-2">
-                    <BaseButton size="sm" variant="secondary" type="button" @click="selectIngredient(ingredient)">
+                    <BaseButton size="sm" variant="secondary" type="button" @click="selectIngredient(ingredient); startEdit()">
                       Modifier
                     </BaseButton>
                     <BaseButton
                       size="sm"
                       variant="ghost"
                       type="button"
-                      @click="archiveIngredient(String(ingredient.id))"
+                      :disabled="ingredient.status === 'archived' || actionPending === `archive:${ingredient.id}`"
+                      @click="archiveIngredient(ingredient)"
                     >
                       Archiver
                     </BaseButton>
@@ -548,263 +480,144 @@ onMounted(loadIngredients)
         </div>
       </section>
 
-      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]" @submit.prevent="saveIngredient">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">
-              {{ selectedIngredientId ? 'Modification' : 'Création' }}
-            </p>
-            <h2 class="mt-2 text-lg font-semibold text-[#101828]">Fiche ingrédient</h2>
-            <p v-if="selectedIngredient" class="mt-1 text-xs text-[#667085]">
-              Sélection : {{ selectedIngredient.name }}
-            </p>
-          </div>
-          <BaseButton v-if="selectedIngredientId" type="button" size="sm" variant="ghost" @click="resetForm">
-            Annuler
-          </BaseButton>
-        </div>
-
-        <div class="mt-5 grid gap-4">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Nom
-            <input
-              v-model="form.name"
-              required
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-            >
-          </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Slug
-            <input
-              v-model="form.slug"
-              required
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-            >
-          </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Statut
-            <select
-              v-model="form.status"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-            >
-              <option value="active">Actif</option>
-              <option value="archived">Archivé</option>
-            </select>
-          </label>
-        </div>
-
-        <fieldset class="mt-5 rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-3">
+      <aside class="grid gap-4">
+        <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <legend class="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">
-                Unités compatibles
-              </legend>
-              <p class="mt-1 text-xs text-[#98a2b3]">
-                Choisis les unités autorisées pour les quantités. Une unité minimum est requise.
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">
+                {{ editingIngredientId ? 'Modification' : 'Création' }}
               </p>
+              <h2 class="mt-1 text-lg font-black text-coursia-foreground">Fiche ingrédient</h2>
             </div>
-            <BaseBadge tone="neutral">{{ form.units.length }}</BaseBadge>
-          </div>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button
-              v-for="unit in unitOptions"
-              :key="unit"
-              type="button"
-              class="rounded-full border px-3 py-2 text-left text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-coursia-primary/30"
-              :class="form.units.includes(unit)
-                ? 'border-[#0f2d27] bg-[#0f2d27] text-white shadow-sm'
-                : 'border-[#e6e1d8] bg-white text-[#667085] hover:border-[#a6c1b1] hover:text-[#0f2d27]'"
-              :aria-pressed="form.units.includes(unit)"
-              @click="toggleUnit(unit)"
-            >
-              <span class="block leading-none">{{ unit }}</span>
-              <span class="mt-1 block text-[10px] font-medium opacity-75">{{ unitLabels[unit] }}</span>
+            <button type="button" class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted" @click="closeEditor">
+              Fermer
             </button>
           </div>
 
-          <p class="mt-3 text-xs text-[#667085]">
-            Sélection actuelle : <span class="font-semibold text-[#344054]">{{ form.units.join(', ') }}</span>
-          </p>
-        </fieldset>
-
-        <div class="mt-5 grid gap-4">
-          <div>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              Synonymes
-              <div class="flex gap-2">
-                <input
-                  v-model="synonymInput"
-                  class="min-w-0 flex-1 rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-                  @keyup.enter.prevent="addSynonym"
-                >
-                <BaseButton type="button" size="sm" variant="secondary" @click="addSynonym">Ajouter</BaseButton>
-              </div>
+          <form class="mt-4 grid gap-4" @submit.prevent="saveIngredient">
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Nom
+              <input v-model="form.name" required placeholder="Ex. Tomate" />
             </label>
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              <button
-                v-for="synonym in form.synonyms"
-                :key="synonym"
-                type="button"
-                class="inline-flex items-center gap-2 rounded-full border border-[#d6e6dc] bg-[#f1f5f3] px-3 py-1.5 text-xs font-semibold text-[#344054] transition hover:border-[#0f2d27] hover:text-[#0f2d27]"
-                @click="removeSynonym(synonym)"
-              >
-                <span>{{ synonym }}</span>
-                <span aria-hidden="true" class="text-[#98a2b3]">×</span>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              Catégories
-              <div class="flex gap-2">
-                <input
-                  v-model="categoryInput"
-                  class="min-w-0 flex-1 rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-                  @keyup.enter.prevent="addCategory"
-                >
-                <BaseButton type="button" size="sm" variant="secondary" @click="addCategory">Ajouter</BaseButton>
-              </div>
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Slug
+              <input v-model="form.slug" required placeholder="tomate" />
             </label>
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              <button
-                v-for="category in form.categories"
-                :key="category"
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Rayon
+              <select v-model="form.category">
+                <option value="">Non classé</option>
+                <option v-for="category in categoryOptions" :key="category" :value="category">
+                  {{ category }}
+                </option>
+              </select>
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Unité par défaut
+              <select v-model="form.unit">
+                <option v-for="unit in unitOptions" :key="unit.value" :value="unit.value">
+                  {{ unit.value }} · {{ unit.label }}
+                </option>
+              </select>
+            </label>
+
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">Périmètre actuel</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">
+                Cette sauvegarde met à jour les champs branchés aujourd’hui sur la table mobile :
+                nom, rayon et unité par défaut. Les synonymes, régimes et règles avancées d’allergènes
+                seront à traiter dans une passe dédiée.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 border-t border-coursia-border pt-4">
+              <BaseButton type="submit" :disabled="saving">
+                {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+              </BaseButton>
+              <BaseButton type="button" variant="secondary" @click="closeEditor">Annuler</BaseButton>
+            </div>
+          </form>
+        </section>
+
+        <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <div v-if="!selectedIngredient" class="grid place-items-center rounded-2xl bg-coursia-surface-muted p-8 text-center">
+            <div>
+              <p class="font-black text-coursia-foreground">Sélectionne un ingrédient</p>
+              <p class="mt-2 text-sm text-coursia-muted">Le détail et les actions apparaîtront ici.</p>
+            </div>
+          </div>
+
+          <template v-else>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h2 class="truncate text-lg font-black text-coursia-foreground">{{ selectedIngredient.name }}</h2>
+                <p class="mt-1 truncate text-sm text-coursia-muted">{{ selectedIngredient.slug }}</p>
+              </div>
+              <BaseBadge :tone="statusTone[selectedIngredient.status]">
+                {{ statusLabel[selectedIngredient.status] }}
+              </BaseBadge>
+            </div>
+
+            <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Rayon</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedIngredient.categories[0] ?? selectedIngredient.mobile?.aisle ?? '—' }}</dd>
+              </div>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Unité</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedIngredient.units.join(', ') || '—' }}</dd>
+              </div>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Usage recettes</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedUsageCount }}</dd>
+              </div>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Dernière MAJ</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ formatDate(selectedIngredient.updated_at) }}</dd>
+              </div>
+            </dl>
+
+            <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-sm font-black text-coursia-foreground">Allergènes liés</p>
+                <BaseBadge :tone="selectedAllergens.length ? 'danger' : 'neutral'">{{ selectedAllergens.length }}</BaseBadge>
+              </div>
+              <div v-if="selectedAllergens.length" class="mt-3 grid gap-2">
+                <div
+                  v-for="allergen in selectedAllergens"
+                  :key="allergen.code"
+                  class="flex items-center justify-between gap-3 rounded-xl bg-coursia-surface px-3 py-2 text-sm"
+                >
+                  <span class="font-bold text-coursia-foreground">{{ allergen.label }}</span>
+                  <span class="text-xs text-coursia-muted">{{ allergen.certainty ?? 'certitude inconnue' }}</span>
+                </div>
+              </div>
+              <p v-else class="mt-3 text-sm text-coursia-muted">
+                Aucun allergène lié dans le référentiel actuel.
+              </p>
+            </div>
+
+            <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">Impact mobile</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">
+                Modifier cet ingrédient peut affecter les recettes, les quantités et la correspondance avec les produits magasins.
+              </p>
+            </div>
+
+            <div class="mt-4 grid gap-2">
+              <BaseButton type="button" @click="startEdit">Modifier</BaseButton>
+              <BaseButton
                 type="button"
-                class="inline-flex items-center gap-2 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1.5 text-xs font-semibold text-[#7a4b2b] transition hover:border-[#ff7a59] hover:text-[#9a3412]"
-                @click="removeCategory(category)"
+                variant="secondary"
+                :disabled="selectedIngredient.status === 'archived' || actionPending === `archive:${selectedIngredient.id}`"
+                @click="archiveIngredient(selectedIngredient)"
               >
-                <span>{{ category }}</span>
-                <span aria-hidden="true" class="text-[#c98b58]">×</span>
-              </button>
+                Archiver
+              </BaseButton>
             </div>
-          </div>
-        </div>
-
-        <fieldset class="mt-5 rounded-2xl border border-[#fee4e2] bg-[#fff7f5] p-3">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <legend class="text-xs font-semibold uppercase tracking-[0.14em] text-[#b42318]">
-                Allergènes
-              </legend>
-              <p class="mt-1 text-xs text-[#667085]">
-                Marque uniquement les allergènes réellement concernés. Ces données servent aux filtres mobiles.
-              </p>
-            </div>
-            <BaseBadge tone="danger">{{ form.allergens.length }}</BaseBadge>
-          </div>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button
-              v-for="allergen in allergenOptions"
-              :key="allergen"
-              type="button"
-              class="rounded-full border px-3 py-2 text-left text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#ef4444]/25"
-              :class="form.allergens.includes(allergen)
-                ? 'border-[#ef4444] bg-[#ef4444] text-white shadow-sm'
-                : 'border-[#fee4e2] bg-white text-[#667085] hover:border-[#fda29b] hover:text-[#b42318]'"
-              :aria-pressed="form.allergens.includes(allergen)"
-              @click="toggleAllergen(allergen)"
-            >
-              <span class="block leading-none">{{ allergenLabels[allergen] }}</span>
-              <span class="mt-1 block font-mono text-[10px] font-medium opacity-75">{{ allergen }}</span>
-            </button>
-          </div>
-        </fieldset>
-
-        <fieldset class="mt-5 rounded-2xl border border-[#d1fadf] bg-[#f6fef9] p-3">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <legend class="text-xs font-semibold uppercase tracking-[0.14em] text-[#027a48]">
-                Régimes
-              </legend>
-              <p class="mt-1 text-xs text-[#667085]">
-                Indique les régimes compatibles pour améliorer la recherche et les recommandations.
-              </p>
-            </div>
-            <BaseBadge tone="success">{{ form.diets.length }}</BaseBadge>
-          </div>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button
-              v-for="diet in dietOptions"
-              :key="diet"
-              type="button"
-              class="rounded-full border px-3 py-2 text-left text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#22c55e]/25"
-              :class="form.diets.includes(diet)
-                ? 'border-[#22c55e] bg-[#22c55e] text-white shadow-sm'
-                : 'border-[#d1fadf] bg-white text-[#667085] hover:border-[#7ee3a2] hover:text-[#027a48]'"
-              :aria-pressed="form.diets.includes(diet)"
-              @click="toggleDiet(diet)"
-            >
-              <span class="block leading-none">{{ dietLabels[diet] }}</span>
-              <span class="mt-1 block font-mono text-[10px] font-medium opacity-75">{{ diet }}</span>
-            </button>
-          </div>
-        </fieldset>
-
-        <label
-          class="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[#e6e1d8] bg-white px-4 py-3 text-sm text-[#344054] transition hover:border-[#a6c1b1]"
-        >
-          <span>
-            <span class="block font-semibold text-[#101828]">Donnée sensible</span>
-            <span class="mt-1 block text-xs text-[#667085]">
-              Active une attention renforcée pour la sécurité alimentaire.
-            </span>
-          </span>
-          <span
-            class="relative inline-flex h-6 w-11 shrink-0 rounded-full transition"
-            :class="form.sensitive ? 'bg-[#0f2d27]' : 'bg-[#e6e1d8]'"
-          >
-            <input v-model="form.sensitive" type="checkbox" class="sr-only">
-            <span
-              class="absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition"
-              :class="form.sensitive ? 'left-6' : 'left-1'"
-            />
-          </span>
-        </label>
-
-        <div class="mt-5 grid gap-2 rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-4 text-xs text-[#667085]">
-          <div class="flex items-center justify-between gap-3">
-            <span class="font-black uppercase tracking-[0.14em] text-[#344054]">Impact estimé</span>
-            <BaseBadge :tone="impactPreview.requiresReview ? 'warning' : 'success'">
-              {{ impactPreview.requiresReview ? 'Revue requise' : 'Faible risque' }}
-            </BaseBadge>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <span class="rounded-xl bg-white px-3 py-2">{{ impactPreview.affectedRecipes }} recettes</span>
-            <span class="rounded-xl bg-white px-3 py-2">{{ impactPreview.affectedSynonyms }} synonymes</span>
-          </div>
-        </div>
-
-        <div v-if="selectedIngredientId" class="mt-5 rounded-2xl border border-[#e6e1d8] p-4">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Fusionner vers l’ID cible
-            <input
-              v-model="mergeTargetId"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-            >
-          </label>
-          <BaseButton
-            class="mt-3"
-            type="button"
-            size="sm"
-            variant="secondary"
-            @click="mergeIngredient(selectedIngredientId)"
-          >
-            Fusionner
-          </BaseButton>
-        </div>
-
-        <div v-if="conflictPreview.length > 0" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-xs text-coursia-danger">
-          {{ conflictPreview.length }} conflit(s) détecté(s). Corrige le nom, le slug ou les synonymes avant d’enregistrer.
-        </div>
-
-        <BaseButton class="mt-5 w-full" type="submit" :disabled="saving">
-          {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
-        </BaseButton>
-      </form>
+          </template>
+        </section>
+      </aside>
     </div>
   </section>
 </template>

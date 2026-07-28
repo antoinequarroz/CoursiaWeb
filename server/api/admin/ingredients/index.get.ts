@@ -29,5 +29,57 @@ export default defineEventHandler(async (event) => {
     throwApiError('UPSTREAM_ERROR', 'Impossible de lister les ingrédients mobile.')
   }
 
-  return { data: Array.isArray(data) ? data.map(toAdminIngredientRow) : [] }
+  const rows = Array.isArray(data) ? data.map(toAdminIngredientRow) : []
+  const ingredientIds = rows.map((ingredient) => ingredient.id)
+
+  if (ingredientIds.length === 0) {
+    return { data: rows }
+  }
+
+  const [usageResult, allergenResult] = await Promise.all([
+    mobileTable(supabase, 'recette_ingredients')
+      .select('ingredient_id')
+      .in('ingredient_id', ingredientIds),
+    mobileTable(supabase, 'ingredient_allergenes')
+      .select('ingredient_id,certitude,allergenes(code,libelle)')
+      .in('ingredient_id', ingredientIds),
+  ])
+
+  const usageCounts = new Map<string, number>()
+  const usageRows = Array.isArray(usageResult.data)
+    ? usageResult.data as Array<Record<string, unknown>>
+    : []
+
+  for (const usage of usageRows) {
+    const id = String(usage.ingredient_id ?? '')
+    usageCounts.set(id, (usageCounts.get(id) ?? 0) + 1)
+  }
+
+  const allergensByIngredient = new Map<string, Array<{ code: string, label: string, certainty: string | null }>>()
+  const allergenRows = Array.isArray(allergenResult.data)
+    ? allergenResult.data as Array<Record<string, unknown>>
+    : []
+
+  for (const link of allergenRows) {
+    const id = String(link.ingredient_id ?? '')
+    const allergen = link.allergenes as Record<string, unknown> | null | undefined
+    const current = allergensByIngredient.get(id) ?? []
+
+    if (allergen?.code) {
+      current.push({
+        code: String(allergen.code),
+        label: String(allergen.libelle ?? allergen.code),
+        certainty: typeof link.certitude === 'string' ? link.certitude : null,
+      })
+      allergensByIngredient.set(id, current)
+    }
+  }
+
+  return {
+    data: rows.map((ingredient) => ({
+      ...ingredient,
+      usage_count: usageCounts.get(ingredient.id) ?? 0,
+      linked_allergens: allergensByIngredient.get(ingredient.id) ?? [],
+    })),
+  }
 })

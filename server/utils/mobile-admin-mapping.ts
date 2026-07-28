@@ -14,6 +14,7 @@ type QueryBuilder = PromiseLike<QueryResult> & {
   update: (payload: unknown) => QueryBuilder
   delete: () => QueryBuilder
   eq: (column: string, value: unknown) => QueryBuilder
+  in: (column: string, values: unknown[]) => QueryBuilder
   is: (column: string, value: unknown) => QueryBuilder
   not: (column: string, operator: string, value: unknown) => QueryBuilder
   or: (filters: string) => QueryBuilder

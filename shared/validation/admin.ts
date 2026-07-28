@@ -37,6 +37,7 @@ export const adminAuditResourceTypeSchema = z.enum([
   'moderation_case',
   'support_case',
   'admin_settings',
+  'notification',
 ])
 
 export const adminAuditLogQuerySchema = z

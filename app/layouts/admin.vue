@@ -7,7 +7,21 @@ const search = ref('')
 const currentRole = ref<AdminRole>('super_administrator')
 const notificationPanelOpen = ref(false)
 const unreadNotifications = useState('admin-unread-notifications', () => 0)
+const notificationPending = ref(false)
+const notificationError = ref('')
+const notificationsLoaded = ref(false)
 const visibleNavigation = computed(() => filterAdminNavigationForRole(currentRole.value))
+
+type AdminNotification = {
+  id: string
+  titre: string
+  message: string
+  type: string
+  lue: boolean | null
+  created_at: string | null
+}
+
+const notifications = ref<AdminNotification[]>([])
 
 const navigationIcon = (path: string) => {
   const icons: Record<string, string> = {
@@ -67,6 +81,77 @@ const notificationLabel = computed(() => {
 
 watch(() => route.fullPath, () => {
   notificationPanelOpen.value = false
+})
+
+const formatNotificationDate = (value: string | null) => {
+  if (!value) {
+    return 'Date inconnue'
+  }
+
+  return new Date(value).toLocaleString('fr-CH', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  })
+}
+
+const loadNotifications = async () => {
+  notificationPending.value = true
+  notificationError.value = ''
+
+  try {
+    const response = await $fetch<{
+      data: AdminNotification[]
+      unreadCount: number
+    }>('/api/admin/notifications', {
+      query: {
+        limit: 10,
+      },
+    })
+
+    notifications.value = response.data
+    unreadNotifications.value = response.unreadCount
+    notificationsLoaded.value = true
+  }
+  catch {
+    notificationError.value = 'Impossible de charger les notifications.'
+  }
+  finally {
+    notificationPending.value = false
+  }
+}
+
+const toggleNotifications = async () => {
+  notificationPanelOpen.value = !notificationPanelOpen.value
+
+  if (notificationPanelOpen.value && !notificationsLoaded.value) {
+    await loadNotifications()
+  }
+}
+
+const markNotificationAsRead = async (notification: AdminNotification) => {
+  if (notification.lue) {
+    return
+  }
+
+  try {
+    const response = await $fetch<{
+      data: AdminNotification
+    }>(`/api/admin/notifications/${notification.id}/read`, {
+      method: 'POST',
+    })
+
+    notifications.value = notifications.value.map((item) =>
+      item.id === notification.id ? response.data : item,
+    )
+    unreadNotifications.value = Math.max(0, unreadNotifications.value - 1)
+  }
+  catch {
+    notificationError.value = 'Impossible de marquer la notification comme lue.'
+  }
+}
+
+onMounted(() => {
+  void loadNotifications()
 })
 
 const logout = async () => {
@@ -192,7 +277,7 @@ const logout = async () => {
                 :aria-expanded="notificationPanelOpen"
                 aria-controls="admin-notifications-panel"
                 title="Notifications"
-                @click="notificationPanelOpen = !notificationPanelOpen"
+                @click="toggleNotifications"
               >
                 <AdminNavIcon name="notifications" />
                 <span
@@ -225,16 +310,58 @@ const logout = async () => {
 
                 <div class="py-4">
                   <div
-                    v-if="unreadNotifications <= 0"
+                    v-if="notificationPending"
                     class="rounded-xl bg-[#f7f4ed] p-4 text-[#667085]"
                   >
-                    Rien à traiter pour le moment. Les futures alertes admin apparaîtront ici quand elles seront exposées par l’API.
+                    Chargement des notifications...
+                  </div>
+                  <div
+                    v-else-if="notificationError"
+                    class="rounded-xl bg-[#fff0ed] p-4 text-[#b42318]"
+                  >
+                    <p>{{ notificationError }}</p>
+                    <button
+                      type="button"
+                      class="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold text-[#344054] shadow-sm hover:bg-[#f7f4ed]"
+                      @click="loadNotifications"
+                    >
+                      Réessayer
+                    </button>
+                  </div>
+                  <div
+                    v-else-if="notifications.length <= 0"
+                    class="rounded-xl bg-[#f7f4ed] p-4 text-[#667085]"
+                  >
+                    Rien à traiter pour le moment.
                   </div>
                   <div
                     v-else
-                    class="rounded-xl bg-[#fff7ed] p-4 text-[#8a4b12]"
+                    class="grid gap-2"
                   >
-                    {{ notificationLabel }} dans Supabase. La liste détaillée sera branchée sur la table notifications à l’étape suivante.
+                    <article
+                      v-for="notification in notifications"
+                      :key="notification.id"
+                      class="rounded-xl border border-[#eee8dd] bg-[#fbfaf7] p-3"
+                      :class="notification.lue ? 'opacity-70' : 'border-[#f0c7bd] bg-[#fff7ed]'"
+                    >
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <p class="truncate font-black text-[#101828]">{{ notification.titre }}</p>
+                          <p class="mt-1 line-clamp-2 text-xs leading-5 text-[#667085]">{{ notification.message }}</p>
+                          <p class="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#98a2b3]">
+                            {{ notification.type }} · {{ formatNotificationDate(notification.created_at) }}
+                          </p>
+                        </div>
+                        <button
+                          v-if="!notification.lue"
+                          type="button"
+                          class="shrink-0 rounded-lg border border-[#e6e1d8] bg-white px-2 py-1 text-[0.68rem] font-black text-[#0f5a3d] shadow-sm hover:bg-[#eaf5ee]"
+                          @click="markNotificationAsRead(notification)"
+                        >
+                          Lu
+                        </button>
+                      </div>
+                    </article>
                   </div>
                 </div>
               </div>

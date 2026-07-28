@@ -7,28 +7,29 @@ const search = ref('')
 const currentRole = ref<AdminRole>('super_administrator')
 const visibleNavigation = computed(() => filterAdminNavigationForRole(currentRole.value))
 
-const navigationIcon = (label: string) => {
+const navigationIcon = (path: string) => {
   const icons: Record<string, string> = {
-    Recettes: 'RC',
-    'Import recettes': 'IM',
-    'Publication recettes': 'PB',
-    'Médias recettes': 'MD',
-    Ingrédients: 'IN',
-    Allergènes: 'AL',
-    Correspondances: 'CO',
-    Enseignes: 'EN',
-    Produits: 'PR',
-    Prix: 'PX',
-    Modération: 'MO',
-    Utilisateurs: 'UT',
-    Abonnements: 'AB',
-    Contenus: 'CN',
-    Paramètres: 'PA',
-    Documentation: 'DO',
-    Composants: 'DS',
+    '/admin': 'dashboard',
+    '/admin/recettes': 'recipes',
+    '/admin/recettes/import': 'import',
+    '/admin/recettes/publication': 'publication',
+    '/admin/recettes/medias': 'media',
+    '/admin/ingredients': 'ingredients',
+    '/admin/allergenes': 'allergens',
+    '/admin/correspondances': 'matching',
+    '/admin/enseignes': 'retailers',
+    '/admin/produits': 'products',
+    '/admin/prix': 'prices',
+    '/admin/moderation': 'moderation',
+    '/admin/utilisateurs': 'users',
+    '/admin/abonnements': 'subscriptions',
+    '/admin/contenus': 'content',
+    '/admin/parametres': 'settings',
+    '/admin/documentation': 'documentation',
+    '/admin/composants': 'components',
   }
 
-  return icons[label] ?? label.slice(0, 2).toUpperCase()
+  return icons[path] ?? 'default'
 }
 
 const isActiveNavigationItem = (path: string) => {
@@ -87,7 +88,9 @@ const logout = async () => {
               ? 'is-active text-[#0f5a3d]'
               : 'text-[#344054] hover:bg-[#f7f4ed]'"
           >
-            <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[0.66rem] font-black tracking-tight text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">DB</span>
+            <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">
+              <AdminNavIcon :name="navigationIcon('/admin')" />
+            </span>
             <span>Tableau de bord</span>
           </NuxtLink>
 
@@ -105,7 +108,9 @@ const logout = async () => {
                   ? 'is-active text-[#0f5a3d]'
                   : 'text-[#344054] hover:bg-[#f7f4ed]'"
               >
-                <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[0.66rem] font-black tracking-tight text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">{{ navigationIcon(item.label) }}</span>
+                <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">
+                  <AdminNavIcon :name="navigationIcon(item.path)" />
+                </span>
                 <span>{{ item.label }}</span>
               </NuxtLink>
             </div>

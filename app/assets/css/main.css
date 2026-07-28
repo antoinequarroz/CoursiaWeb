@@ -1078,6 +1078,141 @@ textarea {
     content-visibility: auto;
     contain-intrinsic-size: 1px 900px;
   }
+
+  [data-theme='dark'] .admin-console {
+    color: var(--admin-foreground);
+    background:
+      radial-gradient(circle at 12% 6%, rgb(42 76 68 / 32%), transparent 21rem),
+      radial-gradient(circle at 86% 10%, rgb(255 122 89 / 10%), transparent 22rem),
+      linear-gradient(180deg, rgb(255 255 255 / 3%), transparent 16rem),
+      var(--admin-background);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .bg-white,
+    .bg-white\/92,
+    .bg-white\/90,
+    .bg-white\/88,
+    .bg-white\/86,
+    .bg-white\/82,
+    .bg-coursia-surface
+  ) {
+    background-color: var(--admin-card-strong);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .bg-\[\#fbfaf7\],
+    .bg-\[\#fbf9f5\],
+    .bg-\[\#fbf8f2\],
+    .bg-\[\#fbf7f0\],
+    .bg-\[\#f8f6f1\],
+    .bg-\[\#f7f4ed\],
+    .bg-\[\#f4efe7\],
+    .bg-\[\#f1f7f4\],
+    .bg-\[\#eef7f1\],
+    .bg-\[\#eaf5ee\],
+    .bg-\[\#e8f3ea\],
+    .bg-\[\#eef1ee\],
+    .bg-\[\#fff0df\],
+    .bg-\[\#fff2e8\],
+    .bg-\[\#fff4dc\],
+    .bg-\[\#ffe9e4\],
+    .bg-\[\#e9f2ff\],
+    .bg-coursia-background,
+    .bg-coursia-surface-muted
+  ) {
+    background-color: var(--admin-muted-panel);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .hover\:bg-\[\#fbfaf7\]:hover,
+    .hover\:bg-\[\#fbf9f5\]:hover,
+    .hover\:bg-\[\#fbf7f0\]:hover,
+    .hover\:bg-\[\#f7f4ed\]:hover,
+    .hover\:bg-white:hover,
+    .hover\:bg-white\/60:hover
+  ) {
+    background-color: color-mix(in srgb, var(--admin-card-strong) 70%, var(--admin-primary-soft));
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .border-\[\#e6e1d8\],
+    .border-\[\#e4ded2\],
+    .border-\[\#eee8df\],
+    .border-\[\#eee7dc\],
+    .border-\[\#e8e3d8\],
+    .border-coursia-border
+  ) {
+    border-color: var(--admin-border);
+  }
+
+  [data-theme='dark'] .admin-console :where(.divide-\[\#eee8df\] > :not(:last-child)) {
+    border-color: var(--admin-border-soft);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .text-\[\#101828\],
+    .text-\[\#0f2d27\],
+    .text-coursia-foreground
+  ),
+  [data-theme='dark'] .admin-console main :where(h1, h2, h3, h4, strong) {
+    color: var(--admin-heading);
+  }
+
+  [data-theme='dark'] .admin-console :where(.text-\[\#344054\]) {
+    color: var(--admin-muted-strong);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .text-\[\#667085\],
+    .text-\[\#98a2b3\],
+    .text-coursia-muted
+  ) {
+    color: var(--admin-muted);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .text-\[\#1f6b4a\],
+    .text-\[\#0f5a3d\],
+    .text-\[\#0f3d34\],
+    .text-coursia-primary,
+    .text-coursia-success
+  ) {
+    color: var(--admin-primary-strong);
+  }
+
+  [data-theme='dark'] .admin-console :where(.text-\[\#d88400\], .text-\[\#b85f16\]) {
+    color: var(--admin-warning);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    input,
+    select,
+    textarea
+  ) {
+    color: var(--admin-foreground);
+    border-color: var(--admin-border);
+    background-color: color-mix(in srgb, var(--admin-card-strong) 76%, var(--admin-muted-panel));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+  }
+
+  [data-theme='dark'] .admin-console :where(input, select, textarea):focus {
+    border-color: color-mix(in srgb, var(--admin-primary) 54%, var(--admin-border));
+    background-color: var(--admin-card-strong);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--admin-primary) 16%, transparent);
+  }
+
+  [data-theme='dark'] .admin-console :where(input, select, textarea)::placeholder {
+    color: color-mix(in srgb, var(--admin-muted) 70%, transparent);
+  }
+
+  [data-theme='dark'] .admin-console :where(.shadow-sm, .shadow-coursia-sm, .shadow-coursia-md, .shadow-coursia-glass) {
+    box-shadow: var(--admin-shadow);
+  }
+
+  [data-theme='dark'] .admin-console :where(.ring-\[\#0f2d27\]\/10, .ring-\[\#0f5a3d\]\/10) {
+    --tw-ring-color: color-mix(in srgb, var(--admin-primary) 18%, transparent);
+  }
 }
 
 @keyframes coursia-float {

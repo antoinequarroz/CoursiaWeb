@@ -4,6 +4,10 @@ import type { AdminRole } from '#shared/auth/permissions'
 
 const route = useRoute()
 const search = ref('')
+const searchInput = ref<HTMLInputElement | null>(null)
+const searchPanelOpen = ref(false)
+const searchPending = ref(false)
+const searchError = ref('')
 const currentRole = ref<AdminRole>('super_administrator')
 const notificationPanelOpen = ref(false)
 const unreadNotifications = useState('admin-unread-notifications', () => 0)
@@ -22,6 +26,39 @@ type AdminNotification = {
 }
 
 const notifications = ref<AdminNotification[]>([])
+
+type AdminSearchResult = {
+  id: string
+  type: 'recipe' | 'ingredient' | 'product' | 'retailer' | 'user' | 'content'
+  label: string
+  description: string
+  href: string
+}
+
+const searchResults = ref<AdminSearchResult[]>([])
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+const searchTypeLabel: Record<AdminSearchResult['type'], string> = {
+  recipe: 'Recette',
+  ingredient: 'Ingrédient',
+  product: 'Produit',
+  retailer: 'Enseigne',
+  user: 'Utilisateur',
+  content: 'Contenu',
+}
+
+const searchResultIcon = (type: AdminSearchResult['type']) => {
+  const icons: Record<AdminSearchResult['type'], string> = {
+    recipe: 'recipes',
+    ingredient: 'ingredients',
+    product: 'products',
+    retailer: 'retailers',
+    user: 'users',
+    content: 'content',
+  }
+
+  return icons[type]
+}
 
 const navigationIcon = (path: string) => {
   const icons: Record<string, string> = {
@@ -81,6 +118,86 @@ const notificationLabel = computed(() => {
 
 watch(() => route.fullPath, () => {
   notificationPanelOpen.value = false
+  searchPanelOpen.value = false
+})
+
+const runAdminSearch = async () => {
+  const query = search.value.trim()
+
+  if (query.length < 2) {
+    searchResults.value = []
+    searchPanelOpen.value = false
+    searchError.value = ''
+    return
+  }
+
+  searchPending.value = true
+  searchError.value = ''
+  searchPanelOpen.value = true
+
+  try {
+    const response = await $fetch<{ data: AdminSearchResult[] }>('/api/admin/search', {
+      query: {
+        q: query,
+        limit: 4,
+      },
+    })
+
+    searchResults.value = response.data
+  }
+  catch {
+    searchError.value = 'Recherche indisponible.'
+    searchResults.value = []
+  }
+  finally {
+    searchPending.value = false
+  }
+}
+
+watch(search, () => {
+  if (searchDebounce) {
+    clearTimeout(searchDebounce)
+  }
+
+  searchDebounce = setTimeout(() => {
+    void runAdminSearch()
+  }, 220)
+})
+
+const clearAdminSearch = () => {
+  search.value = ''
+  searchResults.value = []
+  searchPanelOpen.value = false
+  searchError.value = ''
+}
+
+const focusAdminSearch = () => {
+  searchInput.value?.focus()
+  if (search.value.trim().length >= 2) {
+    searchPanelOpen.value = true
+  }
+}
+
+const onAdminKeydown = (event: KeyboardEvent) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    focusAdminSearch()
+  }
+
+  if (event.key === 'Escape') {
+    searchPanelOpen.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onAdminKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onAdminKeydown)
+  if (searchDebounce) {
+    clearTimeout(searchDebounce)
+  }
 })
 
 const formatNotificationDate = (value: string | null) => {
@@ -254,19 +371,71 @@ const logout = async () => {
             <p class="truncate text-lg font-black tracking-[-0.03em] text-[#101828]">{{ pageTitle }}</p>
           </div>
 
-          <label class="relative hidden min-w-[20rem] flex-1 md:block md:max-w-xl">
-            <span class="sr-only">Recherche admin</span>
+          <div class="relative hidden min-w-[20rem] flex-1 md:block md:max-w-xl">
+            <label for="admin-global-search" class="sr-only">Recherche admin</label>
             <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]">
               <AdminNavIcon name="search" />
             </span>
             <input
+              id="admin-global-search"
+              ref="searchInput"
               v-model="search"
               type="search"
-              placeholder="Recherche admin..."
-              class="ds-focus-ring h-10 w-full rounded-xl border border-[#e6e1d8] bg-white px-10 text-sm shadow-sm placeholder:text-[#98a2b3]"
+              role="combobox"
+              autocomplete="off"
+              placeholder="Rechercher recette, ingrédient, produit, utilisateur..."
+              class="ds-focus-ring h-10 w-full rounded-xl border border-[#e6e1d8] bg-white px-10 pr-20 text-sm shadow-sm placeholder:text-[#98a2b3]"
+              :aria-expanded="searchPanelOpen"
+              aria-controls="admin-search-results"
+              @focus="focusAdminSearch"
             />
+            <button
+              v-if="search"
+              type="button"
+              class="absolute right-16 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-black text-[#667085] hover:bg-[#f7f4ed]"
+              aria-label="Effacer la recherche"
+              @click="clearAdminSearch"
+            >
+              ×
+            </button>
             <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#98a2b3]">Ctrl K</span>
-          </label>
+
+            <div
+              v-if="searchPanelOpen"
+              id="admin-search-results"
+              class="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white text-sm shadow-[0_22px_70px_rgba(15,26,20,0.16)]"
+            >
+              <div v-if="searchPending" class="p-4 text-[#667085]">
+                Recherche en cours...
+              </div>
+              <div v-else-if="searchError" class="p-4 text-[#b42318]">
+                {{ searchError }}
+              </div>
+              <div v-else-if="searchResults.length <= 0" class="p-4 text-[#667085]">
+                Aucun résultat pour “{{ search.trim() }}”.
+              </div>
+              <div v-else class="max-h-[24rem] overflow-y-auto p-2">
+                <NuxtLink
+                  v-for="result in searchResults"
+                  :key="`${result.type}-${result.id}`"
+                  :to="result.href"
+                  class="group flex items-start gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#f7f4ed]"
+                  @click="clearAdminSearch"
+                >
+                  <span class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#e4ded2] bg-[#fbfaf7] text-[#0f5a3d]">
+                    <AdminNavIcon :name="searchResultIcon(result.type)" />
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block truncate font-black text-[#101828]">{{ result.label }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-[#667085]">{{ result.description }}</span>
+                  </span>
+                  <span class="ml-auto shrink-0 rounded-full bg-[#eef1ee] px-2 py-1 text-[0.62rem] font-black uppercase tracking-[0.12em] text-[#667085]">
+                    {{ searchTypeLabel[result.type] }}
+                  </span>
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
 
           <div class="flex shrink-0 items-center gap-2">
             <div class="relative">

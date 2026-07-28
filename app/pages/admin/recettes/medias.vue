@@ -13,6 +13,12 @@ definePageMeta({
 })
 
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+type RecipeOption = {
+  id: string
+  title: string
+  slug: string
+  status: 'draft' | 'review' | 'published' | 'archived'
+}
 
 const form = reactive<RecipeMediaMetadata>({
   recipeId: '',
@@ -36,11 +42,14 @@ const feedback = ref('')
 const errorMessage = ref('')
 const selectedMediaId = ref('')
 const orphanAssets = ref<Array<Record<string, unknown>>>([])
+const recipes = ref<RecipeOption[]>([])
 const loading = ref(false)
+const loadingRecipes = ref(true)
 const saving = ref(false)
 
 const renditionPreview = computed(() => buildRecipeMediaRenditions(form.fileName || 'recipe.webp'))
 const readableMaxSize = computed(() => `${Math.round(recipeMediaMaxBytes / 1024 / 1024)} Mo`)
+const selectedRecipe = computed(() => recipes.value.find((recipe) => recipe.id === form.recipeId) ?? null)
 const cropPercent = computed(() => ({
   x: Math.round(form.crop.x * 100),
   y: Math.round(form.crop.y * 100),
@@ -51,21 +60,17 @@ const cropPercent = computed(() => ({
 const validationIssues = computed(() => {
   const issues: string[] = []
 
-  if (!recipeMediaAllowedTypes.includes(form.mimeType)) {
-    issues.push('Type de fichier invalide.')
-  }
-  if (form.sizeBytes > recipeMediaMaxBytes) {
-    issues.push(`Taille supérieure à ${readableMaxSize.value}.`)
-  }
+  if (!form.recipeId) issues.push('Sélectionne une recette.')
+  if (!recipeMediaAllowedTypes.includes(form.mimeType)) issues.push('Type de fichier invalide.')
+  if (form.sizeBytes > recipeMediaMaxBytes) issues.push(`Taille supérieure à ${readableMaxSize.value}.`)
   if (form.width < recipeMediaDimensions.minWidth || form.height < recipeMediaDimensions.minHeight) {
     issues.push(`Dimensions minimales : ${recipeMediaDimensions.minWidth}×${recipeMediaDimensions.minHeight}.`)
   }
   if (form.width > recipeMediaDimensions.maxWidth || form.height > recipeMediaDimensions.maxHeight) {
     issues.push(`Dimensions maximales : ${recipeMediaDimensions.maxWidth}×${recipeMediaDimensions.maxHeight}.`)
   }
-  if (!form.rights.consentConfirmed) {
-    issues.push('Consentement requis.')
-  }
+  if (!form.rights.consentConfirmed) issues.push('Consentement requis.')
+  if (form.status === 'published' && !form.altText?.trim()) issues.push('Texte alternatif requis avant publication.')
 
   return issues
 })
@@ -74,7 +79,26 @@ const statusTone = (status: RecipeMediaMetadata['status']): BadgeTone => {
   if (status === 'published') return 'success'
   if (status === 'validation') return 'warning'
   if (status === 'replaced') return 'neutral'
+
   return 'danger'
+}
+
+const loadRecipes = async () => {
+  loadingRecipes.value = true
+
+  try {
+    const response = await $fetch<{ data: RecipeOption[] }>('/api/admin/recipes', {
+      query: { limit: 100 },
+    })
+    recipes.value = response.data
+    if (!form.recipeId && recipes.value.length > 0) {
+      form.recipeId = recipes.value[0]?.id ?? ''
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les recettes.'
+  } finally {
+    loadingRecipes.value = false
+  }
 }
 
 const saveMetadata = async () => {
@@ -104,6 +128,10 @@ const saveMetadata = async () => {
 const publishMedia = async () => {
   if (!selectedMediaId.value) {
     errorMessage.value = 'Enregistre un média avant publication.'
+    return
+  }
+  if (!form.altText?.trim()) {
+    errorMessage.value = 'Ajoute un texte alternatif avant publication.'
     return
   }
 
@@ -142,25 +170,27 @@ const loadOrphans = async () => {
   }
 }
 
-onMounted(loadOrphans)
+onMounted(() => {
+  void loadRecipes()
+  void loadOrphans()
+})
 </script>
 
 <template>
   <section class="admin-page">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-99</p>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-99</p>
         <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
           Photos de recettes
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Valide les métadonnées image, droits, recadrage et renditions avant publication dans
-          Supabase Storage.
+          Valide les métadonnées image, droits, recadrage et renditions avant publication dans Supabase Storage.
         </p>
       </div>
 
       <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadOrphans">
-        {{ loading ? 'Chargement...' : 'Fichiers orphelins' }}
+        {{ loading ? 'Chargement...' : 'Actualiser les orphelins' }}
       </BaseButton>
     </div>
 
@@ -207,9 +237,19 @@ onMounted(loadOrphans)
         </div>
 
         <div class="mt-5 grid gap-4 md:grid-cols-2">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            ID recette
-            <input v-model="form.recipeId" required class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] md:col-span-2">
+            Recette
+            <select
+              v-model="form.recipeId"
+              :disabled="loadingRecipes"
+              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+            >
+              <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
+              <option v-for="recipe in recipes" :key="recipe.id" :value="recipe.id">
+                {{ recipe.title || 'Recette sans titre' }} · {{ recipe.slug }}
+              </option>
+            </select>
+            <span v-if="selectedRecipe" class="truncate text-[11px] font-medium text-[#667085]">{{ selectedRecipe.id }}</span>
           </label>
           <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
             Nom de fichier
@@ -226,12 +266,11 @@ onMounted(loadOrphans)
             <input v-model.number="form.sizeBytes" required type="number" min="1" :max="recipeMediaMaxBytes" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
           </label>
           <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Largeur
-            <input v-model.number="form.width" required type="number" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-          </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Hauteur
-            <input v-model.number="form.height" required type="number" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+            Dimensions
+            <div class="grid grid-cols-2 gap-2">
+              <input v-model.number="form.width" required type="number" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+              <input v-model.number="form.height" required type="number" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+            </div>
           </label>
         </div>
 
@@ -254,7 +293,7 @@ onMounted(loadOrphans)
             <input v-model="form.rights.author" required placeholder="Auteur" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
             <input v-model="form.rights.source" required placeholder="Source" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
             <input v-model="form.rights.license" required placeholder="Licence" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <label class="flex items-center gap-3 text-sm text-[#344054]">
+            <label class="flex cursor-pointer items-center gap-3 text-sm text-[#344054]">
               <input v-model="form.rights.consentConfirmed" required type="checkbox">
               Consentement confirmé
             </label>
@@ -282,7 +321,7 @@ onMounted(loadOrphans)
             <div class="aspect-[4/3] bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.20),transparent_30%),linear-gradient(135deg,#fff7ed,#eef7f2)]" />
           </div>
           <p class="mt-3 text-xs text-[#667085]">
-            Maquette de prévisualisation. Le fichier réel est géré côté Storage.
+            Prévisualisation structurelle. Le fichier réel reste géré côté Storage.
           </p>
         </article>
 

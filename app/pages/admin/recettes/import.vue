@@ -37,6 +37,7 @@ const actionTone = (action: RowAction): BadgeTone => {
   if (action === 'create') return 'success'
   if (action === 'update') return 'primary'
   if (action === 'duplicate') return 'warning'
+
   return 'danger'
 }
 
@@ -81,19 +82,18 @@ const runImport = async (forceDryRun = dryRun.value) => {
   <section class="admin-page">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-100</p>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-100</p>
         <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
           Import CSV de recettes
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Prévisualise les créations, mises à jour, doublons et erreurs avant d’écrire dans le
-          catalogue officiel.
+          Prévisualise les créations, mises à jour, doublons et erreurs avant d’écrire dans le catalogue officiel.
         </p>
       </div>
 
       <a
         :href="templateHref"
-        class="inline-flex items-center justify-center rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm font-semibold text-[#101828] transition hover:bg-[#fbfaf7]"
+        class="inline-flex cursor-pointer items-center justify-center rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm font-semibold text-[#101828] transition hover:bg-[#fbfaf7]"
       >
         Télécharger le modèle CSV
       </a>
@@ -163,7 +163,7 @@ const runImport = async (forceDryRun = dryRun.value) => {
           />
         </label>
 
-        <label class="mt-4 flex items-center gap-3 rounded-xl border border-[#e6e1d8] px-3 py-2.5 text-sm text-[#344054]">
+        <label class="mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-[#e6e1d8] px-3 py-2.5 text-sm text-[#344054]">
           <input v-model="dryRun" type="checkbox">
           Dry-run uniquement
         </label>
@@ -196,7 +196,7 @@ const runImport = async (forceDryRun = dryRun.value) => {
 
         <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
           <h2 class="text-sm font-semibold text-[#101828]">Dernier rapport</h2>
-          <p class="mt-3 text-sm text-[#667085]">
+          <p class="mt-3 break-all text-sm text-[#667085]">
             {{ report ? report.idempotencyKey : 'Aucun rapport généré.' }}
           </p>
           <BaseBadge v-if="idempotentReplay" class="mt-3" tone="primary">Rejeu idempotent</BaseBadge>

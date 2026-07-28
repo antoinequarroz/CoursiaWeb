@@ -19,6 +19,14 @@ const parseLeadSearch = (value: unknown) => {
     .slice(0, 120)
 }
 
+const parseLeadStatus = (value: unknown) => {
+  if (value === 'new' || value === 'reviewed' || value === 'archived') {
+    return value
+  }
+
+  return ''
+}
+
 export default defineEventHandler(async (event) => {
   const admin = await getSensitiveAdminContext(event)
   requireSupportUserReadAccess(admin.role)
@@ -26,11 +34,12 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const limit = parseLeadLimit(query.limit)
   const search = parseLeadSearch(query.search)
+  const status = parseLeadStatus(query.status)
   const supabase = createSupabaseServiceRoleClient()
 
   let contactsQuery = supabase
     .from('contact_submissions')
-    .select('id,name,email,reason,message,source,status,created_at,consented_at')
+    .select('id,name,email,reason,message,source,status,internal_note,created_at,updated_at,consented_at')
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -43,6 +52,10 @@ export default defineEventHandler(async (event) => {
   if (search) {
     contactsQuery = contactsQuery.or(`name.ilike.%${search}%,email.ilike.%${search}%,reason.ilike.%${search}%`)
     waitlistQuery = waitlistQuery.or(`email.ilike.%${search}%,source.ilike.%${search}%`)
+  }
+
+  if (status) {
+    contactsQuery = contactsQuery.eq('status', status)
   }
 
   const [

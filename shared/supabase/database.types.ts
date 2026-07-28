@@ -308,6 +308,7 @@ export type Database = {
           email: string
           id: string
           ip_hash: string | null
+          internal_note: string | null
           message: string
           name: string
           reason: string
@@ -322,6 +323,7 @@ export type Database = {
           email: string
           id?: string
           ip_hash?: string | null
+          internal_note?: string | null
           message: string
           name: string
           reason: string
@@ -336,6 +338,7 @@ export type Database = {
           email?: string
           id?: string
           ip_hash?: string | null
+          internal_note?: string | null
           message?: string
           name?: string
           reason?: string

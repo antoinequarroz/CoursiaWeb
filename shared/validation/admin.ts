@@ -30,6 +30,7 @@ export const adminAuditResourceTypeSchema = z.enum([
   'community_moderation_decision',
   'support_user_lookup',
   'support_user_procedure',
+  'contact_submission',
   'content_entry',
   'content_entry_revision',
   'feature_flag',

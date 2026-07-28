@@ -24,10 +24,12 @@ const form = reactive({
 const interestOptions = ['Recettes', 'Planning', 'Courses', 'Comparaison', 'Budget', 'Famille']
 const status = ref<'idle' | 'success' | 'error'>('idle')
 const feedback = ref('')
+const isSubmitting = ref(false)
 
 const submitWaitlist = async () => {
   status.value = 'idle'
   feedback.value = ''
+  isSubmitting.value = true
 
   try {
     const response = await $fetch<{ message: string }>('/api/public/waitlist', {
@@ -37,9 +39,15 @@ const submitWaitlist = async () => {
 
     status.value = 'success'
     feedback.value = response.message
-  } catch {
+    form.submittedAt = Date.now()
+  } catch (error) {
     status.value = 'error'
-    feedback.value = 'L’inscription n’a pas pu être enregistrée. Vos champs restent remplis.'
+    feedback.value =
+      error && typeof error === 'object' && 'statusMessage' in error
+        ? String(error.statusMessage)
+        : 'L’inscription n’a pas pu être enregistrée. Vos champs restent remplis.'
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -64,40 +72,67 @@ const submitWaitlist = async () => {
     >
       <label class="grid gap-2 text-sm font-bold">
         Email
-        <input v-model="form.email" required type="email" maxlength="160" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+        <input
+          v-model="form.email"
+          required
+          type="email"
+          maxlength="160"
+          class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3"
+        />
       </label>
 
       <label class="mt-5 grid gap-2 text-sm font-bold">
         Taille du foyer
-        <input v-model.number="form.householdSize" type="number" min="1" max="12" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+        <input
+          v-model.number="form.householdSize"
+          type="number"
+          min="1"
+          max="12"
+          class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3"
+        />
       </label>
 
       <fieldset class="mt-5">
         <legend class="text-sm font-bold">Centres d’intérêt</legend>
         <div class="mt-3 grid gap-3 md:grid-cols-2">
-          <label v-for="interest in interestOptions" :key="interest" class="flex gap-3 text-sm text-coursia-muted">
+          <label
+            v-for="interest in interestOptions"
+            :key="interest"
+            class="flex cursor-pointer gap-3 text-sm text-coursia-muted"
+          >
             <input v-model="form.interests" type="checkbox" :value="interest" />
             {{ interest }}
           </label>
         </div>
       </fieldset>
 
-      <input v-model="form.website" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
+      <input
+        v-model="form.website"
+        tabindex="-1"
+        autocomplete="off"
+        class="hidden"
+        aria-hidden="true"
+      />
 
-      <label class="mt-5 flex gap-3 text-sm leading-6 text-coursia-muted">
+      <label class="mt-5 flex cursor-pointer gap-3 text-sm leading-6 text-coursia-muted">
         <input v-model="form.consent" required type="checkbox" class="mt-1" />
         J’accepte d’être contacté au sujet du lancement Coursia.
       </label>
 
-      <BaseButton class="mt-6">Rejoindre la liste d’attente</BaseButton>
+      <BaseButton class="mt-6" :disabled="isSubmitting">
+        {{ isSubmitting ? 'Enregistrement...' : 'Rejoindre la liste d’attente' }}
+      </BaseButton>
       <p
         v-if="feedback"
         class="mt-5 rounded-2xl p-4 text-sm"
-        :class="status === 'success' ? 'bg-coursia-success/10 text-coursia-success' : 'bg-coursia-danger/10 text-coursia-danger'"
+        :class="
+          status === 'success'
+            ? 'bg-coursia-success/10 text-coursia-success'
+            : 'bg-coursia-danger/10 text-coursia-danger'
+        "
       >
         {{ feedback }}
       </p>
     </form>
   </section>
 </template>
-

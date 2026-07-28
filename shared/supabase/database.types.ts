@@ -1869,24 +1869,63 @@ export type Database = {
         }
         Relationships: []
       }
-      waitlist: {
+      public_submission_rate_limits: {
         Row: {
-          created_at: string | null
-          email: string
-          id: string
-          source: string | null
+          endpoint: string
+          requests: number
+          subject_hash: string
+          window_start: string
         }
         Insert: {
-          created_at?: string | null
-          email: string
-          id?: string
-          source?: string | null
+          endpoint: string
+          requests?: number
+          subject_hash: string
+          window_start?: string
         }
         Update: {
+          endpoint?: string
+          requests?: number
+          subject_hash?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      waitlist: {
+        Row: {
+          consented_at: string | null
+          created_at: string | null
+          email: string
+          household_size: number | null
+          id: string
+          interests: string[]
+          ip_hash: string | null
+          source: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          consented_at?: string | null
+          created_at?: string | null
+          email: string
+          household_size?: number | null
+          id?: string
+          interests?: string[]
+          ip_hash?: string | null
+          source?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          consented_at?: string | null
           created_at?: string | null
           email?: string
+          household_size?: number | null
           id?: string
+          interests?: string[]
+          ip_hash?: string | null
           source?: string | null
+          updated_at?: string
+          user_agent?: string | null
         }
         Relationships: []
       }

@@ -20,12 +20,38 @@ const filters = reactive({
 const retailers = ref<Array<Record<string, unknown>>>([])
 const selectedRetailerId = ref<string | null>(null)
 const feedback = ref('')
+const loading = ref(false)
+
+const resetForm = () => {
+  selectedRetailerId.value = null
+  Object.assign(form, {
+    name: '',
+    slug: '',
+    status: 'active',
+    websiteUrl: undefined,
+  })
+}
+
+const selectRetailer = (retailer: Record<string, unknown>) => {
+  selectedRetailerId.value = String(retailer.id)
+  Object.assign(form, {
+    name: String(retailer.name ?? ''),
+    slug: String(retailer.slug ?? ''),
+    status: retailer.status === 'archived' ? 'archived' : 'active',
+    websiteUrl: retailer.website_url ? String(retailer.website_url) : undefined,
+  })
+}
 
 const loadRetailers = async () => {
-  const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/retailers', {
-    query: filters,
-  })
-  retailers.value = response.data
+  loading.value = true
+  try {
+    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/retailers', {
+      query: filters,
+    })
+    retailers.value = response.data
+  } finally {
+    loading.value = false
+  }
 }
 
 const saveRetailer = async () => {
@@ -50,58 +76,114 @@ const archiveRetailer = async (retailer: Record<string, unknown>) => {
   feedback.value = 'Enseigne archivée sans suppression des historiques de prix.'
   await loadRetailers()
 }
+
+onMounted(() => {
+  void loadRetailers()
+})
 </script>
 
 <template>
   <section class="admin-page">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p class="text-sm font-black uppercase tracking-[0.24em] text-coursia-primary">COUR-102</p>
+        <p class="text-sm font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-102</p>
         <h1 class="mt-2 text-3xl font-black">Enseignes du comparateur</h1>
         <p class="mt-3 text-coursia-muted">
-          CRUD des enseignes utilisées par les produits, les prix courants et lâ€™historique.
+          Gestion des enseignes utilisées par les produits, les prix courants et l’historique.
         </p>
       </div>
-      <BaseButton type="button" @click="loadRetailers">Rafraîchir</BaseButton>
+      <div class="flex gap-2">
+        <BaseButton type="button" variant="secondary" @click="resetForm">Nouvelle enseigne</BaseButton>
+        <BaseButton type="button" :disabled="loading" @click="loadRetailers">Rafraîchir</BaseButton>
+      </div>
     </div>
 
-    <div class="mt-8 grid gap-4 rounded-[1.4rem] bg-coursia-surface p-5 md:grid-cols-2">
-      <input v-model="filters.search" type="search" placeholder="Recherche enseigne" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
-      <select v-model="filters.status" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
-        <option value="">Tous statuts</option>
-        <option value="active">Actif</option>
-        <option value="archived">Archivé</option>
-      </select>
-    </div>
+    <form class="admin-toolbar grid gap-3 md:grid-cols-[1fr_16rem_auto]" @submit.prevent="loadRetailers">
+      <label class="grid gap-1 text-sm font-bold">
+        Recherche
+        <input v-model="filters.search" type="search" placeholder="Nom, slug, URL..." />
+      </label>
+      <label class="grid gap-1 text-sm font-bold">
+        Statut
+        <select v-model="filters.status">
+          <option value="">Tous statuts</option>
+          <option value="active">Actif</option>
+          <option value="archived">Archivé</option>
+        </select>
+      </label>
+      <div class="flex items-end">
+        <BaseButton type="submit" class="w-full" :disabled="loading">Filtrer</BaseButton>
+      </div>
+    </form>
 
-    <p v-if="feedback" class="mt-5 rounded-2xl bg-coursia-surface-muted p-4 text-sm">{{ feedback }}</p>
+    <p v-if="feedback" class="rounded-xl border border-coursia-border bg-coursia-surface px-4 py-3 text-sm font-semibold">
+      {{ feedback }}
+    </p>
 
-    <div class="mt-8 grid gap-5 lg:grid-cols-[1fr_0.85fr]">
-      <section class="grid gap-4">
-        <article v-for="retailer in retailers" :key="String(retailer.id)" class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5">
-          <h2 class="text-xl font-black">{{ retailer.name }}</h2>
-          <p class="mt-2 text-sm text-coursia-muted">{{ retailer.slug }} · {{ retailer.status }} · {{ retailer.website_url || 'source interne' }}</p>
-          <BaseButton class="mt-4" size="sm" variant="secondary" type="button" @click="archiveRetailer(retailer)">
-            Archiver
-          </BaseButton>
-        </article>
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
+      <section class="rounded-xl border border-coursia-border bg-coursia-surface p-4">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-base font-black">Liste des enseignes</h2>
+          <span class="text-sm text-coursia-muted">{{ retailers.length }} entrée(s)</span>
+        </div>
+
+        <div v-if="loading" class="rounded-xl bg-coursia-background p-4 text-sm text-coursia-muted">
+          Chargement...
+        </div>
+        <div v-else class="overflow-x-auto">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Enseigne</th>
+                <th>Statut</th>
+                <th>Source</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="retailer in retailers" :key="String(retailer.id)">
+                <td>
+                  <button type="button" class="text-left" @click="selectRetailer(retailer)">
+                    <span class="block font-black">{{ retailer.name }}</span>
+                    <span class="block text-xs text-coursia-muted">{{ retailer.slug }}</span>
+                  </button>
+                </td>
+                <td>{{ retailer.status }}</td>
+                <td>{{ retailer.website_url || 'source interne' }}</td>
+                <td>
+                  <div class="flex justify-end gap-2">
+                    <BaseButton size="sm" variant="secondary" type="button" @click="selectRetailer(retailer)">Modifier</BaseButton>
+                    <BaseButton size="sm" variant="ghost" type="button" @click="archiveRetailer(retailer)">Archiver</BaseButton>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <form class="rounded-[1.4rem] border border-coursia-border bg-coursia-surface p-5" @submit.prevent="saveRetailer">
-        <h2 class="text-2xl font-black">Créer ou modifier une enseigne</h2>
-        <label class="mt-5 grid gap-2 text-sm font-bold">
+      <form class="rounded-xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="saveRetailer">
+        <h2 class="text-base font-black">{{ selectedRetailerId ? 'Modifier l’enseigne' : 'Créer une enseigne' }}</h2>
+        <label class="mt-4 grid gap-1 text-sm font-bold">
           Nom
-          <input v-model="form.name" required class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+          <input v-model="form.name" required />
         </label>
-        <label class="mt-4 grid gap-2 text-sm font-bold">
+        <label class="mt-3 grid gap-1 text-sm font-bold">
           Slug
-          <input v-model="form.slug" required class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+          <input v-model="form.slug" required />
         </label>
-        <label class="mt-4 grid gap-2 text-sm font-bold">
+        <label class="mt-3 grid gap-1 text-sm font-bold">
+          Statut
+          <select v-model="form.status">
+            <option value="active">Actif</option>
+            <option value="archived">Archivé</option>
+          </select>
+        </label>
+        <label class="mt-3 grid gap-1 text-sm font-bold">
           Site / source publique
-          <input v-model="form.websiteUrl" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+          <input v-model="form.websiteUrl" />
         </label>
-        <BaseButton class="mt-6" type="submit">Enregistrer lâ€™enseigne</BaseButton>
+        <BaseButton class="mt-5" type="submit">Enregistrer</BaseButton>
       </form>
     </div>
   </section>

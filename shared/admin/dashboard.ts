@@ -21,6 +21,7 @@ export const adminNavigationSections = [
     title: 'Opérations',
     items: [
       { label: 'Modération', path: '/admin/moderation', minimumRole: 'moderator' },
+      { label: 'Leads', path: '/admin/leads', minimumRole: 'support' },
       { label: 'Utilisateurs', path: '/admin/utilisateurs', minimumRole: 'support' },
       { label: 'Abonnements', path: '/admin/abonnements', minimumRole: 'support' },
       { label: 'Contenus', path: '/admin/contenus', minimumRole: 'editor' },

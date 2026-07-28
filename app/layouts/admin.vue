@@ -74,6 +74,7 @@ const navigationIcon = (path: string) => {
     '/admin/produits': 'products',
     '/admin/prix': 'prices',
     '/admin/moderation': 'moderation',
+    '/admin/leads': 'leads',
     '/admin/utilisateurs': 'users',
     '/admin/abonnements': 'subscriptions',
     '/admin/contenus': 'content',

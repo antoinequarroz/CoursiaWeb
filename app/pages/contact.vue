@@ -13,7 +13,7 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-const form = reactive({
+const createInitialForm = () => ({
   name: '',
   email: '',
   reason: publicEngagementContent.contactReasons[0] ?? 'Question produit',
@@ -24,11 +24,20 @@ const form = reactive({
   submittedAt: Date.now(),
 })
 
-const status = ref<'idle' | 'success' | 'error'>('idle')
+const form = reactive(createInitialForm())
+const status = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
 const feedback = ref('')
 
+const resetForm = () => {
+  Object.assign(form, createInitialForm())
+}
+
 const submitContact = async () => {
-  status.value = 'idle'
+  if (status.value === 'loading') {
+    return
+  }
+
+  status.value = 'loading'
   feedback.value = ''
 
   try {
@@ -39,9 +48,13 @@ const submitContact = async () => {
 
     status.value = 'success'
     feedback.value = response.message
-  } catch {
+    resetForm()
+  } catch (error: unknown) {
     status.value = 'error'
-    feedback.value = 'Le message n’a pas pu être envoyé. Vos champs restent remplis.'
+    feedback.value =
+      error && typeof error === 'object' && 'statusMessage' in error && typeof error.statusMessage === 'string'
+        ? error.statusMessage
+        : 'Le message n’a pas pu être envoyé. Vos champs restent remplis.'
   }
 }
 </script>
@@ -50,7 +63,9 @@ const submitContact = async () => {
   <section class="mx-auto grid max-w-7xl gap-8 py-10 lg:grid-cols-[0.8fr_1.2fr]">
     <div>
       <BaseBadge tone="primary">Contact</BaseBadge>
-      <h1 class="mt-5 text-5xl font-black">Parlez-nous de votre besoin.</h1>
+      <h1 class="mt-5 max-w-xl text-5xl font-black tracking-tight text-coursia-text">
+        Parlez-nous de votre besoin.
+      </h1>
       <p class="mt-5 text-lg leading-8 text-coursia-muted">
         Le formulaire minimise les données, valide les champs et protège contre l’abus avec un champ
         invisible et un contrôle de soumission.
@@ -65,38 +80,65 @@ const submitContact = async () => {
       @submit.prevent="submitContact"
     >
       <div class="grid gap-5 md:grid-cols-2">
-        <label class="grid gap-2 text-sm font-bold">
+        <label class="grid gap-2 text-sm font-bold text-coursia-text">
           Nom
-          <input v-model="form.name" required minlength="2" maxlength="80" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+          <input
+            v-model="form.name"
+            required
+            minlength="2"
+            maxlength="80"
+            autocomplete="name"
+            class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 text-coursia-text outline-none transition focus:border-coursia-primary"
+          />
         </label>
-        <label class="grid gap-2 text-sm font-bold">
+        <label class="grid gap-2 text-sm font-bold text-coursia-text">
           Email
-          <input v-model="form.email" required type="email" maxlength="160" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+          <input
+            v-model="form.email"
+            required
+            type="email"
+            maxlength="160"
+            autocomplete="email"
+            class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 text-coursia-text outline-none transition focus:border-coursia-primary"
+          />
         </label>
       </div>
 
-      <label class="mt-5 grid gap-2 text-sm font-bold">
+      <label class="mt-5 grid gap-2 text-sm font-bold text-coursia-text">
         Sujet
-        <select v-model="form.reason" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3">
+        <select
+          v-model="form.reason"
+          class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 text-coursia-text outline-none transition focus:border-coursia-primary"
+        >
           <option v-for="reason in publicEngagementContent.contactReasons" :key="reason">
             {{ reason }}
           </option>
         </select>
       </label>
 
-      <label class="mt-5 grid gap-2 text-sm font-bold">
+      <label class="mt-5 grid gap-2 text-sm font-bold text-coursia-text">
         Message
-        <textarea v-model="form.message" required minlength="10" maxlength="2000" rows="6" class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3" />
+        <textarea
+          v-model="form.message"
+          required
+          minlength="10"
+          maxlength="2000"
+          rows="6"
+          class="rounded-coursia-md border border-coursia-border bg-coursia-background px-4 py-3 text-coursia-text outline-none transition focus:border-coursia-primary"
+        />
       </label>
 
       <input v-model="form.website" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
 
       <label class="mt-5 flex gap-3 text-sm leading-6 text-coursia-muted">
-        <input v-model="form.consent" required type="checkbox" class="mt-1" />
+        <input v-model="form.consent" required type="checkbox" class="mt-1 accent-coursia-primary" />
         J’accepte que Coursia utilise ces informations pour répondre à ma demande.
       </label>
 
-      <BaseButton class="mt-6">Envoyer le message</BaseButton>
+      <BaseButton class="mt-6" :disabled="status === 'loading'">
+        {{ status === 'loading' ? 'Envoi en cours…' : 'Envoyer le message' }}
+      </BaseButton>
+
       <p
         v-if="feedback"
         class="mt-5 rounded-2xl p-4 text-sm"
@@ -107,4 +149,3 @@ const submitContact = async () => {
     </form>
   </section>
 </template>
-

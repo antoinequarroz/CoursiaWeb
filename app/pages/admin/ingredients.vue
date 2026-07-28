@@ -46,7 +46,7 @@ const selectedIngredientId = ref<string | null>(null)
 const mergeTargetId = ref('')
 const feedback = ref('')
 const errorMessage = ref('')
-const loading = ref(false)
+const loading = ref(true)
 const saving = ref(false)
 const synonymInput = ref('')
 const categoryInput = ref('')
@@ -111,6 +111,25 @@ const conflictPreview = computed(() =>
 
 const visibleIngredients = computed(() => ingredients.value)
 
+const activeFilterCount = computed(() =>
+  [filters.search.trim(), filters.allergen, filters.diet, filters.status].filter(Boolean).length,
+)
+
+const selectedIngredient = computed(() =>
+  ingredients.value.find((ingredient) => String(ingredient.id) === selectedIngredientId.value) ?? null,
+)
+
+const ingredientStats = computed(() => ({
+  total: ingredients.value.length,
+  archived: ingredients.value.filter((ingredient) => ingredient.status === 'archived').length,
+  sensitive: ingredients.value.filter((ingredient) => Boolean(ingredient.sensitive)).length,
+  missingMetadata: ingredients.value.filter((ingredient) =>
+    !ingredient.sensitive
+    && toStringArray(ingredient.allergens).length === 0
+    && toStringArray(ingredient.diets).length === 0,
+  ).length,
+}))
+
 const ingredientQuery = computed(() => {
   const query: Record<string, string | number> = { limit: 50 }
 
@@ -135,6 +154,14 @@ const ingredientQuery = computed(() => {
 
 const statusLabel = (status: unknown) => (status === 'archived' ? 'Archivé' : 'Actif')
 const statusTone = (status: unknown) => (status === 'archived' ? 'neutral' : 'success')
+
+const clearFilters = async () => {
+  filters.search = ''
+  filters.allergen = ''
+  filters.diet = ''
+  filters.status = ''
+  await loadIngredients()
+}
 
 const resetForm = () => {
   selectedIngredientId.value = null
@@ -310,6 +337,25 @@ onMounted(loadIngredients)
       </div>
     </div>
 
+    <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <article class="admin-stat-card">
+        <span class="admin-stat-label">Ingrédients chargés</span>
+        <strong class="admin-stat-value">{{ ingredientStats.total }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span class="admin-stat-label">Archivés</span>
+        <strong class="admin-stat-value">{{ ingredientStats.archived }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span class="admin-stat-label">Sensibles</span>
+        <strong class="admin-stat-value">{{ ingredientStats.sensitive }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span class="admin-stat-label">À compléter</span>
+        <strong class="admin-stat-value">{{ ingredientStats.missingMetadata }}</strong>
+      </article>
+    </div>
+
     <div class="admin-toolbar mt-6 grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto]">
       <input
         v-model="filters.search"
@@ -324,7 +370,7 @@ onMounted(loadIngredients)
       >
         <option value="">Tous allergènes</option>
         <option v-for="allergen in allergenOptions" :key="allergen" :value="allergen">
-          {{ allergen }}
+          {{ allergenLabels[allergen] }}
         </option>
       </select>
       <select
@@ -332,7 +378,7 @@ onMounted(loadIngredients)
         class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
       >
         <option value="">Tous régimes</option>
-        <option v-for="diet in dietOptions" :key="diet" :value="diet">{{ diet }}</option>
+        <option v-for="diet in dietOptions" :key="diet" :value="diet">{{ dietLabels[diet] }}</option>
       </select>
       <select
         v-model="filters.status"
@@ -342,7 +388,17 @@ onMounted(loadIngredients)
         <option value="active">Actif</option>
         <option value="archived">Archivé</option>
       </select>
-      <BaseButton type="button" variant="secondary" @click="loadIngredients">Filtrer</BaseButton>
+      <div class="flex gap-2">
+        <BaseButton type="button" variant="secondary" @click="loadIngredients">Filtrer</BaseButton>
+        <BaseButton
+          v-if="activeFilterCount"
+          type="button"
+          variant="ghost"
+          @click="clearFilters"
+        >
+          Effacer
+        </BaseButton>
+      </div>
     </div>
 
     <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
@@ -363,8 +419,19 @@ onMounted(loadIngredients)
         </div>
 
         <div v-if="loading" class="p-5 text-sm text-[#667085]">Chargement du catalogue...</div>
-        <div v-else-if="visibleIngredients.length === 0" class="p-5 text-sm text-[#667085]">
-          Aucun ingrédient ne correspond aux filtres.
+        <div v-else-if="visibleIngredients.length === 0" class="grid place-items-center p-10 text-center">
+          <div class="max-w-sm">
+            <p class="text-sm font-semibold text-[#101828]">Aucun ingrédient trouvé</p>
+            <p class="mt-2 text-sm text-[#667085]">
+              Aucun résultat ne correspond aux filtres actuels. Supprime les filtres ou crée un nouvel ingrédient.
+            </p>
+            <div class="mt-4 flex justify-center gap-2">
+              <BaseButton v-if="activeFilterCount" type="button" variant="secondary" @click="clearFilters">
+                Réinitialiser
+              </BaseButton>
+              <BaseButton type="button" @click="resetForm">Créer</BaseButton>
+            </div>
+          </div>
         </div>
         <div v-else class="overflow-x-auto">
           <table class="min-w-full divide-y divide-[#eee8df] text-sm">
@@ -382,11 +449,14 @@ onMounted(loadIngredients)
                 v-for="ingredient in visibleIngredients"
                 :key="String(ingredient.id)"
                 class="transition hover:bg-[#fbfaf7]"
+                :class="String(ingredient.id) === selectedIngredientId
+                  ? 'bg-[#f0f7f3] shadow-[inset_4px_0_0_#0f2d27]'
+                  : ''"
               >
                 <td class="px-5 py-4">
                   <button
                     type="button"
-                    class="text-left"
+                    class="w-full text-left"
                     @click="selectIngredient(ingredient)"
                   >
                     <span class="block font-semibold text-[#101828]">{{ ingredient.name }}</span>
@@ -412,14 +482,14 @@ onMounted(loadIngredients)
                       :key="allergen"
                       tone="danger"
                     >
-                      {{ allergen }}
+                      {{ isAllergenCode(allergen) ? allergenLabels[allergen] : allergen }}
                     </BaseBadge>
                     <BaseBadge
                       v-for="diet in toStringArray(ingredient.diets).slice(0, 3)"
                       :key="diet"
                       tone="success"
                     >
-                      {{ diet }}
+                      {{ isDietCode(diet) ? dietLabels[diet] : diet }}
                     </BaseBadge>
                     <span
                       v-if="!ingredient.sensitive && !toStringArray(ingredient.allergens).length && !toStringArray(ingredient.diets).length"
@@ -462,6 +532,9 @@ onMounted(loadIngredients)
               {{ selectedIngredientId ? 'Modification' : 'Création' }}
             </p>
             <h2 class="mt-2 text-lg font-semibold text-[#101828]">Fiche ingrédient</h2>
+            <p v-if="selectedIngredient" class="mt-1 text-xs text-[#667085]">
+              Sélection : {{ selectedIngredient.name }}
+            </p>
           </div>
           <BaseButton v-if="selectedIngredientId" type="button" size="sm" variant="ghost" @click="resetForm">
             Annuler

@@ -5,6 +5,8 @@ import type { AdminRole } from '#shared/auth/permissions'
 const route = useRoute()
 const search = ref('')
 const currentRole = ref<AdminRole>('super_administrator')
+const notificationPanelOpen = ref(false)
+const unreadNotifications = useState('admin-unread-notifications', () => 0)
 const visibleNavigation = computed(() => filterAdminNavigationForRole(currentRole.value))
 
 const navigationIcon = (path: string) => {
@@ -51,6 +53,20 @@ const pageTitle = computed(() => {
   }
 
   return currentNavigationItem.value?.label ?? 'Administration'
+})
+
+const notificationLabel = computed(() => {
+  const count = unreadNotifications.value
+
+  if (count <= 0) {
+    return 'Aucune notification non lue'
+  }
+
+  return `${count} notification${count > 1 ? 's' : ''} non lue${count > 1 ? 's' : ''}`
+})
+
+watch(() => route.fullPath, () => {
+  notificationPanelOpen.value = false
 })
 
 const logout = async () => {
@@ -168,15 +184,61 @@ const logout = async () => {
           </label>
 
           <div class="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              class="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e6e1d8] bg-white text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] hover:text-[#0f5a3d]"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <AdminNavIcon name="notifications" />
-              <span class="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#ff4d3d] text-[0.58rem] font-black text-white">3</span>
-            </button>
+            <div class="relative">
+              <button
+                type="button"
+                class="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e6e1d8] bg-white text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] hover:text-[#0f5a3d]"
+                :aria-label="notificationLabel"
+                :aria-expanded="notificationPanelOpen"
+                aria-controls="admin-notifications-panel"
+                title="Notifications"
+                @click="notificationPanelOpen = !notificationPanelOpen"
+              >
+                <AdminNavIcon name="notifications" />
+                <span
+                  v-if="unreadNotifications > 0"
+                  class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#ff4d3d] px-1 text-[0.58rem] font-black text-white"
+                >
+                  {{ unreadNotifications > 9 ? '9+' : unreadNotifications }}
+                </span>
+              </button>
+
+              <div
+                v-if="notificationPanelOpen"
+                id="admin-notifications-panel"
+                class="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-[#e6e1d8] bg-white p-3 text-sm shadow-[0_22px_70px_rgba(15,26,20,0.16)]"
+              >
+                <div class="flex items-start justify-between gap-3 border-b border-[#eee8dd] pb-3">
+                  <div>
+                    <p class="font-black text-[#101828]">Notifications</p>
+                    <p class="mt-1 text-xs text-[#667085]">{{ notificationLabel }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-xs font-bold text-[#667085] hover:bg-[#f7f4ed]"
+                    aria-label="Fermer les notifications"
+                    @click="notificationPanelOpen = false"
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+                <div class="py-4">
+                  <div
+                    v-if="unreadNotifications <= 0"
+                    class="rounded-xl bg-[#f7f4ed] p-4 text-[#667085]"
+                  >
+                    Rien à traiter pour le moment. Les futures alertes admin apparaîtront ici quand elles seront exposées par l’API.
+                  </div>
+                  <div
+                    v-else
+                    class="rounded-xl bg-[#fff7ed] p-4 text-[#8a4b12]"
+                  >
+                    {{ notificationLabel }} dans Supabase. La liste détaillée sera branchée sur la table notifications à l’étape suivante.
+                  </div>
+                </div>
+              </div>
+            </div>
             <BaseThemeToggle />
             <NuxtLink
               to="/"

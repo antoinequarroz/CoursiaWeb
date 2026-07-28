@@ -641,6 +641,25 @@ textarea {
     text-decoration: none;
   }
 
+  .admin-console :where(
+    a[href],
+    button:not(:disabled),
+    [role='button'],
+    summary,
+    select,
+    input[type='button'],
+    input[type='checkbox'],
+    input[type='radio'],
+    input[type='submit'],
+    label[for]
+  ) {
+    cursor: pointer;
+  }
+
+  .admin-console :where(button:disabled, [aria-disabled='true']) {
+    cursor: not-allowed;
+  }
+
   .admin-console main :where(button) {
     min-height: 2.4rem;
     border-radius: 0.9rem;

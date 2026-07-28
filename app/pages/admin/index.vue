@@ -68,11 +68,20 @@ const {
 })
 
 const hasMounted = ref(false)
+const unreadNotifications = useState('admin-unread-notifications', () => 0)
 
 onMounted(() => {
   hasMounted.value = true
   void refresh()
 })
+
+watch(
+  () => dashboard.value?.counts.unreadNotifications,
+  (count) => {
+    unreadNotifications.value = Number(count ?? 0)
+  },
+  { immediate: true },
+)
 
 const status = computed<'loading' | 'ready' | 'empty' | 'error'>(() => {
   if (hasMounted.value && pending.value) {

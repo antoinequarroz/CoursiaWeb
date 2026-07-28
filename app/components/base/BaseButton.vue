@@ -35,7 +35,7 @@ const sizeClass = computed(() => {
 
 <template>
   <button
-    class="ds-focus-ring inline-flex items-center justify-center rounded-coursia-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+    class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
     :class="[variantClass, sizeClass]"
     :disabled="disabled"
   >

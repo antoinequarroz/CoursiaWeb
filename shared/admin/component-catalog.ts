@@ -72,7 +72,7 @@ export const componentCatalogItems: ComponentCatalogItem[] = [
     title: 'Alertes et confirmations',
     usefulProps: ['role', 'aria-live', 'tone'],
     variants: ['information', 'success', 'warning', 'danger'],
-    useCases: ['erreurs serveur', 'confirmation de sauvegarde', 'blocants production'],
+    useCases: ['erreurs serveur', 'confirmation de sauvegarde', 'bloquants production'],
     accessibility: ['role=alert pour erreur immédiate', 'message actionnable', 'contraste suffisant'],
   },
   {

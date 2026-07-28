@@ -35,11 +35,14 @@ export const canonicalIngredientSchema = z.object({
   sensitive: z.boolean().default(false),
 })
 
+const optionalQueryString = <Schema extends z.ZodTypeAny>(schema: Schema) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
+
 export const canonicalIngredientListQuerySchema = z.object({
-  search: z.string().trim().max(120).optional(),
-  allergen: allergenCodeSchema.optional(),
-  diet: dietCodeSchema.optional(),
-  status: canonicalIngredientStatusSchema.optional(),
+  search: optionalQueryString(z.string().trim().max(120)),
+  allergen: optionalQueryString(allergenCodeSchema),
+  diet: optionalQueryString(dietCodeSchema),
+  status: optionalQueryString(canonicalIngredientStatusSchema),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
@@ -84,4 +87,3 @@ export const estimateIngredientCatalogImpact = (usageCount: number, synonymCount
   affectedSynonyms: synonymCount,
   requiresReview: usageCount > 0 || synonymCount > 0,
 })
-

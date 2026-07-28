@@ -62,6 +62,36 @@ const isAllergenCode = (value: string): value is AllergenCode =>
 
 const isDietCode = (value: string): value is DietCode => dietOptions.includes(value as DietCode)
 
+const unitLabels: Record<IngredientUnit, string> = {
+  g: 'Grammes',
+  kg: 'Kilogrammes',
+  ml: 'Millilitres',
+  l: 'Litres',
+  piece: 'Pièce',
+  tbsp: 'C. à soupe',
+  tsp: 'C. à café',
+}
+
+const allergenLabels: Record<AllergenCode, string> = {
+  gluten: 'Gluten',
+  milk: 'Lait',
+  eggs: 'Œufs',
+  peanuts: 'Arachides',
+  nuts: 'Fruits à coque',
+  soy: 'Soja',
+  fish: 'Poisson',
+  shellfish: 'Crustacés',
+  sesame: 'Sésame',
+}
+
+const dietLabels: Record<DietCode, string> = {
+  vegetarian: 'Végétarien',
+  vegan: 'Végan',
+  gluten_free: 'Sans gluten',
+  lactose_free: 'Sans lactose',
+  low_fodmap: 'Low FODMAP',
+}
+
 const impactPreview = computed(() =>
   estimateIngredientCatalogImpact(Number(ingredients.value.length), form.synonyms.length),
 )
@@ -80,6 +110,28 @@ const conflictPreview = computed(() =>
 )
 
 const visibleIngredients = computed(() => ingredients.value)
+
+const ingredientQuery = computed(() => {
+  const query: Record<string, string | number> = { limit: 50 }
+
+  if (filters.search.trim()) {
+    query.search = filters.search.trim()
+  }
+
+  if (filters.allergen) {
+    query.allergen = filters.allergen
+  }
+
+  if (filters.diet) {
+    query.diet = filters.diet
+  }
+
+  if (filters.status) {
+    query.status = filters.status
+  }
+
+  return query
+})
 
 const statusLabel = (status: unknown) => (status === 'archived' ? 'Archivé' : 'Actif')
 const statusTone = (status: unknown) => (status === 'archived' ? 'neutral' : 'success')
@@ -115,7 +167,7 @@ const loadIngredients = async () => {
 
   try {
     const response = await $fetch<{ data: IngredientRecord[] }>('/api/admin/ingredients', {
-      query: filters,
+      query: ingredientQuery.value,
     })
     ingredients.value = response.data
   } catch (error) {
@@ -159,6 +211,37 @@ const addSynonym = () => {
     form.synonyms.push(value)
     synonymInput.value = ''
   }
+}
+
+const toggleUnit = (unit: IngredientUnit) => {
+  if (form.units.includes(unit)) {
+    if (form.units.length === 1) {
+      return
+    }
+
+    form.units = form.units.filter((item) => item !== unit)
+    return
+  }
+
+  form.units.push(unit)
+}
+
+const toggleAllergen = (allergen: AllergenCode) => {
+  if (form.allergens.includes(allergen)) {
+    form.allergens = form.allergens.filter((item) => item !== allergen)
+    return
+  }
+
+  form.allergens.push(allergen)
+}
+
+const toggleDiet = (diet: DietCode) => {
+  if (form.diets.includes(diet)) {
+    form.diets = form.diets.filter((item) => item !== diet)
+    return
+  }
+
+  form.diets.push(diet)
 }
 
 const removeSynonym = (synonym: string) => {
@@ -414,18 +497,39 @@ onMounted(loadIngredients)
           </label>
         </div>
 
-        <fieldset class="mt-5">
-          <legend class="text-xs font-semibold text-[#344054]">Unités compatibles</legend>
-          <div class="mt-2 grid grid-cols-3 gap-2">
-            <label
+        <fieldset class="mt-5 rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <legend class="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                Unités compatibles
+              </legend>
+              <p class="mt-1 text-xs text-[#98a2b3]">
+                Choisis les unités autorisées pour les quantités. Une unité minimum est requise.
+              </p>
+            </div>
+            <BaseBadge tone="neutral">{{ form.units.length }}</BaseBadge>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
               v-for="unit in unitOptions"
               :key="unit"
-              class="flex items-center gap-2 rounded-xl border border-[#e6e1d8] px-3 py-2 text-xs text-[#667085]"
+              type="button"
+              class="rounded-full border px-3 py-2 text-left text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-coursia-primary/30"
+              :class="form.units.includes(unit)
+                ? 'border-[#0f2d27] bg-[#0f2d27] text-white shadow-sm'
+                : 'border-[#e6e1d8] bg-white text-[#667085] hover:border-[#a6c1b1] hover:text-[#0f2d27]'"
+              :aria-pressed="form.units.includes(unit)"
+              @click="toggleUnit(unit)"
             >
-              <input v-model="form.units" type="checkbox" :value="unit">
-              {{ unit }}
-            </label>
+              <span class="block leading-none">{{ unit }}</span>
+              <span class="mt-1 block text-[10px] font-medium opacity-75">{{ unitLabels[unit] }}</span>
+            </button>
           </div>
+
+          <p class="mt-3 text-xs text-[#667085]">
+            Sélection actuelle : <span class="font-semibold text-[#344054]">{{ form.units.join(', ') }}</span>
+          </p>
         </fieldset>
 
         <div class="mt-5 grid gap-4">
@@ -446,10 +550,11 @@ onMounted(loadIngredients)
                 v-for="synonym in form.synonyms"
                 :key="synonym"
                 type="button"
-                class="rounded-full bg-[#f1f5f3] px-3 py-1 text-xs text-[#344054]"
+                class="inline-flex items-center gap-2 rounded-full border border-[#d6e6dc] bg-[#f1f5f3] px-3 py-1.5 text-xs font-semibold text-[#344054] transition hover:border-[#0f2d27] hover:text-[#0f2d27]"
                 @click="removeSynonym(synonym)"
               >
-                {{ synonym }} ×
+                <span>{{ synonym }}</span>
+                <span aria-hidden="true" class="text-[#98a2b3]">×</span>
               </button>
             </div>
           </div>
@@ -471,46 +576,97 @@ onMounted(loadIngredients)
                 v-for="category in form.categories"
                 :key="category"
                 type="button"
-                class="rounded-full bg-[#fff2e8] px-3 py-1 text-xs text-[#7a4b2b]"
+                class="inline-flex items-center gap-2 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1.5 text-xs font-semibold text-[#7a4b2b] transition hover:border-[#ff7a59] hover:text-[#9a3412]"
                 @click="removeCategory(category)"
               >
-                {{ category }} ×
+                <span>{{ category }}</span>
+                <span aria-hidden="true" class="text-[#c98b58]">×</span>
               </button>
             </div>
           </div>
         </div>
 
-        <fieldset class="mt-5">
-          <legend class="text-xs font-semibold text-[#344054]">Allergènes</legend>
-          <div class="mt-2 grid grid-cols-2 gap-2">
-            <label
+        <fieldset class="mt-5 rounded-2xl border border-[#fee4e2] bg-[#fff7f5] p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <legend class="text-xs font-semibold uppercase tracking-[0.14em] text-[#b42318]">
+                Allergènes
+              </legend>
+              <p class="mt-1 text-xs text-[#667085]">
+                Marque uniquement les allergènes réellement concernés. Ces données servent aux filtres mobiles.
+              </p>
+            </div>
+            <BaseBadge tone="danger">{{ form.allergens.length }}</BaseBadge>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
               v-for="allergen in allergenOptions"
               :key="allergen"
-              class="flex items-center gap-2 rounded-xl border border-[#e6e1d8] px-3 py-2 text-xs text-[#667085]"
+              type="button"
+              class="rounded-full border px-3 py-2 text-left text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#ef4444]/25"
+              :class="form.allergens.includes(allergen)
+                ? 'border-[#ef4444] bg-[#ef4444] text-white shadow-sm'
+                : 'border-[#fee4e2] bg-white text-[#667085] hover:border-[#fda29b] hover:text-[#b42318]'"
+              :aria-pressed="form.allergens.includes(allergen)"
+              @click="toggleAllergen(allergen)"
             >
-              <input v-model="form.allergens" type="checkbox" :value="allergen">
-              {{ allergen }}
-            </label>
+              <span class="block leading-none">{{ allergenLabels[allergen] }}</span>
+              <span class="mt-1 block font-mono text-[10px] font-medium opacity-75">{{ allergen }}</span>
+            </button>
           </div>
         </fieldset>
 
-        <fieldset class="mt-5">
-          <legend class="text-xs font-semibold text-[#344054]">Régimes</legend>
-          <div class="mt-2 grid grid-cols-2 gap-2">
-            <label
+        <fieldset class="mt-5 rounded-2xl border border-[#d1fadf] bg-[#f6fef9] p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <legend class="text-xs font-semibold uppercase tracking-[0.14em] text-[#027a48]">
+                Régimes
+              </legend>
+              <p class="mt-1 text-xs text-[#667085]">
+                Indique les régimes compatibles pour améliorer la recherche et les recommandations.
+              </p>
+            </div>
+            <BaseBadge tone="success">{{ form.diets.length }}</BaseBadge>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
               v-for="diet in dietOptions"
               :key="diet"
-              class="flex items-center gap-2 rounded-xl border border-[#e6e1d8] px-3 py-2 text-xs text-[#667085]"
+              type="button"
+              class="rounded-full border px-3 py-2 text-left text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#22c55e]/25"
+              :class="form.diets.includes(diet)
+                ? 'border-[#22c55e] bg-[#22c55e] text-white shadow-sm'
+                : 'border-[#d1fadf] bg-white text-[#667085] hover:border-[#7ee3a2] hover:text-[#027a48]'"
+              :aria-pressed="form.diets.includes(diet)"
+              @click="toggleDiet(diet)"
             >
-              <input v-model="form.diets" type="checkbox" :value="diet">
-              {{ diet }}
-            </label>
+              <span class="block leading-none">{{ dietLabels[diet] }}</span>
+              <span class="mt-1 block font-mono text-[10px] font-medium opacity-75">{{ diet }}</span>
+            </button>
           </div>
         </fieldset>
 
-        <label class="mt-5 flex items-center gap-3 rounded-xl border border-[#e6e1d8] px-3 py-2.5 text-sm text-[#344054]">
-          <input v-model="form.sensitive" type="checkbox">
-          Donnée sensible pour la sécurité alimentaire
+        <label
+          class="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[#e6e1d8] bg-white px-4 py-3 text-sm text-[#344054] transition hover:border-[#a6c1b1]"
+        >
+          <span>
+            <span class="block font-semibold text-[#101828]">Donnée sensible</span>
+            <span class="mt-1 block text-xs text-[#667085]">
+              Active une attention renforcée pour la sécurité alimentaire.
+            </span>
+          </span>
+          <span
+            class="relative inline-flex h-6 w-11 shrink-0 rounded-full transition"
+            :class="form.sensitive ? 'bg-[#0f2d27]' : 'bg-[#e6e1d8]'"
+          >
+            <input v-model="form.sensitive" type="checkbox" class="sr-only">
+            <span
+              class="absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition"
+              :class="form.sensitive ? 'left-6' : 'left-1'"
+            />
+          </span>
         </label>
 
         <div class="mt-5 rounded-2xl bg-[#fbfaf7] p-4 text-xs text-[#667085]">

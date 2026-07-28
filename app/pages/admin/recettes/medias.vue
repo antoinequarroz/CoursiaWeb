@@ -43,6 +43,8 @@ const errorMessage = ref('')
 const selectedMediaId = ref('')
 const orphanAssets = ref<Array<Record<string, unknown>>>([])
 const recipes = ref<RecipeOption[]>([])
+const selectedFile = ref<File | null>(null)
+const previewUrl = ref('')
 const loading = ref(false)
 const loadingRecipes = ref(true)
 const saving = ref(false)
@@ -50,6 +52,7 @@ const saving = ref(false)
 const renditionPreview = computed(() => buildRecipeMediaRenditions(form.fileName || 'recipe.webp'))
 const readableMaxSize = computed(() => `${Math.round(recipeMediaMaxBytes / 1024 / 1024)} Mo`)
 const selectedRecipe = computed(() => recipes.value.find((recipe) => recipe.id === form.recipeId) ?? null)
+const canUpload = computed(() => !!selectedFile.value && validationIssues.value.length === 0)
 const cropPercent = computed(() => ({
   x: Math.round(form.crop.x * 100),
   y: Math.round(form.crop.y * 100),
@@ -60,6 +63,7 @@ const cropPercent = computed(() => ({
 const validationIssues = computed(() => {
   const issues: string[] = []
 
+  if (!selectedFile.value) issues.push('Sélectionne un fichier image.')
   if (!form.recipeId) issues.push('Sélectionne une recette.')
   if (!recipeMediaAllowedTypes.includes(form.mimeType)) issues.push('Type de fichier invalide.')
   if (form.sizeBytes > recipeMediaMaxBytes) issues.push(`Taille supérieure à ${readableMaxSize.value}.`)
@@ -83,6 +87,53 @@ const statusTone = (status: RecipeMediaMetadata['status']): BadgeTone => {
   return 'danger'
 }
 
+const setPreviewUrl = (file: File) => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
+  previewUrl.value = URL.createObjectURL(file)
+}
+
+const readImageDimensions = (file: File) => new Promise<{ width: number; height: number }>((resolve, reject) => {
+  const image = new Image()
+  const url = URL.createObjectURL(file)
+
+  image.onload = () => {
+    resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    URL.revokeObjectURL(url)
+  }
+  image.onerror = () => {
+    reject(new Error('Impossible de lire les dimensions de l’image.'))
+    URL.revokeObjectURL(url)
+  }
+  image.src = url
+})
+
+const onFileSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) {
+    selectedFile.value = null
+    return
+  }
+
+  selectedFile.value = file
+  form.fileName = file.name
+  form.mimeType = file.type as RecipeMediaMetadata['mimeType']
+  form.sizeBytes = file.size
+  form.status = 'validation'
+  setPreviewUrl(file)
+
+  try {
+    const dimensions = await readImageDimensions(file)
+    form.width = dimensions.width
+    form.height = dimensions.height
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Lecture image impossible.'
+  }
+}
+
 const loadRecipes = async () => {
   loadingRecipes.value = true
 
@@ -101,10 +152,15 @@ const loadRecipes = async () => {
   }
 }
 
-const saveMetadata = async () => {
+const uploadMedia = async (replaceOfId?: string) => {
+  if (!selectedFile.value) {
+    feedback.value = ''
+    errorMessage.value = 'Sélectionne un fichier image avant l’import.'
+    return
+  }
   if (validationIssues.value.length > 0) {
     feedback.value = ''
-    errorMessage.value = 'Corrige les métadonnées avant l’enregistrement.'
+    errorMessage.value = 'Corrige les métadonnées avant l’import.'
     return
   }
 
@@ -112,14 +168,22 @@ const saveMetadata = async () => {
   errorMessage.value = ''
 
   try {
-    const response = await $fetch<{ data: { id: string } }>('/api/admin/recipes/media', {
+    const payload = new FormData()
+    payload.append('file', selectedFile.value)
+    payload.append('metadata', JSON.stringify(form))
+    if (replaceOfId) {
+      payload.append('replaceOfId', replaceOfId)
+    }
+
+    const response = await $fetch<{ data: { id: string; private_path: string } }>('/api/admin/recipes/media/upload', {
       method: 'POST',
-      body: form,
+      body: payload,
     })
     selectedMediaId.value = response.data.id
-    feedback.value = 'Métadonnées et droits enregistrés dans le bucket privé de validation.'
+    form.status = 'validation'
+    feedback.value = `Fichier importé dans le bucket privé : ${response.data.private_path}`
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Enregistrement impossible.'
+    errorMessage.value = error instanceof Error ? error.message : 'Import impossible.'
   } finally {
     saving.value = false
   }
@@ -127,7 +191,7 @@ const saveMetadata = async () => {
 
 const publishMedia = async () => {
   if (!selectedMediaId.value) {
-    errorMessage.value = 'Enregistre un média avant publication.'
+    errorMessage.value = 'Importe un média avant publication.'
     return
   }
   if (!form.altText?.trim()) {
@@ -135,26 +199,26 @@ const publishMedia = async () => {
     return
   }
 
-  await $fetch(`/api/admin/recipes/media/${selectedMediaId.value}/publish`, {
-    method: 'POST',
-    body: { altText: form.altText },
-  })
-  form.status = 'published'
-  feedback.value = 'Média publié avec texte alternatif obligatoire.'
+  try {
+    await $fetch(`/api/admin/recipes/media/${selectedMediaId.value}/publish`, {
+      method: 'POST',
+      body: { altText: form.altText },
+    })
+    form.status = 'published'
+    feedback.value = 'Média publié dans le bucket public avec texte alternatif.'
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Publication impossible.'
+  }
 }
 
 const replaceMedia = async () => {
   if (!selectedMediaId.value) {
-    errorMessage.value = 'Sélectionne ou enregistre un média avant remplacement.'
+    errorMessage.value = 'Importe un média avant remplacement.'
     return
   }
 
-  await $fetch(`/api/admin/recipes/media/${selectedMediaId.value}/replace`, {
-    method: 'POST',
-    body: form,
-  })
-  form.status = 'replaced'
-  feedback.value = 'Remplacement enregistré et ancien fichier marqué comme remplacé.'
+  await uploadMedia(selectedMediaId.value)
+  feedback.value = 'Nouveau fichier importé et ancien média marqué comme remplacé.'
 }
 
 const loadOrphans = async () => {
@@ -174,6 +238,12 @@ onMounted(() => {
   void loadRecipes()
   void loadOrphans()
 })
+
+onBeforeUnmount(() => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
+})
 </script>
 
 <template>
@@ -181,11 +251,11 @@ onMounted(() => {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-99</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-white">
           Photos de recettes
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Valide les métadonnées image, droits, recadrage et renditions avant publication dans Supabase Storage.
+        <p class="mt-2 max-w-3xl text-sm text-[#667085] dark:text-white/60">
+          Importe l’image réelle dans Supabase Storage, conserve les droits, puis publie uniquement le média validé.
         </p>
       </div>
 
@@ -195,27 +265,27 @@ onMounted(() => {
     </div>
 
     <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Statut</p>
+      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Statut</p>
         <div class="mt-3">
           <BaseBadge :tone="statusTone(form.status)">{{ form.status }}</BaseBadge>
         </div>
-        <p class="mt-3 text-xs text-[#667085]">média courant</p>
+        <p class="mt-3 text-xs text-[#667085] dark:text-white/50">média courant</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Dimensions</p>
-        <p class="mt-3 text-2xl font-semibold text-[#101828]">{{ form.width }}×{{ form.height }}</p>
-        <p class="mt-1 text-xs text-[#667085]">source importée</p>
+      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Dimensions</p>
+        <p class="mt-3 text-2xl font-semibold text-[#101828] dark:text-white">{{ form.width }}×{{ form.height }}</p>
+        <p class="mt-1 text-xs text-[#667085] dark:text-white/50">lues depuis le fichier</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Renditions</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ recipeMediaRenditions.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">mobile, web, social</p>
+      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Renditions</p>
+        <p class="mt-3 text-3xl font-semibold text-[#101828] dark:text-white">{{ recipeMediaRenditions.length }}</p>
+        <p class="mt-1 text-xs text-[#667085] dark:text-white/50">mobile, web, social</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Orphelins</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ orphanAssets.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">à vérifier</p>
+      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Orphelins</p>
+        <p class="mt-3 text-3xl font-semibold text-[#101828] dark:text-white">{{ orphanAssets.length }}</p>
+        <p class="mt-1 text-xs text-[#667085] dark:text-white/50">à vérifier</p>
       </article>
     </div>
 
@@ -227,77 +297,79 @@ onMounted(() => {
     </p>
 
     <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]" @submit.prevent="saveMetadata">
+      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)] dark:border-white/10 dark:bg-white/5" @submit.prevent="uploadMedia()">
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Validation privée</p>
-            <h2 class="mt-2 text-lg font-semibold text-[#101828]">Métadonnées image</h2>
+            <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-white">Image et métadonnées</h2>
           </div>
-          <BaseBadge tone="neutral">{{ selectedMediaId || 'Non enregistré' }}</BaseBadge>
+          <BaseBadge tone="neutral">{{ selectedMediaId || 'Non importé' }}</BaseBadge>
         </div>
 
+        <label class="mt-5 grid cursor-pointer gap-2 rounded-2xl border border-dashed border-[#cfc7b8] bg-[#fbfaf7] p-5 text-sm text-[#344054] transition hover:border-coursia-primary dark:border-white/15 dark:bg-white/5 dark:text-white/70">
+          <span class="font-semibold text-[#101828] dark:text-white">Importer une photo</span>
+          <span>JPEG, PNG ou WebP. Maximum {{ readableMaxSize }}. Les dimensions sont lues automatiquement.</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" @change="onFileSelected">
+          <span v-if="selectedFile" class="mt-1 break-all text-xs text-coursia-primary">{{ selectedFile.name }}</span>
+        </label>
+
         <div class="mt-5 grid gap-4 md:grid-cols-2">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] md:col-span-2">
+          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70 md:col-span-2">
             Recette
             <select
               v-model="form.recipeId"
               :disabled="loadingRecipes"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white"
             >
               <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
               <option v-for="recipe in recipes" :key="recipe.id" :value="recipe.id">
                 {{ recipe.title || 'Recette sans titre' }} · {{ recipe.slug }}
               </option>
             </select>
-            <span v-if="selectedRecipe" class="truncate text-[11px] font-medium text-[#667085]">{{ selectedRecipe.id }}</span>
+            <span v-if="selectedRecipe" class="truncate text-[11px] font-medium text-[#667085] dark:text-white/50">{{ selectedRecipe.id }}</span>
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
             Nom de fichier
-            <input v-model="form.fileName" required class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+            <input v-model="form.fileName" required readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
             Type
-            <select v-model="form.mimeType" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-              <option v-for="type in recipeMediaAllowedTypes" :key="type" :value="type">{{ type }}</option>
-            </select>
+            <input v-model="form.mimeType" readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Taille en octets
-            <input v-model.number="form.sizeBytes" required type="number" min="1" :max="recipeMediaMaxBytes" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
+            Taille
+            <input :value="`${Math.round(form.sizeBytes / 1024)} Ko`" readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
             Dimensions
-            <div class="grid grid-cols-2 gap-2">
-              <input v-model.number="form.width" required type="number" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-              <input v-model.number="form.height" required type="number" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            </div>
+            <input :value="`${form.width} × ${form.height}`" readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
           </label>
         </div>
 
-        <section class="mt-5 rounded-2xl bg-[#fbfaf7] p-4">
-          <h3 class="text-sm font-semibold text-[#101828]">Recadrage</h3>
+        <section class="mt-5 rounded-2xl bg-[#fbfaf7] p-4 dark:bg-white/5">
+          <h3 class="text-sm font-semibold text-[#101828] dark:text-white">Recadrage</h3>
           <div class="mt-3 grid grid-cols-4 gap-2">
-            <label class="grid gap-1 text-xs text-[#667085]">X<input v-model.number="form.crop.x" type="number" min="0" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm"></label>
-            <label class="grid gap-1 text-xs text-[#667085]">Y<input v-model.number="form.crop.y" type="number" min="0" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm"></label>
-            <label class="grid gap-1 text-xs text-[#667085]">L<input v-model.number="form.crop.width" type="number" min="0.01" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm"></label>
-            <label class="grid gap-1 text-xs text-[#667085]">H<input v-model.number="form.crop.height" type="number" min="0.01" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm"></label>
+            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">X<input v-model.number="form.crop.x" type="number" min="0" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
+            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">Y<input v-model.number="form.crop.y" type="number" min="0" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
+            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">L<input v-model.number="form.crop.width" type="number" min="0.01" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
+            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">H<input v-model.number="form.crop.height" type="number" min="0.01" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
           </div>
-          <p class="mt-3 text-xs text-[#667085]">
+          <p class="mt-3 text-xs text-[#667085] dark:text-white/50">
             Zone : {{ cropPercent.x }}%, {{ cropPercent.y }}%, {{ cropPercent.width }}% × {{ cropPercent.height }}%.
           </p>
         </section>
 
-        <section class="mt-5 rounded-2xl border border-[#e6e1d8] p-4">
-          <h3 class="text-sm font-semibold text-[#101828]">Droits et accessibilité</h3>
+        <section class="mt-5 rounded-2xl border border-[#e6e1d8] p-4 dark:border-white/10">
+          <h3 class="text-sm font-semibold text-[#101828] dark:text-white">Droits et accessibilité</h3>
           <div class="mt-3 grid gap-3">
-            <input v-model="form.rights.author" required placeholder="Auteur" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <input v-model="form.rights.source" required placeholder="Source" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <input v-model="form.rights.license" required placeholder="Licence" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <label class="flex cursor-pointer items-center gap-3 text-sm text-[#344054]">
+            <input v-model="form.rights.author" required placeholder="Auteur" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
+            <input v-model="form.rights.source" required placeholder="Source" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
+            <input v-model="form.rights.license" required placeholder="Licence" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
+            <label class="flex cursor-pointer items-center gap-3 text-sm text-[#344054] dark:text-white/70">
               <input v-model="form.rights.consentConfirmed" required type="checkbox">
               Consentement confirmé
             </label>
-            <input v-model="form.altText" placeholder="Texte alternatif avant publication" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+            <input v-model="form.altText" placeholder="Texte alternatif avant publication" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
           </div>
         </section>
 
@@ -306,65 +378,73 @@ onMounted(() => {
         </div>
 
         <div class="mt-5 flex flex-wrap gap-2">
-          <BaseButton type="submit" :disabled="saving">
-            {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+          <BaseButton type="submit" :disabled="saving || !canUpload">
+            {{ saving ? 'Import...' : 'Importer dans Storage' }}
           </BaseButton>
           <BaseButton type="button" variant="secondary" @click="publishMedia">Publier</BaseButton>
-          <BaseButton type="button" variant="ghost" @click="replaceMedia">Remplacer</BaseButton>
+          <BaseButton type="button" variant="ghost" @click="replaceMedia">Remplacer par ce fichier</BaseButton>
         </div>
       </form>
 
       <aside class="grid gap-5">
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
-          <h2 class="text-sm font-semibold text-[#101828]">Aperçu média</h2>
-          <div class="mt-4 overflow-hidden rounded-2xl bg-[#fbfaf7]">
-            <div class="aspect-[4/3] bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.20),transparent_30%),linear-gradient(135deg,#fff7ed,#eef7f2)]" />
+        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <h2 class="text-sm font-semibold text-[#101828] dark:text-white">Aperçu média</h2>
+          <div class="mt-4 overflow-hidden rounded-2xl bg-[#fbfaf7] dark:bg-white/5">
+            <img
+              v-if="previewUrl"
+              :src="previewUrl"
+              :alt="form.altText || 'Aperçu du média recette'"
+              class="aspect-[4/3] w-full object-cover"
+            >
+            <div v-else class="grid aspect-[4/3] place-items-center bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.20),transparent_30%),linear-gradient(135deg,#fff7ed,#eef7f2)] text-sm text-[#667085] dark:text-white/50">
+              Aucun fichier sélectionné
+            </div>
           </div>
-          <p class="mt-3 text-xs text-[#667085]">
-            Prévisualisation structurelle. Le fichier réel reste géré côté Storage.
+          <p class="mt-3 text-xs text-[#667085] dark:text-white/50">
+            Le fichier est d’abord privé, puis copié dans le bucket public lors de la publication.
           </p>
         </article>
 
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
-          <h2 class="text-sm font-semibold text-[#101828]">Renditions générées</h2>
+        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <h2 class="text-sm font-semibold text-[#101828] dark:text-white">Renditions prévues</h2>
           <div class="mt-4 grid gap-3">
-            <div v-for="rendition in renditionPreview" :key="rendition.name" class="rounded-2xl bg-[#fbfaf7] p-4">
+            <div v-for="rendition in renditionPreview" :key="rendition.name" class="rounded-2xl bg-[#fbfaf7] p-4 dark:bg-white/5">
               <div class="flex items-center justify-between gap-3">
-                <span class="font-semibold text-[#101828]">{{ rendition.name }}</span>
+                <span class="font-semibold text-[#101828] dark:text-white">{{ rendition.name }}</span>
                 <BaseBadge tone="neutral">{{ rendition.width }}×{{ rendition.height }}</BaseBadge>
               </div>
-              <p class="mt-2 break-all text-xs text-[#667085]">{{ rendition.path }}</p>
+              <p class="mt-2 break-all text-xs text-[#667085] dark:text-white/50">{{ rendition.path }}</p>
             </div>
           </div>
         </article>
       </aside>
     </div>
 
-    <section class="admin-table mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <section class="admin-table mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white dark:border-white/10 dark:bg-white/5">
+      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4 dark:border-white/10">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828]">Fichiers orphelins</h2>
-          <p class="mt-1 text-xs text-[#667085]">Fichiers sans recette ou marqués orphelins avant nettoyage.</p>
+          <h2 class="text-sm font-semibold text-[#101828] dark:text-white">Fichiers orphelins</h2>
+          <p class="mt-1 text-xs text-[#667085] dark:text-white/50">Fichiers sans recette ou marqués orphelins avant nettoyage.</p>
         </div>
         <BaseBadge tone="warning">{{ orphanAssets.length }}</BaseBadge>
       </div>
 
-      <div v-if="orphanAssets.length === 0" class="p-5 text-sm text-[#667085]">
+      <div v-if="orphanAssets.length === 0" class="p-5 text-sm text-[#667085] dark:text-white/50">
         Aucun fichier orphelin chargé.
       </div>
       <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+        <table class="min-w-full divide-y divide-[#eee8df] text-sm dark:divide-white/10">
+          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085] dark:bg-white/5 dark:text-white/50">
             <tr>
               <th class="px-5 py-3">Chemin privé</th>
               <th class="px-5 py-3">Recette</th>
               <th class="px-5 py-3">Statut</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#eee8df]">
-            <tr v-for="asset in orphanAssets" :key="String(asset.id)" class="transition hover:bg-[#fbfaf7]">
-              <td class="px-5 py-4 font-medium text-[#101828]">{{ asset.private_path || asset.path || asset.id }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ asset.recipe_id || '—' }}</td>
+          <tbody class="divide-y divide-[#eee8df] dark:divide-white/10">
+            <tr v-for="asset in orphanAssets" :key="String(asset.id)" class="transition hover:bg-[#fbfaf7] dark:hover:bg-white/5">
+              <td class="px-5 py-4 font-medium text-[#101828] dark:text-white">{{ asset.private_path || asset.path || asset.id }}</td>
+              <td class="px-5 py-4 text-[#667085] dark:text-white/50">{{ asset.recipe_id || '—' }}</td>
               <td class="px-5 py-4"><BaseBadge tone="warning">{{ asset.status || 'orphaned' }}</BaseBadge></td>
             </tr>
           </tbody>

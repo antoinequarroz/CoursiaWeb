@@ -3,6 +3,8 @@ import type { Database, Json } from '#shared/supabase/database.types'
 import {
   buildRecipeMediaRenditions,
   recipeMediaBucket,
+  recipeMediaAllowedTypes,
+  recipeMediaMaxBytes,
   type RecipeMediaMetadata,
 } from '#shared/validation/recipe-media'
 
@@ -18,7 +20,7 @@ export const buildPrivateRecipeMediaPath = (recipeId: string, fileName: string) 
   return `${recipeId}/${Date.now()}-${safeName}`
 }
 
-export const toRecipeMediaAssetRow = (metadata: RecipeMediaMetadata) => {
+export const toRecipeMediaAssetRow = (metadata: RecipeMediaMetadata, createdBy?: string) => {
   const privatePath = buildPrivateRecipeMediaPath(metadata.recipeId, metadata.fileName)
 
   return {
@@ -37,7 +39,79 @@ export const toRecipeMediaAssetRow = (metadata: RecipeMediaMetadata) => {
     source: metadata.rights.source,
     license: metadata.rights.license,
     consent_confirmed: metadata.rights.consentConfirmed,
+    created_by: createdBy ?? null,
+    metadata: {
+      originalFileName: metadata.fileName,
+      storageBucket: recipeMediaBucket.privateValidation,
+    } as unknown as Json,
     updated_at: new Date().toISOString(),
+  }
+}
+
+export const assertRecipeMediaUploadFile = (
+  file: { filename?: string | undefined; type?: string | undefined; data: Buffer },
+) => {
+  const mimeType = file.type ?? ''
+
+  if (!recipeMediaAllowedTypes.includes(mimeType as (typeof recipeMediaAllowedTypes)[number])) {
+    throwApiError('INVALID_REQUEST', 'Type de fichier image non autorisé.')
+  }
+
+  if (file.data.byteLength <= 0) {
+    throwApiError('INVALID_REQUEST', 'Le fichier image est vide.')
+  }
+
+  if (file.data.byteLength > recipeMediaMaxBytes) {
+    throwApiError('INVALID_REQUEST', 'Le fichier image dépasse la taille maximale autorisée.')
+  }
+}
+
+export const uploadRecipeMediaObject = async (
+  client: SupabaseClient<Database>,
+  path: string,
+  file: { type?: string; data: Buffer },
+) => {
+  const options = {
+    cacheControl: '31536000',
+    upsert: false,
+    ...(file.type ? { contentType: file.type } : {}),
+  }
+
+  const { error } = await client.storage
+    .from(recipeMediaBucket.privateValidation)
+    .upload(path, file.data, options)
+
+  if (error) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible d’importer le fichier dans Supabase Storage.')
+  }
+}
+
+export const publishRecipeMediaObject = async (
+  client: SupabaseClient<Database>,
+  privatePath: string,
+  publicPath: string,
+  contentType?: string | null,
+) => {
+  const { data: privateObject, error: downloadError } = await client.storage
+    .from(recipeMediaBucket.privateValidation)
+    .download(privatePath)
+
+  if (downloadError || !privateObject) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible de lire le fichier privé à publier.')
+  }
+
+  const options = {
+    cacheControl: '31536000',
+    upsert: true,
+    ...(contentType ? { contentType } : {}),
+  }
+
+  const { error: uploadError } = await client.storage
+    .from(recipeMediaBucket.publicPublished)
+    .upload(publicPath, privateObject, options)
+
+  if (uploadError) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible de publier le fichier dans le bucket public.')
   }
 }
 
@@ -68,4 +142,3 @@ export const storagePolicyNotes = {
   replacement:
     'Un remplacement marque l’ancien média comme replaced et conserve son audit au lieu de l’écraser silencieusement.',
 } as const
-

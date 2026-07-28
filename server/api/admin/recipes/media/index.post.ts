@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = createSupabaseServiceRoleClient()
-  const row = toRecipeMediaAssetRow(parsed.data)
+  const row = toRecipeMediaAssetRow(parsed.data, admin.userId)
   const { data, error } = await supabase.from('recipe_media_assets').insert(row).select('*').single()
 
   if (error) {
@@ -29,4 +29,3 @@ export default defineEventHandler(async (event) => {
 
   return { data }
 })
-

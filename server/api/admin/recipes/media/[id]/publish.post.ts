@@ -14,13 +14,17 @@ export default defineEventHandler(async (event) => {
 
   const supabase = createSupabaseServiceRoleClient()
   const asset = await getRecipeMediaAssetById(supabase, params.id)
-  const publicPath = asset.private_path.replace(/^/, 'published/')
+  const publicPath = asset.public_path ?? asset.private_path.replace(/^/, 'published/')
+
+  await publishRecipeMediaObject(supabase, asset.private_path, publicPath, asset.mime_type)
+
   const { data, error } = await supabase
     .from('recipe_media_assets')
     .update({
       status: 'published',
       alt_text: parsed.data.altText,
       public_path: publicPath,
+      published_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.id)
@@ -41,4 +45,3 @@ export default defineEventHandler(async (event) => {
 
   return { data }
 })
-

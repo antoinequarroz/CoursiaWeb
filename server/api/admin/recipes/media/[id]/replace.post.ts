@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('recipe_media_assets')
-    .insert(toRecipeMediaAssetRow(parsed.data))
+    .insert(toRecipeMediaAssetRow(parsed.data, admin.userId))
     .select('*')
     .single()
 
@@ -39,4 +39,3 @@ export default defineEventHandler(async (event) => {
 
   return { data }
 })
-

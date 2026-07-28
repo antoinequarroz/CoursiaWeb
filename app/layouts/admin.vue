@@ -9,26 +9,26 @@ const visibleNavigation = computed(() => filterAdminNavigationForRole(currentRol
 
 const navigationIcon = (label: string) => {
   const icons: Record<string, string> = {
-    Recettes: '🍽',
-    'Import recettes': '↥',
-    'Publication recettes': '✓',
-    'Médias recettes': '◧',
-    Ingrédients: '✽',
-    Allergènes: '◇',
-    Correspondances: '↔',
-    Enseignes: '▣',
-    Produits: '□',
-    Prix: '⌁',
-    Modération: '◌',
-    Utilisateurs: '♙',
-    Abonnements: '☆',
-    Contenus: '≡',
-    Paramètres: '⚙',
-    Documentation: '⌘',
-    Composants: '◫',
+    Recettes: 'RC',
+    'Import recettes': 'IM',
+    'Publication recettes': 'PB',
+    'Médias recettes': 'MD',
+    Ingrédients: 'IN',
+    Allergènes: 'AL',
+    Correspondances: 'CO',
+    Enseignes: 'EN',
+    Produits: 'PR',
+    Prix: 'PX',
+    Modération: 'MO',
+    Utilisateurs: 'UT',
+    Abonnements: 'AB',
+    Contenus: 'CN',
+    Paramètres: 'PA',
+    Documentation: 'DO',
+    Composants: 'DS',
   }
 
-  return icons[label] ?? '•'
+  return icons[label] ?? label.slice(0, 2).toUpperCase()
 }
 
 const isActiveNavigationItem = (path: string) => {
@@ -38,6 +38,19 @@ const isActiveNavigationItem = (path: string) => {
 
   return route.path === path
 }
+
+const currentNavigationItem = computed(() => {
+  const flatItems = visibleNavigation.value.flatMap((section) => section.items)
+  return flatItems.find((item) => route.path === item.path) ?? null
+})
+
+const pageTitle = computed(() => {
+  if (route.path === '/admin') {
+    return 'Tableau de bord'
+  }
+
+  return currentNavigationItem.value?.label ?? 'Administration'
+})
 
 const logout = async () => {
   await $fetch('/api/auth/logout', { method: 'POST' }).catch(() => null)
@@ -55,34 +68,36 @@ const logout = async () => {
       Aller au contenu admin
     </a>
 
-    <aside class="fixed inset-y-0 left-0 z-40 hidden w-[19rem] overflow-hidden border-r border-[#e6e1d8] bg-white/88 p-4 backdrop-blur-xl md:block">
+    <aside class="fixed inset-y-0 left-0 z-40 hidden w-[17.25rem] overflow-hidden border-r border-[#e6e1d8] bg-white/92 p-3 backdrop-blur-xl md:block">
       <div class="flex h-full min-h-0 flex-col">
-        <div class="shrink-0 flex items-center justify-between px-2 py-2">
+        <div class="shrink-0 flex items-center justify-between rounded-2xl px-2 py-2">
           <NuxtLink to="/admin" class="flex items-center gap-3" aria-label="Coursia admin">
-            <svg class="h-11 w-11 text-[#0f5a3d]" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <svg class="h-9 w-9 text-[#0f5a3d]" viewBox="0 0 48 48" fill="none" aria-hidden="true">
               <path d="M20 7c-7 1-11 6-11 13 7 1 13-3 14-10 4 2 7 6 7 11v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M15 28c8-2 17 1 22 8-10 6-21 3-24-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M14 35h20" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
             </svg>
-            <span class="text-2xl font-black tracking-[0.16em] text-[#0f2d27]">COURSIA</span>
+            <span class="text-lg font-black tracking-[0.16em] text-[#0f2d27]">COURSIA</span>
           </NuxtLink>
-          <button type="button" class="rounded-lg px-2 py-1 text-xl text-[#667085] hover:bg-[#f2f0ea]">‹</button>
+          <span class="rounded-lg border border-[#e6e1d8] px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-[#667085]">
+            admin
+          </span>
         </div>
 
-        <nav class="admin-sidebar-nav mt-8 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 text-[0.95rem]" aria-label="Navigation administration">
+        <nav class="admin-sidebar-nav mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 text-[0.86rem]" aria-label="Navigation administration">
           <NuxtLink
             to="/admin"
-            class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition"
+            class="admin-nav-link group flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition"
             :class="isActiveNavigationItem('/admin')
-              ? 'bg-[#1f6b4a] text-white shadow-[0_12px_28px_rgb(31_107_74_/_18%)]'
-              : 'text-[#344054] hover:bg-[#f2f0ea]'"
+              ? 'is-active text-[#0f5a3d]'
+              : 'text-[#344054] hover:bg-[#f7f4ed]'"
           >
-            <span class="text-base">⌂</span>
+            <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[0.66rem] font-black tracking-tight text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">DB</span>
             <span>Tableau de bord</span>
           </NuxtLink>
 
           <section v-for="section in visibleNavigation" :key="section.title" class="mt-5 first:mt-5">
-            <h2 class="px-4 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#98a2b3]">
+            <h2 class="px-3 text-[0.66rem] font-black uppercase tracking-[0.16em] text-[#98a2b3]">
               {{ section.title }}
             </h2>
             <div class="mt-2 grid gap-0.5">
@@ -90,26 +105,28 @@ const logout = async () => {
                 v-for="item in section.items"
                 :key="item.path"
                 :to="item.path"
-                class="flex items-center gap-3 rounded-xl px-4 py-2.5 font-medium transition"
+                class="admin-nav-link group flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition"
                 :class="isActiveNavigationItem(item.path)
-                  ? 'bg-[#edf6ef] text-[#0f5a3d]'
-                  : 'text-[#344054] hover:bg-[#f2f0ea]'"
+                  ? 'is-active text-[#0f5a3d]'
+                  : 'text-[#344054] hover:bg-[#f7f4ed]'"
               >
-                <span class="w-5 text-center text-sm opacity-80">{{ navigationIcon(item.label) }}</span>
+                <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[0.66rem] font-black tracking-tight text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">{{ navigationIcon(item.label) }}</span>
                 <span>{{ item.label }}</span>
               </NuxtLink>
             </div>
           </section>
         </nav>
 
-        <div class="mt-4 shrink-0 rounded-2xl border border-[#e6e1d8] bg-white p-3 shadow-sm">
+        <div class="mt-3 shrink-0 rounded-2xl border border-[#e6e1d8] bg-white p-3 shadow-sm">
           <div class="flex items-center gap-3">
             <span class="grid h-11 w-11 place-items-center rounded-full bg-[#e8f3ea] text-sm font-black text-[#0f5a3d]">AQ</span>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-bold text-[#101828]">Antoine Quarroz</p>
               <p class="truncate text-xs text-[#667085]">Profil admin</p>
             </div>
-            <button type="button" class="text-[#667085]" @click="logout">⌄</button>
+            <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-[#667085] hover:bg-[#f7f4ed]" @click="logout">
+              OUT
+            </button>
           </div>
           <button
             type="button"
@@ -122,46 +139,43 @@ const logout = async () => {
       </div>
     </aside>
 
-    <div class="relative z-10 md:pl-[19rem]">
-      <header class="sticky top-0 z-30 border-b border-[#e6e1d8] bg-white/82 px-6 py-4 backdrop-blur-xl">
-        <div class="flex items-center justify-between gap-5">
-          <label class="relative hidden min-w-[24rem] flex-1 md:block md:max-w-2xl">
+    <div class="relative z-10 md:pl-[17.25rem]">
+      <header class="sticky top-0 z-30 border-b border-[#e6e1d8] bg-white/86 px-4 py-3 backdrop-blur-xl lg:px-7">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#98a2b3]">Coursia admin</p>
+            <p class="truncate text-lg font-black tracking-[-0.03em] text-[#101828]">{{ pageTitle }}</p>
+          </div>
+
+          <label class="relative hidden min-w-[20rem] flex-1 md:block md:max-w-xl">
             <span class="sr-only">Recherche admin</span>
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]">⌕</span>
+            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-[#667085]">⌕</span>
             <input
               v-model="search"
               type="search"
-              placeholder="Rechercher une recette, un ingrédient, un utilisateur..."
-              class="ds-focus-ring h-12 w-full rounded-2xl border border-[#e6e1d8] bg-white px-11 text-sm shadow-sm placeholder:text-[#98a2b3]"
+              placeholder="Recherche admin..."
+              class="ds-focus-ring h-10 w-full rounded-xl border border-[#e6e1d8] bg-white px-10 text-sm shadow-sm placeholder:text-[#98a2b3]"
             />
-            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#98a2b3]">⌘ K</span>
+            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#98a2b3]">Ctrl K</span>
           </label>
 
-          <div class="flex shrink-0 items-center gap-4">
-            <button type="button" class="relative grid h-11 w-11 place-items-center rounded-full border border-[#e6e1d8] bg-white text-[#344054] shadow-sm">
-              ♧
-              <span class="absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full bg-[#ff4d3d] text-[0.68rem] font-black text-white">3</span>
+          <div class="flex shrink-0 items-center gap-2">
+            <button type="button" class="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e6e1d8] bg-white text-xs font-black text-[#344054] shadow-sm">
+              N
+              <span class="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#ff4d3d] text-[0.58rem] font-black text-white">3</span>
             </button>
             <BaseThemeToggle />
             <NuxtLink
               to="/"
-              class="hidden rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm font-semibold text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] lg:inline-flex"
+              class="hidden rounded-xl border border-[#e6e1d8] bg-white px-3 py-2 text-sm font-semibold text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] lg:inline-flex"
             >
               Site public
             </NuxtLink>
-            <button
-              type="button"
-              class="inline-flex items-center gap-3 rounded-2xl bg-[#1f6b4a] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgb(31_107_74_/_22%)] transition hover:bg-[#18583d]"
-            >
-              <span class="text-lg leading-none">+</span>
-              Ajouter
-              <span class="text-white/75">⌄</span>
-            </button>
           </div>
         </div>
       </header>
 
-      <main id="admin-main-content" tabindex="-1" class="px-6 py-7 lg:px-9">
+      <main id="admin-main-content" tabindex="-1" class="px-4 py-5 lg:px-7">
         <slot />
       </main>
     </div>

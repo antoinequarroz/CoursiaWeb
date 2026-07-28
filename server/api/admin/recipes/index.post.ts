@@ -22,14 +22,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const recipe = toAdminRecipeRow(data as never)
+  await syncOfficialRecipeRelations(supabase, String(recipe.id), parsed.data)
+  const savedRecipe = await getOfficialRecipeById(supabase, String(recipe.id))
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: parsed.data.status === 'published' ? 'publish' : 'create',
     resourceType: 'course',
-    resourceId: String(recipe.id),
-    context: { slug: recipe.slug, status: recipe.status, table: 'recettes' },
+    resourceId: String(savedRecipe.id),
+    context: { slug: savedRecipe.slug, status: savedRecipe.status, table: 'recettes' },
   })
 
-  return { data: recipe }
+  return { data: savedRecipe }
 })

@@ -381,51 +381,21 @@ textarea {
   }
 
   .admin-console {
-    --admin-background: #f8f4ed;
-    --admin-card: rgb(255 255 255 / 90%);
+    --admin-background: #f8f6f1;
+    --admin-card: rgb(255 255 255 / 94%);
     --admin-card-strong: #ffffff;
-    --admin-border: #e2d9cc;
-    --admin-border-soft: #eee7dc;
-    --admin-muted-panel: #fbf7f0;
+    --admin-border: #e5ded3;
+    --admin-border-soft: #efe9df;
+    --admin-muted-panel: #fbf9f5;
     --admin-sidebar: #0d241f;
-    --admin-shadow: 0 1px 2px rgb(15 45 39 / 5%), 0 18px 46px rgb(15 45 39 / 6%);
-    --admin-shadow-strong: 0 20px 60px rgb(15 45 39 / 10%);
+    --admin-shadow: 0 1px 2px rgb(15 45 39 / 4%), 0 14px 36px rgb(15 45 39 / 5%);
+    --admin-shadow-strong: 0 18px 44px rgb(15 45 39 / 8%);
     position: relative;
     background:
-      radial-gradient(circle at 16% 10%, rgb(166 193 177 / 24%), transparent 22rem),
-      radial-gradient(circle at 84% 16%, rgb(255 207 168 / 22%), transparent 24rem),
-      linear-gradient(180deg, rgb(255 255 255 / 36%), transparent 18rem),
+      radial-gradient(circle at 12% 6%, rgb(166 193 177 / 14%), transparent 21rem),
+      radial-gradient(circle at 86% 10%, rgb(255 207 168 / 14%), transparent 22rem),
+      linear-gradient(180deg, rgb(255 255 255 / 54%), transparent 16rem),
       var(--admin-background);
-  }
-
-  .admin-console::before,
-  .admin-console::after {
-    position: fixed;
-    z-index: 0;
-    pointer-events: none;
-    content: '';
-    border-radius: 999px;
-    filter: blur(2px);
-  }
-
-  .admin-console::before {
-    top: 7rem;
-    right: 19%;
-    width: 2.2rem;
-    height: 1rem;
-    background: #a6c1b1;
-    opacity: 0.45;
-    transform: rotate(18deg);
-  }
-
-  .admin-console::after {
-    bottom: 7rem;
-    left: 21rem;
-    width: 2.8rem;
-    height: 1.25rem;
-    background: #dfe9df;
-    opacity: 0.5;
-    transform: rotate(-24deg);
   }
 
   .admin-console > aside,
@@ -443,13 +413,35 @@ textarea {
   }
 
   .admin-sidebar-nav::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+    display: none;
+  }
+
+  .admin-nav-link {
+    position: relative;
+  }
+
+  .admin-nav-link::before {
+    position: absolute;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    left: 0;
+    width: 3px;
+    content: '';
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .admin-nav-link.is-active {
+    background: linear-gradient(90deg, rgb(234 245 238 / 92%), rgb(255 255 255 / 58%));
+  }
+
+  .admin-nav-link.is-active::before {
+    background: #1f6b4a;
   }
 
   .admin-console main > section {
     display: grid;
-    gap: 1.4rem;
+    gap: 1rem;
   }
 
   .admin-console main > section > .flex:first-child {
@@ -460,8 +452,8 @@ textarea {
   }
 
   .admin-console main h1 {
-    font-size: clamp(1.75rem, 2.6vw, 2.35rem);
-    line-height: 1.08;
+    font-size: clamp(1.5rem, 2.1vw, 2rem);
+    line-height: 1.1;
     letter-spacing: -0.045em;
     color: #101828;
   }
@@ -481,9 +473,9 @@ textarea {
     .bg-coursia-surface\/82
   ) {
     border: 1px solid var(--admin-border);
-    border-radius: 1.25rem;
+    border-radius: 1rem;
     background:
-      linear-gradient(145deg, rgb(255 255 255 / 92%), rgb(255 255 255 / 76%)),
+      linear-gradient(145deg, rgb(255 255 255 / 96%), rgb(255 255 255 / 84%)),
       var(--admin-card);
     box-shadow: var(--admin-shadow);
     backdrop-filter: blur(16px);
@@ -516,9 +508,9 @@ textarea {
 
   .admin-console main :where(input, select, textarea) {
     width: 100%;
-    min-height: 2.65rem;
+    min-height: 2.45rem;
     border: 1px solid var(--admin-border);
-    border-radius: 0.9rem;
+    border-radius: 0.75rem;
     background: rgb(255 255 255 / 84%);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 70%),
@@ -584,7 +576,7 @@ textarea {
   }
 
   .admin-console main :where(tbody tr:hover) {
-    background: rgb(248 244 237 / 74%);
+    background: rgb(251 249 245 / 88%);
   }
 
   .admin-console main :where(.content-auto) {
@@ -597,8 +589,8 @@ textarea {
 
   .admin-console main :where(article):hover {
     border-color: rgb(15 45 39 / 18%);
-    box-shadow: var(--admin-shadow-strong);
-    transform: translateY(-1px);
+    box-shadow: var(--admin-shadow);
+    transform: none;
   }
 
   .admin-console main :where(.text-coursia-primary) {
@@ -645,31 +637,32 @@ textarea {
 
   .admin-console main .admin-page {
     display: grid;
-    gap: 1rem;
+    gap: 0.85rem;
+    max-width: 100%;
   }
 
   .admin-console main .admin-page > :first-child:is(.flex, div) {
     align-items: flex-end;
-    padding-bottom: 1rem;
+    padding-bottom: 0.85rem;
     margin-bottom: 0;
     border-bottom: 1px solid var(--admin-border);
   }
 
   .admin-console main .admin-page > :first-child:is(.flex, div) h1 {
-    font-size: clamp(1.55rem, 2vw, 2rem);
+    font-size: clamp(1.35rem, 1.8vw, 1.8rem);
     letter-spacing: -0.04em;
   }
 
   .admin-console main .admin-page > :first-child:is(.flex, div) p {
     max-width: 48rem;
-    margin-top: 0.45rem;
+    margin-top: 0.35rem;
     color: #667085;
-    font-size: 0.9rem;
+    font-size: 0.86rem;
   }
 
   .admin-console main .admin-page > :where(form, section, article, div):not(:first-child) {
     border-color: var(--admin-border);
-    border-radius: 1rem;
+    border-radius: 0.95rem;
     box-shadow: var(--admin-shadow);
   }
 
@@ -691,7 +684,7 @@ textarea {
   .admin-console main .admin-page :where(table) {
     width: 100%;
     min-width: 44rem;
-    font-size: 0.86rem;
+    font-size: 0.82rem;
   }
 
   .admin-console main .admin-page :where(thead) {
@@ -705,7 +698,7 @@ textarea {
   }
 
   .admin-console main .admin-page :where(td) {
-    padding: 0.65rem 0.75rem;
+    padding: 0.58rem 0.75rem;
   }
 
   .admin-console main .admin-page :where(th:first-child) {
@@ -717,10 +710,10 @@ textarea {
   }
 
   .admin-console main .admin-page :where(input, select, textarea) {
-    min-height: 2.45rem;
-    border-radius: 0.75rem;
+    min-height: 2.35rem;
+    border-radius: 0.7rem;
     background: #fbf7f0;
-    font-size: 0.9rem;
+    font-size: 0.86rem;
   }
 
   .admin-console main .admin-page :where(input, select, textarea):focus {
@@ -736,13 +729,13 @@ textarea {
     .p-6,
     .p-5
   ) {
-    padding: 1rem;
+    padding: 0.9rem;
   }
 
   .admin-console main .admin-page :where(
     .p-4
   ) {
-    padding: 0.8rem;
+    padding: 0.75rem;
   }
 
   .admin-console main .admin-page :where(
@@ -782,23 +775,23 @@ textarea {
   }
 
   .admin-console main .admin-page :where(h2) {
-    font-size: 1.05rem;
+    font-size: 1rem;
   }
 
   .admin-console main .admin-page :where(.text-xl) {
-    font-size: 1.05rem;
+    font-size: 1rem;
   }
 
   .admin-console main .admin-page :where(.text-2xl) {
-    font-size: 1.25rem;
+    font-size: 1.14rem;
   }
 
   .admin-console main .admin-page :where(.text-3xl) {
-    font-size: 1.65rem;
+    font-size: 1.45rem;
   }
 
   .admin-console main .admin-page :where(.text-4xl) {
-    font-size: 1.9rem;
+    font-size: 1.65rem;
   }
 
   .admin-console main .admin-page :where(button, .inline-flex) {
@@ -815,6 +808,87 @@ textarea {
 
   .admin-console main .admin-page :where(a.rounded-full, span.rounded-full) {
     border-radius: 999px;
+  }
+
+  .admin-stat-card {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.9rem;
+    text-align: left;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.95rem;
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 96%), rgb(255 251 245 / 84%)),
+      #fff;
+    box-shadow: var(--admin-shadow);
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+
+  .admin-stat-card:hover {
+    border-color: rgb(31 107 74 / 24%);
+    background: #fff;
+  }
+
+  .admin-stat-card span {
+    color: #667085;
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+
+  .admin-stat-card strong {
+    color: #101828;
+    font-size: 1.45rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+  }
+
+  .admin-toolbar {
+    padding: 0.9rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.95rem;
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(255 251 245 / 84%)),
+      #fff;
+    box-shadow: var(--admin-shadow);
+  }
+
+  .admin-table {
+    width: 100%;
+    min-width: 52rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.84rem;
+  }
+
+  .admin-table thead {
+    background: #fbf7f0;
+  }
+
+  .admin-table th {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--admin-border);
+    color: #667085;
+    font-size: 0.66rem;
+    font-weight: 900;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+  }
+
+  .admin-table td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--admin-border-soft);
+    color: #344054;
+    vertical-align: middle;
+  }
+
+  .admin-table tbody tr {
+    transition: background 160ms ease;
+  }
+
+  .admin-table tbody tr:hover {
+    background: #fbf9f5;
   }
 }
 

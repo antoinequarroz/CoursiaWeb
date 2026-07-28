@@ -85,6 +85,30 @@ export const toAdminDifficulty = (difficulty: unknown) => {
   return difficulties[String(difficulty)] ?? 'medium'
 }
 
+export const toMobileIngredientUnit = (unit: string) => {
+  const units: Record<string, string> = {
+    piece: 'unite',
+    tbsp: 'cs',
+    tsp: 'cc',
+  }
+
+  return units[unit] ?? unit
+}
+
+export const toAdminIngredientUnit = (unit: unknown) => {
+  const units: Record<string, 'g' | 'kg' | 'ml' | 'l' | 'piece' | 'tbsp' | 'tsp'> = {
+    unite: 'piece',
+    cs: 'tbsp',
+    cc: 'tsp',
+    g: 'g',
+    kg: 'kg',
+    ml: 'ml',
+    l: 'l',
+  }
+
+  return units[String(unit)] ?? 'g'
+}
+
 type MobileRecipeRow = Record<string, unknown>
 
 const numberOrNull = (value: unknown) => {

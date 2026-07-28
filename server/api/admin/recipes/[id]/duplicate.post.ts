@@ -47,14 +47,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const recipe = toAdminRecipeRow(data as never)
+  await duplicateOfficialRecipeRelations(supabase, params.id, String(recipe.id))
+  const duplicatedRecipe = await getOfficialRecipeById(supabase, String(recipe.id))
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
     action: 'create',
     resourceType: 'course',
-    resourceId: String(recipe.id),
-    context: { duplicatedFrom: params.id, slug: recipe.slug, table: 'recettes' },
+    resourceId: String(duplicatedRecipe.id),
+    context: { duplicatedFrom: params.id, slug: duplicatedRecipe.slug, table: 'recettes' },
   })
 
-  return { data: recipe }
+  return { data: duplicatedRecipe }
 })

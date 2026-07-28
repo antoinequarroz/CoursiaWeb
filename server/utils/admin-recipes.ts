@@ -3,7 +3,9 @@ import type { Database } from '#shared/supabase/database.types'
 import type { OfficialRecipeMutation } from '#shared/validation/course'
 import {
   mobileTable,
+  toAdminIngredientUnit,
   toAdminRecipeRow,
+  toMobileIngredientUnit,
   toMobileRecipeRow,
 } from './mobile-admin-mapping'
 
@@ -64,7 +66,7 @@ export const getOfficialRecipeById = async (
         ingredientId: String(ingredient.ingredient_id ?? ''),
         name: String(linkedIngredient?.nom ?? ingredient.ingredient_id ?? ''),
         quantity: Number(ingredient.quantite ?? 0),
-        unit: ingredient.unite === 'unite' ? 'piece' : String(ingredient.unite ?? 'g'),
+        unit: toAdminIngredientUnit(ingredient.unite),
         group: 'Principal',
         optional: Boolean(ingredient.optionnel),
       }
@@ -73,5 +75,117 @@ export const getOfficialRecipeById = async (
       order: Number(step.numero ?? 0),
       instruction: String(step.instruction ?? ''),
     })),
+  }
+}
+
+export const syncOfficialRecipeRelations = async (
+  client: SupabaseClient<Database>,
+  recipeId: string,
+  input: OfficialRecipeMutation,
+) => {
+  const { error: deleteIngredientsError } = await mobileTable(client, 'recette_ingredients')
+    .delete()
+    .eq('recette_id', recipeId)
+
+  if (deleteIngredientsError) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible de remplacer les ingrédients de la recette.')
+  }
+
+  const { error: deleteStepsError } = await mobileTable(client, 'recette_etapes')
+    .delete()
+    .eq('recette_id', recipeId)
+
+  if (deleteStepsError) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible de remplacer les étapes de la recette.')
+  }
+
+  if (input.ingredients.length > 0) {
+    const { error: insertIngredientsError } = await mobileTable(client, 'recette_ingredients').insert(
+      input.ingredients.map((ingredient, index) => ({
+        recette_id: recipeId,
+        ingredient_id: ingredient.ingredientId,
+        quantite: ingredient.quantity,
+        unite: toMobileIngredientUnit(ingredient.unit),
+        ordre: index + 1,
+        optionnel: ingredient.optional,
+      })),
+    )
+
+    if (insertIngredientsError) {
+      throwApiError('UPSTREAM_ERROR', 'Impossible d’enregistrer les ingrédients de la recette.')
+    }
+  }
+
+  if (input.steps.length > 0) {
+    const { error: insertStepsError } = await mobileTable(client, 'recette_etapes').insert(
+      input.steps.map((step, index) => ({
+        recette_id: recipeId,
+        numero: index + 1,
+        instruction: step.instruction,
+      })),
+    )
+
+    if (insertStepsError) {
+      throwApiError('UPSTREAM_ERROR', 'Impossible d’enregistrer les étapes de la recette.')
+    }
+  }
+}
+
+export const duplicateOfficialRecipeRelations = async (
+  client: SupabaseClient<Database>,
+  sourceRecipeId: string,
+  targetRecipeId: string,
+) => {
+  const [ingredientsResult, stepsResult] = await Promise.all([
+    mobileTable(client, 'recette_ingredients')
+      .select('ingredient_id,quantite,unite,ordre,optionnel')
+      .eq('recette_id', sourceRecipeId)
+      .order('ordre', { ascending: true }),
+    mobileTable(client, 'recette_etapes')
+      .select('numero,instruction')
+      .eq('recette_id', sourceRecipeId)
+      .order('numero', { ascending: true }),
+  ])
+
+  if (ingredientsResult.error || stepsResult.error) {
+    throwApiError('UPSTREAM_ERROR', 'Impossible de charger les lignes liées à dupliquer.')
+  }
+
+  const ingredientRows = Array.isArray(ingredientsResult.data)
+    ? ingredientsResult.data as Array<Record<string, unknown>>
+    : []
+  const stepRows = Array.isArray(stepsResult.data)
+    ? stepsResult.data as Array<Record<string, unknown>>
+    : []
+
+  if (ingredientRows.length > 0) {
+    const { error } = await mobileTable(client, 'recette_ingredients').insert(
+      ingredientRows.map((ingredient, index) => ({
+        recette_id: targetRecipeId,
+        ingredient_id: ingredient.ingredient_id,
+        quantite: ingredient.quantite,
+        unite: ingredient.unite,
+        ordre: index + 1,
+        optionnel: Boolean(ingredient.optionnel),
+      })),
+    )
+
+    if (error) {
+      throwApiError('UPSTREAM_ERROR', 'Impossible de dupliquer les ingrédients de la recette.')
+    }
+  }
+
+  if (stepRows.length > 0) {
+    const { error } = await mobileTable(client, 'recette_etapes').insert(
+      stepRows.map((step, index) => ({
+        recette_id: targetRecipeId,
+        numero: index + 1,
+        instruction: step.instruction,
+      })),
+    )
+
+    if (error) {
+      throwApiError('UPSTREAM_ERROR', 'Impossible de dupliquer les étapes de la recette.')
+    }
   }
 }

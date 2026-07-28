@@ -1135,6 +1135,9 @@ textarea {
     .bg-\[\#fff0df\],
     .bg-\[\#fff2e8\],
     .bg-\[\#fff4dc\],
+    .bg-\[\#fff7ed\],
+    .bg-\[\#fff7f5\],
+    .bg-\[\#f6fef9\],
     .bg-\[\#ffe9e4\],
     .bg-\[\#e9f2ff\],
     .bg-coursia-background,
@@ -1160,6 +1163,10 @@ textarea {
     .border-\[\#eee8df\],
     .border-\[\#eee7dc\],
     .border-\[\#e8e3d8\],
+    .border-\[\#fee4e2\],
+    .border-\[\#d1fadf\],
+    .border-\[\#fed7aa\],
+    .border-\[\#d6e6dc\],
     .border-coursia-border
   ) {
     border-color: var(--admin-border);
@@ -1202,6 +1209,15 @@ textarea {
 
   [data-theme='dark'] .admin-console :where(.text-\[\#d88400\], .text-\[\#b85f16\]) {
     color: var(--admin-warning);
+  }
+
+  [data-theme='dark'] .admin-console :where(
+    .text-\[\#027a48\],
+    .text-\[\#7a4b2b\],
+    .text-\[\#9a3412\],
+    .text-\[\#b42318\]
+  ) {
+    color: var(--admin-muted-strong);
   }
 
   [data-theme='dark'] .admin-console :where(

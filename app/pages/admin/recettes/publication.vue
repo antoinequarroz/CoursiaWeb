@@ -8,13 +8,15 @@ definePageMeta({
 type RecipeStatus = 'draft' | 'review' | 'published' | 'archived'
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 
+type RecipeOption = {
+  id: string
+  title: string
+  slug: string
+  status: RecipeStatus
+}
+
 type RecipePreviewResponse = {
-  data?: {
-    id: string
-    title: string
-    slug: string
-    status: RecipeStatus
-  }
+  data?: RecipeOption
   preview?: {
     blockingFields: string[]
     mobile: {
@@ -44,8 +46,10 @@ const reason = ref('')
 const feedback = ref('')
 const errorMessage = ref('')
 const loading = ref(false)
+const loadingRecipes = ref(true)
 const preview = ref<RecipePreviewResponse['preview'] | null>(null)
 const recipe = ref<RecipePreviewResponse['data'] | null>(null)
+const recipes = ref<RecipeOption[]>([])
 
 const statusLabels: Record<RecipeStatus, string> = {
   draft: 'Brouillon',
@@ -65,17 +69,41 @@ const statusTone = (status?: string | null): BadgeTone => {
   if (status === 'published') return 'success'
   if (status === 'review') return 'warning'
   if (status === 'archived') return 'neutral'
+
   return 'primary'
 }
 
+const selectedRecipeOption = computed(() =>
+  recipes.value.find((item) => item.id === recipeId.value) ?? null,
+)
 const blockingCount = computed(() => preview.value?.blockingFields.length ?? 0)
 const canPublish = computed(() => Boolean(recipe.value) && blockingCount.value === 0)
 const mobileIngredientCount = computed(() => preview.value?.mobile.ingredients.length ?? 0)
 const mobileStepCount = computed(() => preview.value?.mobile.steps.length ?? 0)
 
+const loadRecipes = async () => {
+  loadingRecipes.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await $fetch<{ data: RecipeOption[] }>('/api/admin/recipes', {
+      query: { limit: 100 },
+    })
+    recipes.value = response.data
+
+    if (!recipeId.value && recipes.value.length > 0) {
+      recipeId.value = recipes.value[0]?.id ?? ''
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les recettes.'
+  } finally {
+    loadingRecipes.value = false
+  }
+}
+
 const loadPreview = async () => {
   if (!recipeId.value.trim()) {
-    errorMessage.value = 'Indique un ID de recette.'
+    errorMessage.value = 'Sélectionne une recette.'
     return
   }
 
@@ -97,7 +125,7 @@ const loadPreview = async () => {
 
 const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
   if (!recipeId.value.trim()) {
-    errorMessage.value = 'Indique un ID de recette.'
+    errorMessage.value = 'Sélectionne une recette.'
     return
   }
 
@@ -117,6 +145,7 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
     recipe.value = response.data ?? null
     preview.value = response.preview ?? null
     feedback.value = response.behavior ?? 'Workflow de publication mis à jour et historisé.'
+    await loadRecipes()
   } catch (error) {
     errorMessage.value = error instanceof Error
       ? error.message
@@ -125,6 +154,22 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
     loading.value = false
   }
 }
+
+watch(recipeId, () => {
+  preview.value = null
+  recipe.value = selectedRecipeOption.value
+    ? {
+        id: selectedRecipeOption.value.id,
+        title: selectedRecipeOption.value.title,
+        slug: selectedRecipeOption.value.slug,
+        status: selectedRecipeOption.value.status,
+      }
+    : null
+})
+
+onMounted(() => {
+  void loadRecipes()
+})
 </script>
 
 <template>
@@ -136,8 +181,7 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
           Prévisualisation et publication
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Charge une recette, vérifie les champs bloquants, compare les aperçus mobile/web puis
-          lance la validation ou la publication.
+          Sélectionne une recette, vérifie les champs bloquants, compare les aperçus mobile/web puis lance la validation.
         </p>
       </div>
 
@@ -146,15 +190,24 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
       </BaseBadge>
     </div>
 
-    <form class="admin-toolbar mt-6 grid gap-3 lg:grid-cols-[1fr_1fr_auto]" @submit.prevent="loadPreview">
+    <form class="admin-toolbar mt-6 grid gap-3 lg:grid-cols-[1.2fr_1fr_auto]" @submit.prevent="loadPreview">
       <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-        ID de recette
-        <input
+        Recette
+        <select
           v-model="recipeId"
-          placeholder="UUID recette"
+          :disabled="loadingRecipes"
           class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
         >
+          <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
+          <option v-for="item in recipes" :key="item.id" :value="item.id">
+            {{ item.title || 'Recette sans titre' }} · {{ statusLabels[item.status] }}
+          </option>
+        </select>
+        <span v-if="selectedRecipeOption" class="truncate text-[11px] font-medium text-[#667085]">
+          {{ selectedRecipeOption.slug }} · {{ selectedRecipeOption.id }}
+        </span>
       </label>
+
       <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
         Raison / note d’historique
         <input
@@ -163,7 +216,8 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
           class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
         >
       </label>
-      <BaseButton class="self-end" type="submit" :disabled="loading">
+
+      <BaseButton class="self-end" type="submit" :disabled="loading || !recipeId">
         {{ loading ? 'Chargement...' : 'Charger l’aperçu' }}
       </BaseButton>
     </form>
@@ -225,13 +279,13 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
         <section class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
           <h2 class="text-sm font-semibold text-[#101828]">Actions</h2>
           <div class="mt-4 grid gap-2">
-            <BaseButton type="button" variant="secondary" :disabled="loading" @click="runAction('submit-review')">
+            <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId" @click="runAction('submit-review')">
               Envoyer en validation
             </BaseButton>
             <BaseButton type="button" :disabled="loading || !canPublish" @click="runAction('publish')">
               Publier
             </BaseButton>
-            <BaseButton type="button" variant="secondary" :disabled="loading" @click="runAction('unpublish')">
+            <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId" @click="runAction('unpublish')">
               Dépublier
             </BaseButton>
           </div>
@@ -272,7 +326,7 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
               <div class="rounded-[1.8rem] bg-[#fbfaf7] p-4">
                 <BaseBadge :tone="statusTone(preview?.mobile.status)">{{ preview?.mobile.status ?? 'draft' }}</BaseBadge>
                 <h3 class="mt-4 text-xl font-semibold tracking-[-0.03em] text-[#101828]">
-                  {{ preview?.mobile.title ?? 'Titre recette' }}
+                  {{ preview?.mobile.title ?? recipe?.title ?? 'Titre recette' }}
                 </h3>
                 <p class="mt-2 text-sm text-[#667085]">{{ preview?.mobile.subtitle || 'Catégories' }}</p>
                 <div class="mt-5 grid grid-cols-3 gap-2 text-center text-xs text-[#344054]">
@@ -290,12 +344,12 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
               <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h3 class="text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
-                    {{ preview?.web.title ?? 'Titre recette' }}
+                    {{ preview?.web.title ?? recipe?.title ?? 'Titre recette' }}
                   </h3>
-                  <p class="mt-2 text-sm text-[#667085]">/{{ preview?.web.slug ?? 'slug-recette' }}</p>
+                  <p class="mt-2 text-sm text-[#667085]">/{{ preview?.web.slug ?? recipe?.slug ?? 'slug-recette' }}</p>
                 </div>
-                <BaseBadge :tone="statusTone(preview?.web.status)">
-                  {{ preview?.web.status ?? 'draft' }}
+                <BaseBadge :tone="statusTone(preview?.web.status ?? recipe?.status)">
+                  {{ preview?.web.status ?? recipe?.status ?? 'draft' }}
                 </BaseBadge>
               </div>
               <p class="mt-5 text-sm text-[#667085]">Source : {{ preview?.web.source ?? 'À compléter' }}</p>

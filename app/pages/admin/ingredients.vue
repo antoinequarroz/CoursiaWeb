@@ -155,6 +155,14 @@ const ingredientQuery = computed(() => {
 const statusLabel = (status: unknown) => (status === 'archived' ? 'Archivé' : 'Actif')
 const statusTone = (status: unknown) => (status === 'archived' ? 'neutral' : 'success')
 
+const toSlug = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
 const clearFilters = async () => {
   filters.search = ''
   filters.allergen = ''
@@ -289,8 +297,13 @@ const removeCategory = (category: string) => {
 }
 
 const archiveIngredient = async (id: string) => {
+  const ingredient = ingredients.value.find((item) => String(item.id) === id)
+  if (ingredient && !confirm(`Archiver « ${String(ingredient.name ?? 'cet ingrédient')} » ?`)) {
+    return
+  }
+
   await $fetch(`/api/admin/ingredients/${id}/archive`, { method: 'POST' })
-  feedback.value = 'Ingrédient archivé après aperçu d’impact.'
+  feedback.value = 'Ingrédient archivé et audit enregistré.'
   await loadIngredients()
 }
 
@@ -312,6 +325,15 @@ const mergeIngredient = async (id: string) => {
   await loadIngredients()
 }
 
+watch(
+  () => form.name,
+  (name) => {
+    if (!selectedIngredientId.value && !form.slug) {
+      form.slug = toSlug(name)
+    }
+  },
+)
+
 onMounted(loadIngredients)
 </script>
 
@@ -319,7 +341,7 @@ onMounted(loadIngredients)
   <section class="admin-page">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-98</p>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-98</p>
         <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
           Référentiel ingrédients
         </h1>
@@ -448,15 +470,16 @@ onMounted(loadIngredients)
               <tr
                 v-for="ingredient in visibleIngredients"
                 :key="String(ingredient.id)"
-                class="transition hover:bg-[#fbfaf7]"
+                class="cursor-pointer transition hover:bg-[#fbfaf7]"
                 :class="String(ingredient.id) === selectedIngredientId
                   ? 'bg-[#f0f7f3] shadow-[inset_4px_0_0_#0f2d27]'
                   : ''"
+                @click="selectIngredient(ingredient)"
               >
                 <td class="px-5 py-4">
                   <button
                     type="button"
-                    class="w-full text-left"
+                    class="w-full cursor-pointer text-left"
                     @click="selectIngredient(ingredient)"
                   >
                     <span class="block font-semibold text-[#101828]">{{ ingredient.name }}</span>
@@ -504,7 +527,7 @@ onMounted(loadIngredients)
                     {{ statusLabel(ingredient.status) }}
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td class="px-5 py-4" @click.stop>
                   <div class="flex justify-end gap-2">
                     <BaseButton size="sm" variant="secondary" type="button" @click="selectIngredient(ingredient)">
                       Modifier
@@ -742,10 +765,17 @@ onMounted(loadIngredients)
           </span>
         </label>
 
-        <div class="mt-5 rounded-2xl bg-[#fbfaf7] p-4 text-xs text-[#667085]">
-          Impact estimé : {{ impactPreview.affectedRecipes }} recettes,
-          {{ impactPreview.affectedSynonyms }} synonymes.
-          Revue requise : {{ impactPreview.requiresReview ? 'oui' : 'non' }}.
+        <div class="mt-5 grid gap-2 rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-4 text-xs text-[#667085]">
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-black uppercase tracking-[0.14em] text-[#344054]">Impact estimé</span>
+            <BaseBadge :tone="impactPreview.requiresReview ? 'warning' : 'success'">
+              {{ impactPreview.requiresReview ? 'Revue requise' : 'Faible risque' }}
+            </BaseBadge>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <span class="rounded-xl bg-white px-3 py-2">{{ impactPreview.affectedRecipes }} recettes</span>
+            <span class="rounded-xl bg-white px-3 py-2">{{ impactPreview.affectedSynonyms }} synonymes</span>
+          </div>
         </div>
 
         <div v-if="selectedIngredientId" class="mt-5 rounded-2xl border border-[#e6e1d8] p-4">

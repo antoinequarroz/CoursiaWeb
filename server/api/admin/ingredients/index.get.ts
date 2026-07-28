@@ -15,6 +15,14 @@ export default defineEventHandler(async (event) => {
     request = request.or(`nom.ilike.%${query.search}%,rayon.ilike.%${query.search}%`)
   }
 
+  if (query.status === 'active') {
+    request = request.is('archived_at', null)
+  }
+
+  if (query.status === 'archived') {
+    request = request.not('archived_at', 'is', null)
+  }
+
   const { data, error } = await request
 
   if (error) {

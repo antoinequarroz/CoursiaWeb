@@ -28,6 +28,12 @@ type AdminRecipeRow = {
   }
 }
 
+type IngredientCatalogRow = {
+  id: string
+  name: string
+  units?: string[]
+}
+
 const route = useRoute()
 const router = useRouter()
 
@@ -39,11 +45,22 @@ const filters = reactive({
 
 const recipes = ref<AdminRecipeRow[]>([])
 const selectedRecipe = ref<AdminRecipeRow | null>(null)
+const ingredientCatalog = ref<IngredientCatalogRow[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const actionPending = ref('')
 const feedback = ref('')
 const editorMode = ref<'closed' | 'create' | 'edit'>('closed')
+const categoryInput = ref('')
+const stepInput = ref('')
+
+const ingredientDraft = reactive({
+  ingredientId: '',
+  quantity: 1,
+  unit: 'g' as OfficialRecipeMutation['ingredients'][number]['unit'],
+  group: 'Principal',
+  optional: false,
+})
 
 const emptyForm = (): OfficialRecipeMutation => ({
   title: '',
@@ -93,6 +110,29 @@ const stats = computed(() => {
   return base
 })
 
+const publicationIssues = computed(() => {
+  const issues: string[] = []
+
+  if (!form.title.trim()) issues.push('Titre')
+  if (!form.slug.trim()) issues.push('Slug')
+  if (!form.portions) issues.push('Portions')
+  if (!form.durationMinutes) issues.push('Duree')
+  if (!form.difficulty) issues.push('Difficulte')
+  if (form.ingredients.length === 0) issues.push('Ingredients')
+  if (form.steps.length === 0) issues.push('Etapes')
+  if (!form.source?.trim()) issues.push('Source')
+
+  return issues
+})
+
+const canPublish = computed(() => publicationIssues.value.length === 0)
+
+const relationSummary = computed(() => ({
+  ingredients: form.ingredients.length,
+  steps: form.steps.length,
+  calories: form.nutrition.calories ?? null,
+}))
+
 const statusLabel = (status: RecipeStatus | OfficialRecipeMutation['status']) => ({
   draft: 'Brouillon',
   review: 'En validation',
@@ -141,6 +181,15 @@ const toSlug = (value: string) =>
 
 const resetForm = () => {
   Object.assign(form, emptyForm())
+  categoryInput.value = ''
+  stepInput.value = ''
+  Object.assign(ingredientDraft, {
+    ingredientId: '',
+    quantity: 1,
+    unit: 'g',
+    group: 'Principal',
+    optional: false,
+  })
 }
 
 const fillForm = (recipe: AdminRecipeRow) => {
@@ -183,6 +232,18 @@ const loadRecipes = async () => {
   }
   finally {
     loading.value = false
+  }
+}
+
+const loadIngredientCatalog = async () => {
+  try {
+    const response = await $fetch<{ data: IngredientCatalogRow[] }>('/api/admin/ingredients', {
+      query: { limit: 100 },
+    })
+    ingredientCatalog.value = response.data
+  }
+  catch {
+    ingredientCatalog.value = []
   }
 }
 
@@ -243,6 +304,94 @@ const saveRecipe = async () => {
   finally {
     saving.value = false
   }
+}
+
+const onIngredientChange = () => {
+  const ingredient = ingredientCatalog.value.find((item) => item.id === ingredientDraft.ingredientId)
+  const units = ingredient?.units?.filter(Boolean) ?? []
+
+  if (units.length > 0 && !units.includes(ingredientDraft.unit)) {
+    ingredientDraft.unit = units[0] as OfficialRecipeMutation['ingredients'][number]['unit']
+  }
+}
+
+const addIngredient = () => {
+  const ingredient = ingredientCatalog.value.find((item) => item.id === ingredientDraft.ingredientId)
+  if (!ingredient || ingredientDraft.quantity <= 0) return
+
+  form.ingredients.push({
+    ingredientId: ingredient.id,
+    name: ingredient.name,
+    quantity: Number(ingredientDraft.quantity),
+    unit: ingredientDraft.unit,
+    group: ingredientDraft.group.trim() || 'Principal',
+    optional: ingredientDraft.optional,
+  })
+
+  Object.assign(ingredientDraft, {
+    ingredientId: '',
+    quantity: 1,
+    unit: 'g',
+    group: 'Principal',
+    optional: false,
+  })
+}
+
+const removeIngredient = (index: number) => {
+  form.ingredients.splice(index, 1)
+}
+
+const moveIngredient = (index: number, direction: -1 | 1) => {
+  const target = index + direction
+  if (target < 0 || target >= form.ingredients.length) return
+
+  const [item] = form.ingredients.splice(index, 1)
+  if (!item) return
+
+  form.ingredients.splice(target, 0, item)
+}
+
+const addStep = () => {
+  const instruction = stepInput.value.trim()
+  if (!instruction) return
+
+  form.steps.push({
+    order: form.steps.length + 1,
+    instruction,
+  })
+  stepInput.value = ''
+}
+
+const removeStep = (index: number) => {
+  form.steps.splice(index, 1)
+  form.steps.forEach((step, stepIndex) => {
+    step.order = stepIndex + 1
+  })
+}
+
+const moveStep = (index: number, direction: -1 | 1) => {
+  const target = index + direction
+  if (target < 0 || target >= form.steps.length) return
+
+  const [item] = form.steps.splice(index, 1)
+  if (!item) return
+
+  form.steps.splice(target, 0, item)
+  form.steps.forEach((step, stepIndex) => {
+    step.order = stepIndex + 1
+  })
+}
+
+const addCategory = () => {
+  const category = categoryInput.value.trim()
+  if (!category || form.categories.includes(category)) return
+
+  form.categories.push(category)
+  categoryInput.value = ''
+}
+
+const removeCategory = (category: string) => {
+  form.categories = form.categories.filter((item) => item !== category)
 }
 
 const duplicateRecipe = async (recipe: AdminRecipeRow) => {
@@ -328,6 +477,7 @@ watch(
 
 onMounted(() => {
   void loadRecipes()
+  void loadIngredientCatalog()
 })
 </script>
 
@@ -512,6 +662,44 @@ onMounted(() => {
               </div>
             </dl>
 
+            <div class="mt-4 grid gap-3">
+              <div class="rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Ingredients</p>
+                  <BaseBadge tone="neutral">{{ selectedRecipe.ingredients.length }}</BaseBadge>
+                </div>
+                <ul v-if="selectedRecipe.ingredients.length" class="mt-3 grid gap-2">
+                  <li
+                    v-for="ingredient in selectedRecipe.ingredients.slice(0, 5)"
+                    :key="`${ingredient.ingredientId}:${ingredient.name}`"
+                    class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm"
+                  >
+                    <span class="min-w-0 truncate font-bold text-[#101828]">{{ ingredient.name }}</span>
+                    <span class="shrink-0 text-xs text-[#667085]">{{ ingredient.quantity }} {{ ingredient.unit }}</span>
+                  </li>
+                </ul>
+                <p v-else class="mt-3 text-sm text-[#98a2b3]">Aucun ingredient.</p>
+              </div>
+
+              <div class="rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Etapes</p>
+                  <BaseBadge tone="neutral">{{ selectedRecipe.steps.length }}</BaseBadge>
+                </div>
+                <ol v-if="selectedRecipe.steps.length" class="mt-3 grid gap-2">
+                  <li
+                    v-for="step in selectedRecipe.steps.slice(0, 4)"
+                    :key="`${step.order}:${step.instruction}`"
+                    class="rounded-xl bg-white px-3 py-2 text-sm text-[#344054]"
+                  >
+                    <span class="font-black text-[#0f2d27]">{{ step.order }}.</span>
+                    {{ step.instruction }}
+                  </li>
+                </ol>
+                <p v-else class="mt-3 text-sm text-[#98a2b3]">Aucune etape.</p>
+              </div>
+            </div>
+
             <div class="mt-4 grid gap-2">
               <BaseButton type="button" @click="startEdit">Modifier</BaseButton>
               <BaseButton type="button" variant="secondary" :disabled="actionPending === `duplicate:${selectedRecipe.id}`" @click="duplicateRecipe(selectedRecipe)">Dupliquer en brouillon</BaseButton>
@@ -566,8 +754,153 @@ onMounted(() => {
               <input v-model="form.source" placeholder="Source, auteur, lien..." />
             </label>
 
-            <div class="rounded-2xl bg-[#fbf7f0] p-3 text-xs text-[#667085]">
-              Les ingrédients et étapes restent conservés si tu modifies une recette existante. Le détail complet sera traité dans l’éditeur avancé.
+            <section class="rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-black text-[#101828]">Ingredients</h3>
+                  <p class="mt-1 text-xs text-[#667085]">
+                    Ces lignes alimentent directement la fiche recette et les calculs mobile.
+                  </p>
+                </div>
+                <BaseBadge tone="neutral">{{ relationSummary.ingredients }}</BaseBadge>
+              </div>
+
+              <div class="mt-4 grid gap-2">
+                <div class="grid gap-2 md:grid-cols-[1.3fr_0.6fr_0.7fr]">
+                  <select v-model="ingredientDraft.ingredientId" class="min-w-0" @change="onIngredientChange">
+                    <option value="">Choisir un ingredient</option>
+                    <option v-for="ingredient in ingredientCatalog" :key="ingredient.id" :value="ingredient.id">
+                      {{ ingredient.name }}
+                    </option>
+                  </select>
+                  <input v-model.number="ingredientDraft.quantity" type="number" min="0.01" step="0.01" placeholder="Qté" />
+                  <select v-model="ingredientDraft.unit">
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="l">l</option>
+                    <option value="piece">piece</option>
+                    <option value="tbsp">c. soupe</option>
+                    <option value="tsp">c. cafe</option>
+                  </select>
+                </div>
+                <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                  <input v-model="ingredientDraft.group" placeholder="Groupe, ex. Sauce" />
+                  <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-bold text-[#344054]">
+                    <input v-model="ingredientDraft.optional" type="checkbox" />
+                    Optionnel
+                  </label>
+                  <BaseButton type="button" variant="secondary" @click="addIngredient">Ajouter</BaseButton>
+                </div>
+              </div>
+
+              <div v-if="form.ingredients.length" class="mt-4 grid gap-2">
+                <div
+                  v-for="(ingredient, index) in form.ingredients"
+                  :key="`${ingredient.ingredientId}:${index}`"
+                  class="grid gap-2 rounded-xl border border-[#e6e1d8] bg-white p-3 text-sm md:grid-cols-[1fr_5.5rem_6rem_auto]"
+                >
+                  <input v-model="ingredient.name" class="font-bold" />
+                  <input v-model.number="ingredient.quantity" type="number" min="0.01" step="0.01" />
+                  <select v-model="ingredient.unit">
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="l">l</option>
+                    <option value="piece">piece</option>
+                    <option value="tbsp">tbsp</option>
+                    <option value="tsp">tsp</option>
+                  </select>
+                  <div class="flex justify-end gap-1">
+                    <button type="button" class="rounded-lg px-2 text-xs font-black text-[#667085] hover:bg-[#fbf7f0]" @click="moveIngredient(index, -1)">↑</button>
+                    <button type="button" class="rounded-lg px-2 text-xs font-black text-[#667085] hover:bg-[#fbf7f0]" @click="moveIngredient(index, 1)">↓</button>
+                    <button type="button" class="rounded-lg px-2 text-xs font-black text-[#b42318] hover:bg-[#fff1f0]" @click="removeIngredient(index)">Retirer</button>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="mt-4 rounded-xl bg-white p-3 text-sm text-[#98a2b3]">
+                Aucun ingredient ajoute.
+              </p>
+            </section>
+
+            <section class="rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-black text-[#101828]">Etapes</h3>
+                  <p class="mt-1 text-xs text-[#667085]">Ordre, instructions et controle avant publication.</p>
+                </div>
+                <BaseBadge tone="neutral">{{ relationSummary.steps }}</BaseBadge>
+              </div>
+
+              <div class="mt-4 flex gap-2">
+                <input v-model="stepInput" class="min-w-0 flex-1" placeholder="Ajouter une instruction..." @keyup.enter.prevent="addStep" />
+                <BaseButton type="button" variant="secondary" @click="addStep">Ajouter</BaseButton>
+              </div>
+
+              <div v-if="form.steps.length" class="mt-4 grid gap-2">
+                <div
+                  v-for="(step, index) in form.steps"
+                  :key="`${step.order}:${index}`"
+                  class="grid gap-2 rounded-xl border border-[#e6e1d8] bg-white p-3 md:grid-cols-[2rem_1fr_auto]"
+                >
+                  <span class="pt-2 text-sm font-black text-[#0f2d27]">{{ index + 1 }}</span>
+                  <textarea v-model="step.instruction" rows="2" class="resize-none" />
+                  <div class="flex items-start justify-end gap-1">
+                    <button type="button" class="rounded-lg px-2 py-2 text-xs font-black text-[#667085] hover:bg-[#fbf7f0]" @click="moveStep(index, -1)">↑</button>
+                    <button type="button" class="rounded-lg px-2 py-2 text-xs font-black text-[#667085] hover:bg-[#fbf7f0]" @click="moveStep(index, 1)">↓</button>
+                    <button type="button" class="rounded-lg px-2 py-2 text-xs font-black text-[#b42318] hover:bg-[#fff1f0]" @click="removeStep(index)">Retirer</button>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="mt-4 rounded-xl bg-white p-3 text-sm text-[#98a2b3]">
+                Aucune etape ajoutee.
+              </p>
+            </section>
+
+            <section class="rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-4">
+              <h3 class="text-sm font-black text-[#101828]">Categories et nutrition</h3>
+              <div class="mt-4 flex gap-2">
+                <input v-model="categoryInput" class="min-w-0 flex-1" placeholder="Ajouter une categorie..." @keyup.enter.prevent="addCategory" />
+                <BaseButton type="button" variant="secondary" @click="addCategory">Ajouter</BaseButton>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button
+                  v-for="category in form.categories"
+                  :key="category"
+                  type="button"
+                  class="rounded-full border border-[#d6e6dc] bg-white px-3 py-1.5 text-xs font-bold text-[#344054] transition hover:border-[#0f2d27]"
+                  @click="removeCategory(category)"
+                >
+                  {{ category }} ×
+                </button>
+              </div>
+
+              <div class="mt-4 grid gap-2 md:grid-cols-2">
+                <label class="grid gap-1 text-xs font-bold text-[#344054]">
+                  Calories
+                  <input v-model.number="form.nutrition.calories" type="number" min="0" max="4000" />
+                </label>
+                <label class="grid gap-1 text-xs font-bold text-[#344054]">
+                  Proteines (g)
+                  <input v-model.number="form.nutrition.proteinGrams" type="number" min="0" max="500" step="0.1" />
+                </label>
+                <label class="grid gap-1 text-xs font-bold text-[#344054]">
+                  Glucides (g)
+                  <input v-model.number="form.nutrition.carbsGrams" type="number" min="0" max="800" step="0.1" />
+                </label>
+                <label class="grid gap-1 text-xs font-bold text-[#344054]">
+                  Lipides (g)
+                  <input v-model.number="form.nutrition.fatGrams" type="number" min="0" max="500" step="0.1" />
+                </label>
+              </div>
+            </section>
+
+            <div
+              v-if="!canPublish"
+              class="rounded-2xl border border-[#fed7aa] bg-[#fff7ed] p-3 text-xs text-[#9a3412]"
+            >
+              Publication bloquee tant que ces champs manquent :
+              <span class="font-black">{{ publicationIssues.join(', ') }}</span>.
             </div>
 
             <div class="flex flex-wrap gap-2">

@@ -68,8 +68,8 @@ const statusLabels: Record<RecipeStatus, string> = {
 }
 
 const statusDescriptions: Record<RecipeStatus, string> = {
-  draft: 'Modifiable, invisible côté application.',
-  review: 'Contrôle éditorial avant publication.',
+  draft: 'Modifiable dans l’admin, invisible côté application.',
+  review: 'Prête pour contrôle éditorial avant publication.',
   published: 'Visible sur les surfaces mobiles et web.',
   archived: 'Retirée du catalogue actif, conservée pour historique.',
 }
@@ -103,6 +103,7 @@ const blockingFields = computed(() => preview.value?.blockingFields ?? [])
 const blockingCount = computed(() => blockingFields.value.length)
 const ingredientCount = computed(() => preview.value?.mobile.ingredients.length ?? 0)
 const stepCount = computed(() => preview.value?.mobile.steps.length ?? 0)
+const isPreviewLoaded = computed(() => Boolean(preview.value))
 const canPublish = computed(() => Boolean(recipe.value) && blockingCount.value === 0 && recipe.value?.status !== 'archived')
 const activeStepIndex = computed(() =>
   Math.max(0, workflowSteps.findIndex((step) => step.value === loadedStatus.value)),
@@ -113,12 +114,38 @@ const selectedRecipeLabel = computed(() => {
 })
 const formattedUpdatedAt = computed(() => formatDateTime(recipe.value?.updated_at ?? selectedRecipeOption.value?.updated_at))
 const currentStatusLabel = computed(() => loadedStatus.value ? statusLabels[loadedStatus.value] : '—')
-const isPreviewLoaded = computed(() => Boolean(preview.value))
 const readinessLabel = computed(() => {
   if (!isPreviewLoaded.value) return 'Aperçu requis'
   if (blockingCount.value > 0) return `${blockingCount.value} correction(s)`
   return 'Prête'
 })
+
+const overviewStats = computed(() => [
+  {
+    label: 'Statut',
+    value: currentStatusLabel.value,
+    detail: recipe.value?.slug || selectedRecipeOption.value?.slug || 'Aucune recette chargée',
+    tone: statusTone(loadedStatus.value),
+  },
+  {
+    label: 'Publication',
+    value: readinessLabel.value,
+    detail: isPreviewLoaded.value ? 'aperçu calculé depuis les données réelles' : 'charge l’aperçu pour vérifier',
+    tone: !isPreviewLoaded.value ? 'neutral' as BadgeTone : blockingCount.value === 0 ? 'success' as BadgeTone : 'danger' as BadgeTone,
+  },
+  {
+    label: 'Structure app',
+    value: `${ingredientCount.value} / ${stepCount.value}`,
+    detail: 'ingrédients / étapes',
+    tone: ingredientCount.value > 0 && stepCount.value > 0 ? 'success' as BadgeTone : 'warning' as BadgeTone,
+  },
+  {
+    label: 'Dernière mise à jour',
+    value: formattedUpdatedAt.value,
+    detail: 'source : recettes officielles',
+    tone: 'neutral' as BadgeTone,
+  },
+])
 
 function statusTone(status?: string | null): BadgeTone {
   if (status === 'published') return 'success'
@@ -278,12 +305,14 @@ onMounted(async () => {
   <section class="admin-page">
     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-101 · Workflow</p>
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
+          COUR-101 · Workflow recettes
+        </p>
         <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Publication des recettes
         </h1>
         <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Contrôle des champs bloquants, aperçu mobile/web et transitions de statut avant exposition dans l’application.
+          Contrôler les champs bloquants, comparer le rendu mobile/web et appliquer les transitions réellement utilisées par l’application.
         </p>
       </div>
 
@@ -292,23 +321,32 @@ onMounted(async () => {
           {{ currentStatusLabel }}
         </BaseBadge>
         <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId" @click="loadPreview">
-          {{ loading ? 'Chargement...' : 'Actualiser l’aperçu' }}
+          {{ loading ? 'Chargement…' : 'Actualiser l’aperçu' }}
         </BaseButton>
       </div>
     </div>
 
-    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
+    <p
+      v-if="feedback"
+      class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success"
+    >
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
+    <p
+      v-if="errorMessage"
+      class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger"
+    >
       {{ errorMessage }}
     </p>
 
-    <form class="admin-toolbar grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]" @submit.prevent="loadPreview">
+    <form
+      class="admin-toolbar grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto]"
+      @submit.prevent="loadPreview"
+    >
       <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Recette
         <select v-model="recipeId" :disabled="loadingRecipes">
-          <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
+          <option value="">{{ loadingRecipes ? 'Chargement…' : 'Sélectionner une recette' }}</option>
           <option v-for="item in recipes" :key="item.id" :value="item.id">
             {{ item.title || 'Recette sans titre' }} · {{ statusLabels[item.status] }}
           </option>
@@ -318,8 +356,8 @@ onMounted(async () => {
 
       <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Note d’historique
-        <input v-model="reason" placeholder="Validation finale, correction, dépublication...">
-        <span class="text-xs font-medium text-coursia-muted">Optionnel, stocké dans l’historique de publication.</span>
+        <input v-model="reason" placeholder="Validation finale, correction, dépublication…">
+        <span class="text-xs font-medium text-coursia-muted">Optionnel. Envoyé aux routes de workflow si renseigné.</span>
       </label>
 
       <div class="flex items-end">
@@ -330,37 +368,24 @@ onMounted(async () => {
     </form>
 
     <div class="grid gap-3 md:grid-cols-4">
-      <article class="admin-stat-card">
-        <span>Statut actuel</span>
-        <strong>{{ currentStatusLabel }}</strong>
-        <small>{{ recipe?.slug || selectedRecipeOption?.slug || 'Aucune recette chargée' }}</small>
-      </article>
-      <article class="admin-stat-card">
-        <span>Préparation</span>
-        <strong :class="blockingCount ? 'text-coursia-danger' : 'text-coursia-success'">{{ readinessLabel }}</strong>
-        <small>{{ isPreviewLoaded ? 'aperçu chargé' : 'charge l’aperçu pour vérifier' }}</small>
-      </article>
-      <article class="admin-stat-card">
-        <span>Structure app</span>
-        <strong>{{ ingredientCount }} / {{ stepCount }}</strong>
-        <small>ingrédients / étapes</small>
-      </article>
-      <article class="admin-stat-card">
-        <span>Dernière mise à jour</span>
-        <strong class="text-base">{{ formattedUpdatedAt }}</strong>
-        <small>source : recettes officielles</small>
+      <article v-for="stat in overviewStats" :key="stat.label" class="admin-stat-card">
+        <span>{{ stat.label }}</span>
+        <strong>
+          <BaseBadge :tone="stat.tone">{{ stat.value }}</BaseBadge>
+        </strong>
+        <small>{{ stat.detail }}</small>
       </article>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[23rem_minmax(0,1fr)]">
+    <div class="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
       <aside class="grid gap-4">
-        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-coursia-text">Cycle de publication</h2>
-              <p class="mt-1 text-xs text-coursia-muted">Le statut Supabase est la source consommée par l’app.</p>
+              <p class="mt-1 text-xs text-coursia-muted">Le statut officiel pilote la visibilité mobile/web.</p>
             </div>
-            <BaseBadge tone="neutral">statut_publication</BaseBadge>
+            <BaseBadge tone="neutral">statut</BaseBadge>
           </div>
 
           <div class="mt-4 grid gap-2">
@@ -386,20 +411,39 @@ onMounted(async () => {
           </div>
         </section>
 
-        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <h2 class="text-base font-semibold text-coursia-text">Actions</h2>
+        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <h2 class="text-base font-semibold text-coursia-text">Actions réelles</h2>
           <div class="mt-4 grid gap-2">
-            <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId || recipe?.status === 'review'" @click="runAction('submit-review')">
-              {{ actionPending === 'submit-review' ? 'Envoi...' : 'Envoyer en validation' }}
+            <BaseButton
+              type="button"
+              variant="secondary"
+              :disabled="loading || !recipeId || recipe?.status === 'review'"
+              @click="runAction('submit-review')"
+            >
+              {{ actionPending === 'submit-review' ? 'Envoi…' : 'Envoyer en validation' }}
             </BaseButton>
-            <BaseButton type="button" :disabled="loading || !canPublish || recipe?.status === 'published'" @click="runAction('publish')">
-              {{ actionPending === 'publish' ? 'Publication...' : 'Publier' }}
+            <BaseButton
+              type="button"
+              :disabled="loading || !canPublish || recipe?.status === 'published'"
+              @click="runAction('publish')"
+            >
+              {{ actionPending === 'publish' ? 'Publication…' : 'Publier' }}
             </BaseButton>
-            <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId || recipe?.status !== 'published'" @click="runAction('unpublish')">
-              {{ actionPending === 'unpublish' ? 'Dépublication...' : 'Dépublier' }}
+            <BaseButton
+              type="button"
+              variant="secondary"
+              :disabled="loading || !recipeId || recipe?.status !== 'published'"
+              @click="runAction('unpublish')"
+            >
+              {{ actionPending === 'unpublish' ? 'Dépublication…' : 'Dépublier' }}
             </BaseButton>
-            <BaseButton type="button" variant="ghost" :disabled="loading || !recipeId || recipe?.status === 'archived'" @click="archiveRecipe">
-              {{ actionPending === 'archive' ? 'Archivage...' : 'Archiver' }}
+            <BaseButton
+              type="button"
+              variant="ghost"
+              :disabled="loading || !recipeId || recipe?.status === 'archived'"
+              @click="archiveRecipe"
+            >
+              {{ actionPending === 'archive' ? 'Archivage…' : 'Archiver' }}
             </BaseButton>
           </div>
           <p class="mt-4 rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
@@ -409,11 +453,13 @@ onMounted(async () => {
       </aside>
 
       <section class="grid gap-4">
-        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-coursia-text">Checklist bloquante</h2>
-              <p class="mt-1 text-xs text-coursia-muted">La publication reste désactivée tant que cette liste n’est pas vide.</p>
+              <p class="mt-1 text-xs text-coursia-muted">
+                La publication reste désactivée tant que cette liste n’est pas vide.
+              </p>
             </div>
             <BaseBadge :tone="!isPreviewLoaded ? 'neutral' : blockingCount === 0 ? 'success' : 'danger'">
               {{ readinessLabel }}
@@ -421,7 +467,7 @@ onMounted(async () => {
           </div>
 
           <div v-if="!isPreviewLoaded" class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
-            Charge l’aperçu pour calculer les champs bloquants à partir des données réelles.
+            Charge l’aperçu pour calculer les champs bloquants depuis les données réelles.
           </div>
           <div v-else-if="blockingFields.length" class="mt-4 grid gap-2 sm:grid-cols-2">
             <div
@@ -438,10 +484,10 @@ onMounted(async () => {
         </article>
 
         <div class="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
             <div class="flex items-center justify-between gap-3">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">Mobile</p>
+                <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">Mobile</p>
                 <h2 class="mt-1 text-base font-semibold text-coursia-text">Fiche app</h2>
               </div>
               <BaseBadge :tone="statusTone(preview?.mobile.status ?? recipe?.status)">
@@ -449,9 +495,9 @@ onMounted(async () => {
               </BaseBadge>
             </div>
 
-            <div class="mx-auto mt-4 max-w-[250px] rounded-[1.8rem] border border-coursia-primary bg-coursia-primary p-2 shadow-coursia-md">
+            <div class="mx-auto mt-4 max-w-[245px] rounded-[1.8rem] border border-coursia-primary bg-coursia-primary p-2 shadow-coursia-md">
               <div class="overflow-hidden rounded-[1.35rem] bg-coursia-surface">
-                <div class="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,89,0.35),transparent_30%),linear-gradient(135deg,#fdf2e7,#eaf5ee)]" />
+                <div class="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,89,0.35),transparent_30%),linear-gradient(135deg,rgba(253,242,231,0.95),rgba(234,245,238,0.95))]" />
                 <div class="p-4">
                   <h3 class="text-lg font-semibold leading-tight text-coursia-text">
                     {{ preview?.mobile.title ?? recipe?.title ?? 'Titre recette' }}
@@ -469,10 +515,10 @@ onMounted(async () => {
             </div>
           </article>
 
-          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">Web</p>
+                <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">Web</p>
                 <h2 class="mt-1 text-base font-semibold text-coursia-text">Aperçu public</h2>
               </div>
               <BaseBadge :tone="statusTone(preview?.web.status ?? recipe?.status)">

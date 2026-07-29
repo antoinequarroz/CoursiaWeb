@@ -18,9 +18,19 @@ const report = ref<RecipeCsvImportReport | null>(null)
 const idempotentReplay = ref(false)
 const templateHref = '/api/admin/recipes/import/template'
 
-const csvLineCount = computed(() => content.value.trim().split(/\r?\n/).filter(Boolean).length)
+const csvLines = computed(() => content.value.trim().split(/\r?\n/).filter(Boolean))
+const csvLineCount = computed(() => csvLines.value.length)
+const dataLineCount = computed(() => Math.max(csvLineCount.value - 1, 0))
 const rowsToReview = computed(() => report.value?.rows.filter((row) => row.action === 'error' || row.action === 'duplicate') ?? [])
-const canExecute = computed(() => report.value && report.value.errors === 0 && report.value.duplicates === 0)
+const canExecute = computed(() => Boolean(report.value && report.value.errors === 0 && report.value.duplicates === 0 && report.value.dryRun))
+const reportRows = computed(() => report.value?.rows ?? [])
+
+const stepStatus = computed(() => {
+  if (!report.value) return 'Préparer'
+  if (rowsToReview.value.length > 0) return 'Corriger'
+  if (report.value.dryRun) return 'Prêt'
+  return 'Importé'
+})
 
 const actionLabel = (action: RowAction) => {
   const labels: Record<RowAction, string> = {
@@ -39,6 +49,20 @@ const actionTone = (action: RowAction): BadgeTone => {
   if (action === 'duplicate') return 'warning'
 
   return 'danger'
+}
+
+const clearReport = () => {
+  report.value = null
+  feedback.value = ''
+  errorMessage.value = ''
+  idempotentReplay.value = false
+}
+
+const resetTemplate = () => {
+  content.value = recipeCsvTemplate
+  fileName.value = 'recettes.csv'
+  dryRun.value = true
+  clearReport()
 }
 
 const runImport = async (forceDryRun = dryRun.value) => {
@@ -80,96 +104,100 @@ const runImport = async (forceDryRun = dryRun.value) => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
         <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-100</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
           Import CSV de recettes
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
           Prévisualise les créations, mises à jour, doublons et erreurs avant d’écrire dans le catalogue officiel.
         </p>
       </div>
 
-      <a
-        :href="templateHref"
-        class="inline-flex cursor-pointer items-center justify-center rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm font-semibold text-[#101828] transition hover:bg-[#fbfaf7]"
-      >
-        Télécharger le modèle CSV
-      </a>
+      <div class="flex flex-wrap gap-2">
+        <a
+          :href="templateHref"
+          class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted"
+        >
+          Télécharger le modèle
+        </a>
+        <BaseButton type="button" variant="secondary" @click="resetTemplate">
+          Réinitialiser
+        </BaseButton>
+      </div>
     </div>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Lignes</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ Math.max(csvLineCount - 1, 0) }}</p>
-        <p class="mt-1 text-xs text-[#667085]">hors en-tête</p>
+    <div class="grid gap-3 md:grid-cols-5">
+      <article class="admin-stat-card">
+        <span>Étape</span>
+        <strong class="text-coursia-primary">{{ stepStatus }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Créations</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ report?.creates ?? 0 }}</p>
-        <p class="mt-1 text-xs text-[#667085]">recettes nouvelles</p>
+      <article class="admin-stat-card">
+        <span>Lignes</span>
+        <strong>{{ dataLineCount }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Mises à jour</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ report?.updates ?? 0 }}</p>
-        <p class="mt-1 text-xs text-[#667085]">slugs existants</p>
+      <article class="admin-stat-card">
+        <span>Créations</span>
+        <strong class="text-coursia-success">{{ report?.creates ?? 0 }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">À corriger</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ rowsToReview.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">erreurs ou doublons</p>
+      <article class="admin-stat-card">
+        <span>Mises à jour</span>
+        <strong>{{ report?.updates ?? 0 }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span>À corriger</span>
+        <strong class="text-coursia-warning">{{ rowsToReview.length }}</strong>
       </article>
     </div>
 
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
+    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
+    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
       {{ errorMessage }}
     </p>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]" @submit.prevent="runImport(true)">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
+      <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm" @submit.prevent="runImport(true)">
+        <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Prévisualisation</p>
-            <h2 class="mt-2 text-lg font-semibold text-[#101828]">Fichier à importer</h2>
+            <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Prévisualisation</p>
+            <h2 class="mt-1 text-lg font-black text-coursia-foreground">Fichier à contrôler</h2>
+            <p class="mt-2 text-sm text-coursia-muted">
+              Le dry-run appelle la validation Supabase sans publier les recettes.
+            </p>
           </div>
           <BaseBadge :tone="dryRun ? 'warning' : 'danger'">
             {{ dryRun ? 'Dry-run' : 'Import réel' }}
           </BaseBadge>
         </div>
 
-        <label class="mt-5 grid gap-1.5 text-xs font-semibold text-[#344054]">
-          Nom du fichier
-          <input
-            v-model="fileName"
-            class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-          >
-        </label>
-
-        <div class="mt-4 rounded-2xl bg-[#fbfaf7] p-4 text-xs text-[#667085]">
-          Colonnes attendues :
-          <span class="font-mono">{{ recipeCsvColumns.join(', ') }}</span>
+        <div class="mt-4 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Nom du fichier
+            <input v-model="fileName" required placeholder="recettes.csv" />
+          </label>
+          <label class="flex cursor-pointer items-center gap-3 rounded-2xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm font-semibold text-coursia-foreground">
+            <input v-model="dryRun" type="checkbox" class="h-4 w-4 accent-coursia-primary" />
+            Dry-run uniquement
+          </label>
         </div>
 
-        <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054]">
+        <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+          <p class="text-xs font-black uppercase tracking-[0.14em] text-coursia-muted">Colonnes attendues</p>
+          <p class="mt-2 break-words font-mono text-xs leading-5 text-coursia-foreground">
+            {{ recipeCsvColumns.join(', ') }}
+          </p>
+        </div>
+
+        <label class="mt-4 grid gap-1 text-sm font-bold text-coursia-foreground">
           Contenu CSV
-          <textarea
-            v-model="content"
-            rows="16"
-            class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 font-mono text-xs leading-6 outline-none transition focus:border-coursia-primary"
-          />
+          <textarea v-model="content" rows="18" class="font-mono text-xs leading-6" />
         </label>
 
-        <label class="mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-[#e6e1d8] px-3 py-2.5 text-sm text-[#344054]">
-          <input v-model="dryRun" type="checkbox">
-          Dry-run uniquement
-        </label>
-
-        <div class="mt-5 flex flex-wrap gap-2">
-          <BaseButton type="submit" :disabled="loading">
+        <div class="mt-4 flex flex-wrap gap-2 border-t border-coursia-border pt-4">
+          <BaseButton type="submit" :disabled="loading || dataLineCount === 0">
             {{ loading ? 'Analyse...' : 'Prévisualiser' }}
           </BaseButton>
           <BaseButton
@@ -183,20 +211,28 @@ const runImport = async (forceDryRun = dryRun.value) => {
         </div>
       </form>
 
-      <aside class="grid gap-5">
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
-          <h2 class="text-sm font-semibold text-[#101828]">Règles de sécurité</h2>
-          <ul class="mt-4 space-y-3 text-sm text-[#667085]">
-            <li>Le dry-run ne modifie pas les données.</li>
-            <li>L’import réel est bloqué si des erreurs ou doublons existent.</li>
-            <li>Relancer le même fichier réutilise le rapport idempotent.</li>
-            <li>Les erreurs restent liées à une ligne et un champ précis.</li>
-          </ul>
+      <aside class="grid gap-4">
+        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <h2 class="text-base font-black text-coursia-foreground">Garde-fous</h2>
+          <div class="mt-4 grid gap-2">
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">1. Dry-run obligatoire</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">Aucune écriture tant que le rapport contient des erreurs.</p>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">2. Idempotence</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">Relancer le même fichier réutilise le rapport déjà conservé.</p>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">3. Traçabilité</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">Le rapport est relié au fichier, à l’utilisateur et à l’audit admin.</p>
+            </div>
+          </div>
         </article>
 
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
-          <h2 class="text-sm font-semibold text-[#101828]">Dernier rapport</h2>
-          <p class="mt-3 break-all text-sm text-[#667085]">
+        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <h2 class="text-base font-black text-coursia-foreground">Dernier rapport</h2>
+          <p class="mt-3 break-all rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
             {{ report ? report.idempotencyKey : 'Aucun rapport généré.' }}
           </p>
           <BaseBadge v-if="idempotentReplay" class="mt-3" tone="primary">Rejeu idempotent</BaseBadge>
@@ -204,39 +240,39 @@ const runImport = async (forceDryRun = dryRun.value) => {
       </aside>
     </div>
 
-    <section v-if="report" class="admin-table mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <section v-if="report" class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-4 py-3 md:flex-row md:items-center">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828]">Rapport d’import</h2>
-          <p class="mt-1 text-xs text-[#667085]">
+          <h2 class="text-base font-black text-coursia-foreground">Rapport d’import</h2>
+          <p class="mt-1 text-xs text-coursia-muted">
             {{ report.dryRun ? 'Prévisualisation sans écriture' : 'Import réel exécuté' }}
           </p>
         </div>
-        <BaseBadge :tone="canExecute ? 'success' : 'warning'">
-          {{ canExecute ? 'Prêt à exécuter' : 'Correction requise' }}
+        <BaseBadge :tone="canExecute ? 'success' : rowsToReview.length > 0 ? 'warning' : 'primary'">
+          {{ canExecute ? 'Prêt à exécuter' : rowsToReview.length > 0 ? 'Correction requise' : 'Terminé' }}
         </BaseBadge>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+        <table class="min-w-[58rem]">
+          <thead>
             <tr>
-              <th class="px-5 py-3">Ligne</th>
-              <th class="px-5 py-3">Action</th>
-              <th class="px-5 py-3">Slug</th>
-              <th class="px-5 py-3">Champ</th>
-              <th class="px-5 py-3">Message</th>
+              <th>Ligne</th>
+              <th>Action</th>
+              <th>Slug</th>
+              <th>Champ</th>
+              <th>Message</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#eee8df]">
-            <tr v-for="row in report.rows" :key="`${row.rowNumber}-${row.slug}-${row.action}`" class="transition hover:bg-[#fbfaf7]">
-              <td class="px-5 py-4 text-[#667085]">{{ row.rowNumber }}</td>
-              <td class="px-5 py-4">
+          <tbody>
+            <tr v-for="row in reportRows" :key="`${row.rowNumber}-${row.slug}-${row.action}`">
+              <td class="text-sm text-coursia-muted">{{ row.rowNumber }}</td>
+              <td>
                 <BaseBadge :tone="actionTone(row.action)">{{ actionLabel(row.action) }}</BaseBadge>
               </td>
-              <td class="px-5 py-4 font-medium text-[#101828]">{{ row.slug || '—' }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ row.field || '—' }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ row.message || 'Prêt' }}</td>
+              <td class="font-semibold text-coursia-foreground">{{ row.slug || '—' }}</td>
+              <td class="text-sm text-coursia-muted">{{ row.field || '—' }}</td>
+              <td class="text-sm text-coursia-muted">{{ row.message || 'Prêt' }}</td>
             </tr>
           </tbody>
         </table>

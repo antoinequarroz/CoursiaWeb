@@ -5,16 +5,58 @@ definePageMeta({
   layout: 'admin',
 })
 
-type ContentRecord = Record<string, unknown>
-type HistoryRecord = Record<string, unknown>
 type ContentKind = ContentEntryInput['kind']
 type ContentStatus = ContentEntryInput['status']
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+
+type ContentRecord = {
+  id: string
+  key: string
+  kind: ContentKind
+  title: string
+  body: string | null
+  url: string | null
+  locale: string
+  status: ContentStatus
+  publish_at: string | null
+  archive_at: string | null
+  archived_at?: string | null
+  metadata?: Record<string, string> | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+type HistoryRecord = {
+  id: string
+  content_entry_id?: string | null
+  author_user_id?: string | null
+  authorUserId?: string | null
+  change_summary?: string | null
+  changeSummary?: string | null
+  created_at?: string | null
+  createdAt?: string | null
+}
+
+type PreviewRecord = {
+  title: string
+  body: string
+  url: string | null
+  kind: ContentKind
+  status: ContentStatus
+  visibility: 'visible' | 'preview_only'
+  schedule: {
+    publishAt: string | null
+    archiveAt: string | null
+  }
+}
+
+const route = useRoute()
 
 const filters = reactive({
   kind: '',
   status: '',
   search: '',
+  limit: 50,
 })
 
 const createEmptyForm = (): ContentEntryInput => ({
@@ -34,12 +76,13 @@ const form = reactive<ContentEntryInput>(createEmptyForm())
 
 const contents = ref<ContentRecord[]>([])
 const history = ref<HistoryRecord[]>([])
-const preview = ref<ContentRecord | null>(null)
+const preview = ref<PreviewRecord | null>(null)
 const selectedContentId = ref('')
 const feedback = ref('')
 const errorMessage = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
+let filterDebounce: ReturnType<typeof setTimeout> | null = null
 
 const kindLabels: Record<ContentKind, string> = {
   faq: 'FAQ',
@@ -48,12 +91,42 @@ const kindLabels: Record<ContentKind, string> = {
   announcement: 'Annonce',
 }
 
+const kindDescriptions: Record<ContentKind, string> = {
+  faq: 'Question, réponse et aide publique.',
+  marketing_text: 'Texte court utilisé par les pages publiques.',
+  link: 'Lien contrôlé visible dans le site ou l’application.',
+  announcement: 'Message temporaire avec période de publication.',
+}
+
 const statusLabels: Record<ContentStatus, string> = {
   draft: 'Brouillon',
   scheduled: 'Planifié',
   published: 'Publié',
   archived: 'Archivé',
 }
+
+const selectedContent = computed(() =>
+  contents.value.find((content) => content.id === selectedContentId.value) ?? null,
+)
+
+const publishedCount = computed(() => contents.value.filter((content) => content.status === 'published').length)
+const scheduledCount = computed(() => contents.value.filter((content) => content.status === 'scheduled').length)
+const draftCount = computed(() => contents.value.filter((content) => content.status === 'draft').length)
+const archivedCount = computed(() => contents.value.filter((content) => content.status === 'archived').length)
+
+const kindStats = computed(() => {
+  const stats = contents.value.reduce<Record<ContentKind, number>>((acc, content) => {
+    acc[content.kind] = (acc[content.kind] ?? 0) + 1
+    return acc
+  }, {
+    faq: 0,
+    marketing_text: 0,
+    link: 0,
+    announcement: 0,
+  })
+
+  return Object.entries(stats) as [ContentKind, number][]
+})
 
 const statusTone = (status: unknown): BadgeTone => {
   if (status === 'published') return 'success'
@@ -69,17 +142,26 @@ const kindTone = (kind: unknown): BadgeTone => {
   return 'success'
 }
 
-const publishedCount = computed(() => contents.value.filter((content) => content.status === 'published').length)
-const scheduledCount = computed(() => contents.value.filter((content) => content.status === 'scheduled').length)
-const archivedCount = computed(() => contents.value.filter((content) => content.status === 'archived').length)
+const formatDate = (value: unknown) => {
+  if (!value || typeof value !== 'string') return '—'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  return new Intl.DateTimeFormat('fr-CH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
 
 const toIsoDateTime = (value?: string) => {
   if (!value) return undefined
   return new Date(value).toISOString()
 }
 
-const toLocalDateTimeInput = (value?: string) => {
+const toLocalDateTimeInput = (value?: string | null) => {
   if (!value) return undefined
+
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return undefined
 
@@ -95,7 +177,22 @@ const resetMessages = () => {
 const resetForm = () => {
   selectedContentId.value = ''
   preview.value = null
+  history.value = []
   Object.assign(form, createEmptyForm())
+}
+
+const applyContentToForm = (content: ContentRecord) => {
+  selectedContentId.value = content.id
+  form.key = content.key
+  form.kind = content.kind
+  form.title = content.title
+  form.body = content.body ?? ''
+  form.url = content.url ?? undefined
+  form.locale = content.locale
+  form.status = content.status
+  form.publishAt = toLocalDateTimeInput(content.publish_at)
+  form.archiveAt = toLocalDateTimeInput(content.archive_at)
+  form.metadata = content.metadata ?? {}
 }
 
 const loadContents = async () => {
@@ -104,9 +201,26 @@ const loadContents = async () => {
 
   try {
     const response = await $fetch<{ data: ContentRecord[] }>('/api/admin/content', {
-      query: filters,
+      query: {
+        kind: filters.kind || undefined,
+        status: filters.status || undefined,
+        search: filters.search.trim() || undefined,
+        limit: filters.limit,
+      },
     })
+
     contents.value = response.data
+
+    const querySelected = typeof route.query.selected === 'string' ? route.query.selected : ''
+    const targetId = selectedContentId.value || querySelected
+    const nextSelected = contents.value.find((content) => content.id === targetId) ?? contents.value[0] ?? null
+
+    if (nextSelected && !selectedContentId.value) {
+      applyContentToForm(nextSelected)
+      await loadHistory()
+    } else if (selectedContentId.value && !contents.value.some((content) => content.id === selectedContentId.value)) {
+      resetForm()
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les contenus.'
   } finally {
@@ -125,24 +239,39 @@ const loadHistory = async () => {
   }
 }
 
+const selectContent = async (content: ContentRecord) => {
+  resetMessages()
+  preview.value = null
+  applyContentToForm(content)
+  await loadHistory()
+}
+
 const saveContent = async () => {
   isSaving.value = true
   resetMessages()
 
-  const route = selectedContentId.value ? `/api/admin/content/${selectedContentId.value}` : '/api/admin/content'
+  const endpoint = selectedContentId.value ? `/api/admin/content/${selectedContentId.value}` : '/api/admin/content'
   const body = {
     ...form,
+    body: form.body || undefined,
+    url: form.url || undefined,
     publishAt: toIsoDateTime(form.publishAt),
     archiveAt: toIsoDateTime(form.archiveAt),
   }
 
   try {
-    await $fetch(route, {
+    const response = await $fetch<{ data: ContentRecord }>(endpoint, {
       method: selectedContentId.value ? 'PUT' : 'POST',
       body,
     })
-    feedback.value = 'Contenu enregistré sans redéploiement et historisé avec auteur.'
+
+    feedback.value = selectedContentId.value
+      ? 'Contenu modifié et historisé.'
+      : 'Contenu créé et historisé.'
+
+    selectedContentId.value = response.data.id
     await Promise.all([loadContents(), loadHistory()])
+    applyContentToForm(response.data)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible d’enregistrer le contenu.'
   } finally {
@@ -150,30 +279,16 @@ const saveContent = async () => {
   }
 }
 
-const selectContent = (content: ContentRecord) => {
-  selectedContentId.value = String(content.id)
-  form.key = String(content.key ?? '')
-  form.kind = String(content.kind ?? 'faq') as ContentKind
-  form.title = String(content.title ?? '')
-  form.body = String(content.body ?? '')
-  form.url = content.url ? String(content.url) : undefined
-  form.locale = String(content.locale ?? 'fr-CH')
-  form.status = String(content.status ?? 'draft') as ContentStatus
-  form.publishAt = toLocalDateTimeInput(content.publish_at ? String(content.publish_at) : undefined)
-  form.archiveAt = toLocalDateTimeInput(content.archive_at ? String(content.archive_at) : undefined)
-  void loadHistory()
-}
-
 const previewContent = async () => {
   resetMessages()
 
   if (!selectedContentId.value) {
-    errorMessage.value = 'Sélectionne un contenu pour afficher un aperçu.'
+    errorMessage.value = 'Sélectionne ou enregistre un contenu avant de générer un aperçu.'
     return
   }
 
   try {
-    const response = await $fetch<{ data: ContentRecord }>(`/api/admin/content/${selectedContentId.value}/preview`)
+    const response = await $fetch<{ data: PreviewRecord }>(`/api/admin/content/${selectedContentId.value}/preview`)
     preview.value = response.data
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible de générer l’aperçu.'
@@ -189,20 +304,33 @@ const archiveContent = async () => {
   }
 
   try {
-    await $fetch(`/api/admin/content/${selectedContentId.value}/archive`, { method: 'POST' })
-    feedback.value = 'Archivage programmé et audité.'
+    const response = await $fetch<{ data: ContentRecord }>(`/api/admin/content/${selectedContentId.value}/archive`, {
+      method: 'POST',
+    })
+    feedback.value = 'Contenu archivé et audité.'
     await Promise.all([loadContents(), loadHistory()])
+    applyContentToForm(response.data)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible d’archiver le contenu.'
   }
 }
 
-watch(filters, () => {
-  void loadContents()
-})
+const scheduleFilterReload = () => {
+  if (filterDebounce) clearTimeout(filterDebounce)
+
+  filterDebounce = setTimeout(() => {
+    void loadContents()
+  }, 220)
+}
+
+watch(() => [filters.kind, filters.status, filters.search, filters.limit], scheduleFilterReload)
 
 onMounted(() => {
   void Promise.all([loadContents(), loadHistory()])
+})
+
+onBeforeUnmount(() => {
+  if (filterDebounce) clearTimeout(filterDebounce)
 })
 </script>
 
@@ -211,154 +339,222 @@ onMounted(() => {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-106</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Contenus administrables
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          FAQ, textes marketing, liens et annonces modifiables sans redéploiement. Les secrets et
-          paramètres techniques restent exclus de ce module.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          FAQ, textes marketing, liens et annonces modifiables sans redéploiement.
+          Les secrets, jetons et paramètres techniques restent explicitement hors de ce module.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="secondary" @click="resetForm">Nouveau contenu</BaseButton>
+        <BaseButton type="button" variant="secondary" @click="resetForm">
+          Nouveau contenu
+        </BaseButton>
         <BaseButton type="button" :disabled="isLoading" @click="loadContents">
           {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
       </div>
     </div>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Total</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ contents.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">contenus filtrés</p>
+    <form class="admin-toolbar grid gap-3 lg:grid-cols-[12rem_12rem_minmax(0,1fr)_10rem_auto]" @submit.prevent="loadContents">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Type
+        <select v-model="filters.kind">
+          <option value="">Tous</option>
+          <option value="faq">FAQ</option>
+          <option value="marketing_text">Marketing</option>
+          <option value="link">Liens</option>
+          <option value="announcement">Annonces</option>
+        </select>
+      </label>
+
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Statut
+        <select v-model="filters.status">
+          <option value="">Tous</option>
+          <option value="draft">Brouillon</option>
+          <option value="scheduled">Planifié</option>
+          <option value="published">Publié</option>
+          <option value="archived">Archivé</option>
+        </select>
+      </label>
+
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Recherche
+        <input
+          v-model="filters.search"
+          type="search"
+          placeholder="Titre, clé, contenu..."
+          autocomplete="off"
+        >
+      </label>
+
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Limite
+        <select v-model.number="filters.limit">
+          <option :value="25">25 lignes</option>
+          <option :value="50">50 lignes</option>
+          <option :value="100">100 lignes</option>
+        </select>
+      </label>
+
+      <BaseButton class="self-end" type="submit" :disabled="isLoading">
+        Appliquer
+      </BaseButton>
+    </form>
+
+    <div v-if="feedback || errorMessage" class="grid gap-3">
+      <p
+        v-if="feedback"
+        class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-medium text-coursia-success"
+      >
+        {{ feedback }}
+      </p>
+      <p
+        v-if="errorMessage"
+        class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-medium text-coursia-danger"
+      >
+        {{ errorMessage }}
+      </p>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Total</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ contents.length }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">contenus filtrés</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Publiés</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ publishedCount }}</p>
-        <p class="mt-1 text-xs text-[#667085]">visibles</p>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Publiés</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ publishedCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">visibles côté produit</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Planifiés</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ scheduledCount }}</p>
-        <p class="mt-1 text-xs text-[#667085]">à publier</p>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Planifiés</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ scheduledCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">publication future</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Archivés</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ archivedCount }}</p>
-        <p class="mt-1 text-xs text-[#667085]">hors ligne</p>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Brouillons</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ draftCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">non publiés</p>
+      </article>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Archivés</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ archivedCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">hors ligne</p>
       </article>
     </div>
 
-    <div class="admin-toolbar mt-6 grid gap-3 md:grid-cols-[1fr_1fr_1.4fr]">
-      <select v-model="filters.kind" class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-        <option value="">Tous contenus</option>
-        <option value="faq">FAQ</option>
-        <option value="marketing_text">Textes marketing</option>
-        <option value="link">Liens</option>
-        <option value="announcement">Annonces</option>
-      </select>
-      <select v-model="filters.status" class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-        <option value="">Tous statuts</option>
-        <option value="draft">Brouillon</option>
-        <option value="scheduled">Planifié</option>
-        <option value="published">Publié</option>
-        <option value="archived">Archivé</option>
-      </select>
-      <input v-model="filters.search" placeholder="Recherche titre ou clé" class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-    </div>
-
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
-      {{ feedback }}
-    </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
-      {{ errorMessage }}
-    </p>
-
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-        <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_26rem]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Contenus</h2>
-            <p class="mt-1 text-xs text-[#667085]">Sélectionne une ligne pour éditer ou prévisualiser.</p>
+            <h2 class="text-sm font-semibold text-coursia-text">Bibliothèque de contenus</h2>
+            <p class="mt-1 text-xs text-coursia-muted">
+              Sélectionne une ligne pour l’éditer, générer un aperçu ou consulter son historique.
+            </p>
           </div>
           <BaseBadge tone="neutral">Sans redéploiement</BaseBadge>
         </div>
-        <div v-if="isLoading" class="p-5 text-sm text-[#667085]">Chargement des contenus...</div>
-        <div v-else-if="contents.length === 0" class="p-5 text-sm text-[#667085]">
-          Aucun contenu trouvé.
-        </div>
+
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contenus...</div>
+        <div v-else-if="contents.length === 0" class="p-5 text-sm text-coursia-muted">Aucun contenu trouvé.</div>
+
         <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-            <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+          <table class="min-w-full divide-y divide-coursia-border text-sm">
+            <thead>
               <tr>
                 <th class="px-5 py-3">Contenu</th>
                 <th class="px-5 py-3">Type</th>
                 <th class="px-5 py-3">Statut</th>
                 <th class="px-5 py-3">Publication</th>
-                <th class="px-5 py-3">Archivage</th>
+                <th class="px-5 py-3">Mise à jour</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#eee8df]">
+            <tbody class="divide-y divide-coursia-border">
               <tr
                 v-for="content in contents"
-                :key="String(content.id)"
-                class="cursor-pointer transition hover:bg-[#fbfaf7]"
-                :class="selectedContentId === String(content.id) ? 'bg-[#f1f7f4]' : ''"
+                :key="content.id"
+                class="cursor-pointer transition hover:bg-coursia-background"
+                :class="selectedContentId === content.id ? 'bg-coursia-background' : ''"
                 @click="selectContent(content)"
               >
                 <td class="px-5 py-4">
-                  <span class="block font-semibold text-[#101828]">{{ content.title }}</span>
-                  <span class="mt-1 block text-xs text-[#667085]">{{ content.key }}</span>
+                  <p class="font-semibold text-coursia-text">{{ content.title }}</p>
+                  <p class="mt-1 text-xs text-coursia-muted">{{ content.key }}</p>
+                  <p v-if="content.url" class="mt-1 max-w-[22rem] truncate text-xs text-coursia-primary">
+                    {{ content.url }}
+                  </p>
                 </td>
                 <td class="px-5 py-4">
                   <BaseBadge :tone="kindTone(content.kind)">
-                    {{ kindLabels[String(content.kind) as ContentKind] ?? content.kind }}
+                    {{ kindLabels[content.kind] }}
                   </BaseBadge>
                 </td>
                 <td class="px-5 py-4">
                   <BaseBadge :tone="statusTone(content.status)">
-                    {{ statusLabels[String(content.status) as ContentStatus] ?? content.status }}
+                    {{ statusLabels[content.status] }}
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4 text-[#667085]">{{ content.publish_at || '—' }}</td>
-                <td class="px-5 py-4 text-[#667085]">{{ content.archive_at || '—' }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ formatDate(content.publish_at) }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ formatDate(content.updated_at) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]" @submit.prevent="saveContent">
+      <form
+        class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm"
+        @submit.prevent="saveContent"
+      >
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">
               {{ selectedContentId ? 'Édition' : 'Création' }}
             </p>
-            <h2 class="mt-2 text-lg font-semibold text-[#101828]">Contenu non technique</h2>
+            <h2 class="mt-2 text-lg font-semibold text-coursia-text">
+              {{ selectedContentId ? form.title || 'Contenu sélectionné' : 'Nouveau contenu' }}
+            </h2>
+            <p class="mt-1 text-sm text-coursia-muted">{{ kindDescriptions[form.kind] }}</p>
           </div>
-          <BaseButton v-if="selectedContentId" type="button" size="sm" variant="ghost" @click="resetForm">Annuler</BaseButton>
+          <BaseBadge :tone="statusTone(form.status)">
+            {{ statusLabels[form.status] }}
+          </BaseBadge>
         </div>
 
         <div class="mt-5 grid gap-4">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Clé publique non sensible
-            <input v-model="form.key" required class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+            <input
+              v-model="form.key"
+              required
+              placeholder="faq-pricing-family"
+              autocomplete="off"
+            >
           </label>
+
           <div class="grid gap-4 md:grid-cols-2">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Type
-              <select v-model="form.kind" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+              <select v-model="form.kind">
                 <option value="faq">FAQ</option>
                 <option value="marketing_text">Texte marketing</option>
                 <option value="link">Lien</option>
                 <option value="announcement">Annonce</option>
               </select>
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Statut
-              <select v-model="form.status" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+              <select v-model="form.status">
                 <option value="draft">Brouillon</option>
                 <option value="scheduled">Planifié</option>
                 <option value="published">Publié</option>
@@ -366,91 +562,155 @@ onMounted(() => {
               </select>
             </label>
           </div>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Titre
-            <input v-model="form.title" required class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+            <input v-model="form.title" required placeholder="Titre affiché">
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Texte
-            <textarea v-model="form.body" rows="6" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary" />
+            <textarea
+              v-model="form.body"
+              rows="7"
+              placeholder="Contenu visible par l’utilisateur. Aucun secret, token ou identifiant sensible."
+            />
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-            URL pour les liens
-            <input v-model="form.url" type="url" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+            URL
+            <input v-model="form.url" type="url" placeholder="https://...">
           </label>
+
           <div class="grid gap-4 md:grid-cols-2">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Publication
-              <input v-model="form.publishAt" type="datetime-local" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+              <input v-model="form.publishAt" type="datetime-local">
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Archivage
-              <input v-model="form.archiveAt" type="datetime-local" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+              <input v-model="form.archiveAt" type="datetime-local">
             </label>
           </div>
         </div>
 
-        <div class="mt-5 rounded-2xl bg-[#fbfaf7] p-4 text-xs text-[#667085]">
-          Les clés contenant secret, token, password, private, service_role ou api_key sont refusées côté serveur.
+        <div class="mt-5 rounded-2xl bg-coursia-background p-4 text-xs leading-5 text-coursia-muted">
+          Les clés contenant secret, token, password, private, service_role, api_key, dsn ou credential sont refusées côté serveur.
         </div>
 
         <div class="mt-5 flex flex-wrap gap-2">
           <BaseButton type="submit" :disabled="isSaving">
             {{ isSaving ? 'Enregistrement...' : 'Enregistrer' }}
           </BaseButton>
-          <BaseButton type="button" variant="secondary" @click="previewContent">Aperçu</BaseButton>
-          <BaseButton type="button" variant="ghost" @click="archiveContent">Archiver</BaseButton>
+          <BaseButton type="button" variant="secondary" @click="previewContent">
+            Aperçu
+          </BaseButton>
+          <BaseButton type="button" variant="ghost" @click="archiveContent">
+            Archiver
+          </BaseButton>
+          <BaseButton v-if="selectedContentId" type="button" variant="ghost" @click="resetForm">
+            Annuler
+          </BaseButton>
         </div>
       </form>
     </div>
 
-    <section class="mt-6 grid gap-6 lg:grid-cols-2">
-      <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <div class="flex items-center justify-between gap-3">
+    <section class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Aperçu</h2>
-            <p class="mt-1 text-xs text-[#667085]">Rendu serveur du contenu sélectionné.</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Aperçu</p>
+            <h2 class="mt-2 text-lg font-semibold text-coursia-text">
+              {{ preview?.title ?? selectedContent?.title ?? 'Aucun aperçu généré' }}
+            </h2>
           </div>
-          <BaseBadge :tone="statusTone(preview?.status)">{{ preview?.status ?? '—' }}</BaseBadge>
+          <BaseBadge :tone="statusTone(preview?.status ?? selectedContent?.status)">
+            {{ preview ? statusLabels[preview.status] : 'Preview' }}
+          </BaseBadge>
         </div>
-        <div v-if="preview" class="mt-4 rounded-2xl bg-[#fbfaf7] p-5">
-          <h3 class="text-lg font-semibold text-[#101828]">{{ preview.title }}</h3>
-          <p class="mt-3 whitespace-pre-wrap text-sm text-[#667085]">{{ preview.body }}</p>
-          <p v-if="preview.url" class="mt-4 break-all text-sm font-medium text-coursia-primary">{{ preview.url }}</p>
+
+        <div v-if="preview" class="mt-5 rounded-2xl bg-coursia-background p-5">
+          <div class="flex flex-wrap gap-2">
+            <BaseBadge :tone="kindTone(preview.kind)">{{ kindLabels[preview.kind] }}</BaseBadge>
+            <BaseBadge :tone="preview.visibility === 'visible' ? 'success' : 'neutral'">
+              {{ preview.visibility === 'visible' ? 'Visible' : 'Prévisualisation' }}
+            </BaseBadge>
+          </div>
+          <p class="mt-4 whitespace-pre-wrap text-sm leading-6 text-coursia-muted">{{ preview.body || '—' }}</p>
+          <p v-if="preview.url" class="mt-4 break-all text-sm font-medium text-coursia-primary">
+            {{ preview.url }}
+          </p>
+          <dl class="mt-5 grid gap-3 sm:grid-cols-2">
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Publication</dt>
+              <dd class="mt-1 text-sm text-coursia-text">{{ formatDate(preview.schedule.publishAt) }}</dd>
+            </div>
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Archivage</dt>
+              <dd class="mt-1 text-sm text-coursia-text">{{ formatDate(preview.schedule.archiveAt) }}</dd>
+            </div>
+          </dl>
         </div>
-        <p v-else class="mt-4 rounded-2xl bg-[#fbfaf7] p-4 text-sm text-[#667085]">
-          Aucun aperçu généré.
-        </p>
+
+        <div v-else class="mt-5 rounded-2xl bg-coursia-background p-5 text-sm text-coursia-muted">
+          Sélectionne un contenu puis clique sur “Aperçu” pour vérifier le rendu serveur.
+        </div>
       </article>
 
-      <article class="admin-table overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-        <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
-          <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Historique auteur</h2>
-            <p class="mt-1 text-xs text-[#667085]">Traçabilité des modifications.</p>
+      <aside class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Types</p>
+        <h2 class="mt-2 text-lg font-semibold text-coursia-text">Répartition</h2>
+        <p class="mt-2 text-sm text-coursia-muted">
+          Contrôle rapide des familles de contenus actuellement filtrées.
+        </p>
+
+        <div class="mt-5 grid gap-3">
+          <div
+            v-for="[kind, count] in kindStats"
+            :key="kind"
+            class="flex items-center justify-between rounded-2xl bg-coursia-background px-4 py-3"
+          >
+            <span class="text-sm font-semibold text-coursia-text">{{ kindLabels[kind] }}</span>
+            <BaseBadge :tone="kindTone(kind)">{{ count }}</BaseBadge>
           </div>
-          <BaseBadge tone="neutral">{{ history.length }}</BaseBadge>
         </div>
-        <div v-if="history.length === 0" class="p-5 text-sm text-[#667085]">Aucun historique chargé.</div>
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-            <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
-              <tr>
-                <th class="px-5 py-3">Date</th>
-                <th class="px-5 py-3">Auteur</th>
-                <th class="px-5 py-3">Résumé</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#eee8df]">
-              <tr v-for="revision in history" :key="String(revision.id)" class="transition hover:bg-[#fbfaf7]">
-                <td class="px-5 py-4 text-[#667085]">{{ revision.created_at || revision.createdAt || '—' }}</td>
-                <td class="px-5 py-4 text-[#667085]">{{ revision.author_user_id || revision.authorUserId || '—' }}</td>
-                <td class="px-5 py-4 font-medium text-[#101828]">{{ revision.change_summary || revision.changeSummary || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+      </aside>
+    </section>
+
+    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
+        <div>
+          <h2 class="text-sm font-semibold text-coursia-text">Historique auteur</h2>
+          <p class="mt-1 text-xs text-coursia-muted">
+            Traçabilité des modifications du contenu sélectionné.
+          </p>
         </div>
-      </article>
+        <BaseBadge tone="neutral">{{ history.length }}</BaseBadge>
+      </div>
+
+      <div v-if="history.length === 0" class="p-5 text-sm text-coursia-muted">Aucun historique chargé.</div>
+
+      <div v-else class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-coursia-border text-sm">
+          <thead>
+            <tr>
+              <th class="px-5 py-3">Date</th>
+              <th class="px-5 py-3">Auteur</th>
+              <th class="px-5 py-3">Résumé</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-coursia-border">
+            <tr v-for="revision in history" :key="revision.id" class="transition hover:bg-coursia-background">
+              <td class="px-5 py-4 text-coursia-muted">{{ formatDate(revision.created_at ?? revision.createdAt) }}</td>
+              <td class="px-5 py-4 text-coursia-muted">{{ revision.author_user_id ?? revision.authorUserId ?? '—' }}</td>
+              <td class="px-5 py-4 font-medium text-coursia-text">
+                {{ revision.change_summary ?? revision.changeSummary ?? '—' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   </section>
 </template>

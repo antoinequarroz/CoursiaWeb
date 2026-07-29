@@ -324,28 +324,20 @@ onMounted(async () => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-102 · produits
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-[#f7fbf8]">
-          Produits et offres magasin
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
-          Référentiel des produits canoniques reliés aux enseignes. Ces offres servent aux prix, au comparateur et aux paniers de l’application mobile.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-102 · produits"
+      title="Produits et offres magasin"
+      description="Référentiel des produits canoniques reliés aux enseignes. Ces offres servent aux prix, au comparateur et aux paniers de l’application mobile."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadProducts">
           {{ loading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
         <BaseButton type="button" :disabled="retailers.length === 0" @click="startCreate">
           Nouveau produit
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-4 md:grid-cols-5">
       <article class="admin-stat-card">
@@ -416,20 +408,19 @@ onMounted(async () => {
           Chargement des produits...
         </div>
 
-        <div v-else-if="products.length === 0" class="grid place-items-center p-10 text-center">
-          <div class="max-w-sm">
-            <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">Aucun produit trouvé</p>
-            <p class="mt-2 text-sm text-[#667085] dark:text-[#a8b8ad]">
-              Crée un produit avec une enseigne pour générer une offre magasin utilisable par le comparateur.
-            </p>
-            <div class="mt-4 flex justify-center gap-2">
-              <BaseButton v-if="filters.search || filters.retailerId" type="button" variant="secondary" @click="clearFilters">
-                Réinitialiser
-              </BaseButton>
-              <BaseButton type="button" :disabled="retailers.length === 0" @click="startCreate">Créer</BaseButton>
-            </div>
-          </div>
-        </div>
+        <AdminEmptyState
+          v-else-if="products.length === 0"
+          icon="products"
+          title="Aucun produit trouvé"
+          description="Crée un produit avec une enseigne pour générer une offre magasin utilisable par le comparateur."
+        >
+          <template #actions>
+            <BaseButton v-if="filters.search || filters.retailerId" type="button" variant="secondary" @click="clearFilters">
+              Réinitialiser
+            </BaseButton>
+            <BaseButton type="button" :disabled="retailers.length === 0" @click="startCreate">Créer</BaseButton>
+          </template>
+        </AdminEmptyState>
 
         <div v-else class="grid gap-2 p-4">
           <button

@@ -576,26 +576,20 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-96 / COUR-97</p>
-        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
-          Recettes officielles
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Crée, corrige et prépare les recettes qui alimentent le catalogue mobile Coursia.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-96 / COUR-97"
+      title="Recettes officielles"
+      description="Crée, corrige et prépare les recettes qui alimentent le catalogue mobile Coursia."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadRecipes">
           Actualiser
         </BaseButton>
         <BaseButton type="button" @click="startCreate">
           Nouvelle recette
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <p v-if="feedback" class="rounded-2xl border border-coursia-primary/20 bg-coursia-primary/10 p-3 text-sm font-semibold text-coursia-primary">
       {{ feedback }}
@@ -670,9 +664,17 @@ onMounted(() => {
           <BaseBadge tone="neutral">Table mobile : recettes</BaseBadge>
         </div>
 
-        <div v-if="recipes.length === 0" class="p-5 text-sm text-coursia-muted">
-          Aucune recette pour ces filtres.
-        </div>
+        <AdminEmptyState
+          v-if="recipes.length === 0"
+          icon="recipes"
+          title="Aucune recette pour ces filtres"
+          description="Change les filtres ou crée une nouvelle recette officielle."
+        >
+          <template #actions>
+            <BaseButton type="button" variant="secondary" @click="clearFilters">Réinitialiser</BaseButton>
+            <BaseButton type="button" @click="startCreate">Créer une recette</BaseButton>
+          </template>
+        </AdminEmptyState>
         <div v-else class="overflow-x-auto">
           <table>
             <thead>

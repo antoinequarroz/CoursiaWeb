@@ -327,26 +327,20 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Référentiel alimentaire</p>
-        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
-          Ingrédients
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Catalogue canonique utilisé par les recettes, les listes de courses et la correspondance produits.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="Référentiel alimentaire"
+      title="Ingrédients"
+      description="Catalogue canonique utilisé par les recettes, les listes de courses et la correspondance produits."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadIngredients">
           Rafraîchir
         </BaseButton>
         <BaseButton type="button" @click="startCreate">
           Nouvel ingrédient
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-3 md:grid-cols-4">
       <button type="button" class="admin-stat-card cursor-pointer text-left" :class="!filters.status ? 'ring-2 ring-coursia-primary/20' : ''" @click="filters.status = ''; loadIngredients()">

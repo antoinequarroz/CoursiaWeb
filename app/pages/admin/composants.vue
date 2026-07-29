@@ -24,6 +24,7 @@ const colorEntries = computed(() => Object.entries(componentCatalogTokens.colors
 const spacingEntries = computed(() => Object.entries(componentCatalogTokens.spacing))
 const radiusEntries = computed(() => Object.entries(componentCatalogTokens.radius))
 const shadowEntries = computed(() => Object.entries(componentCatalogTokens.shadow))
+const productionCount = computed(() => componentCatalogItems.filter((item) => item.productionComponent).length)
 
 const simulateLoading = () => {
   loadingButton.value = true
@@ -34,13 +35,16 @@ const simulateLoading = () => {
 </script>
 
 <template>
-  <section class="admin-page grid gap-6">
-    <div class="admin-hero">
+  <section class="admin-page">
+    <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="admin-kicker">COUR-114 · Design system</p>
-        <h1 class="admin-title">Catalogue composants</h1>
-        <p class="admin-subtitle">
-          Tokens, états et composants réellement utilisés par le site public et l’administration.
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-114 · Design system</p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
+          Catalogue composants
+        </h1>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
+          Référence interne des tokens, composants, états et comportements responsive réellement utilisés
+          par Coursia.
         </p>
       </div>
 
@@ -64,11 +68,11 @@ const simulateLoading = () => {
         <strong class="admin-stat-value">{{ componentCatalogItems.length }}</strong>
       </article>
       <article class="admin-stat-card">
-        <span class="admin-stat-label">Couleurs</span>
-        <strong class="admin-stat-value">{{ colorEntries.length }}</strong>
+        <span class="admin-stat-label">Production</span>
+        <strong class="admin-stat-value">{{ productionCount }}</strong>
       </article>
       <article class="admin-stat-card">
-        <span class="admin-stat-label">Contrôles qualité</span>
+        <span class="admin-stat-label">Contrôles</span>
         <strong class="admin-stat-value">{{ componentCatalogQualityChecklist.length }}</strong>
       </article>
       <article class="admin-stat-card">
@@ -77,11 +81,11 @@ const simulateLoading = () => {
       </article>
     </div>
 
-    <div class="admin-toolbar">
+    <div class="admin-toolbar grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
       <div>
-        <p class="text-sm font-semibold text-[#101828] dark:text-white">Prévisualisation responsive</p>
-        <p class="text-xs text-[#667085] dark:text-[#9ca3af]">
-          Vérifie les composants dans un cadre mobile, tablette ou desktop.
+        <p class="text-sm font-semibold text-coursia-text">Prévisualisation responsive</p>
+        <p class="mt-1 text-xs text-coursia-muted">
+          Le cadre ci-dessous permet de contrôler mobile, tablette, desktop et thème sombre sans changer de page.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -98,63 +102,59 @@ const simulateLoading = () => {
       </div>
     </div>
 
-    <div
-      class="mx-auto w-full transition-all"
-      :class="activePreviewClass"
-      :data-theme="activeTheme"
-    >
-      <div class="grid gap-5 rounded-3xl border border-[#e6e1d8] bg-[#fbf8f2] p-4 shadow-sm dark:border-[#24342f] dark:bg-[#071915] md:p-5">
-        <section class="admin-card">
-          <div class="admin-section-heading">
+    <div class="mx-auto w-full transition-all" :class="activePreviewClass" :data-theme="activeTheme">
+      <div class="grid gap-5 rounded-3xl border border-coursia-border bg-coursia-background p-4 shadow-coursia-sm md:p-5">
+        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+          <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2>Tokens source de vérité</h2>
-              <p>Couleurs, typographies, espacements, rayons et ombres issus de `coursiaDesignTokens`.</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Source de vérité</p>
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">Tokens Coursia</h2>
+              <p class="mt-1 text-sm text-coursia-muted">
+                Couleurs, typographie, espacements, rayons et ombres lus depuis `coursiaDesignTokens`.
+              </p>
             </div>
+            <BaseBadge tone="neutral">{{ colorEntries.length }} couleurs</BaseBadge>
           </div>
 
-          <div class="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+          <div class="mt-5 grid gap-4 xl:grid-cols-[1.35fr_1fr]">
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div
                 v-for="[name, value] in colorEntries"
                 :key="name"
-                class="rounded-2xl border border-[#e6e1d8] bg-white p-3 dark:border-[#24342f] dark:bg-[#0b1f1a]"
+                class="rounded-2xl border border-coursia-border bg-coursia-background p-3"
               >
                 <div
-                  class="h-11 rounded-xl border border-black/5"
+                  class="h-11 rounded-xl border border-coursia-border"
                   :style="{ backgroundColor: value }"
                 />
-                <p class="mt-2 text-sm font-semibold text-[#101828] dark:text-white">{{ name }}</p>
-                <p class="font-mono text-xs text-[#667085] dark:text-[#9ca3af]">{{ value }}</p>
+                <p class="mt-2 text-sm font-semibold text-coursia-text">{{ name }}</p>
+                <p class="font-mono text-xs text-coursia-muted">{{ value }}</p>
               </div>
             </div>
 
             <div class="grid gap-3">
-              <div class="rounded-2xl border border-[#e6e1d8] bg-white p-4 dark:border-[#24342f] dark:bg-[#0b1f1a]">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#667085] dark:text-[#9ca3af]">
-                  Typographie
-                </p>
-                <p class="mt-2 text-3xl font-semibold text-[#101828] dark:text-white">Titre display</p>
-                <p class="text-sm text-[#667085] dark:text-[#9ca3af]">
-                  {{ componentCatalogTokens.typography.fontFamily }}
-                </p>
+              <div class="rounded-2xl border border-coursia-border bg-coursia-background p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-muted">Typographie</p>
+                <p class="mt-2 text-3xl font-semibold tracking-[-0.04em] text-coursia-text">Titre display</p>
+                <p class="text-sm text-coursia-muted">{{ componentCatalogTokens.typography.fontFamily }}</p>
               </div>
 
               <div class="grid gap-3 sm:grid-cols-3">
-                <div class="rounded-2xl border border-[#e6e1d8] bg-white p-4 dark:border-[#24342f] dark:bg-[#0b1f1a]">
-                  <p class="font-semibold text-[#101828] dark:text-white">Espacements</p>
-                  <p v-for="[name, value] in spacingEntries" :key="name" class="mt-1 text-xs text-[#667085] dark:text-[#9ca3af]">
+                <div class="rounded-2xl border border-coursia-border bg-coursia-background p-4">
+                  <p class="font-semibold text-coursia-text">Espacements</p>
+                  <p v-for="[name, value] in spacingEntries" :key="name" class="mt-1 text-xs text-coursia-muted">
                     {{ name }} · {{ value }}
                   </p>
                 </div>
-                <div class="rounded-2xl border border-[#e6e1d8] bg-white p-4 dark:border-[#24342f] dark:bg-[#0b1f1a]">
-                  <p class="font-semibold text-[#101828] dark:text-white">Rayons</p>
-                  <p v-for="[name, value] in radiusEntries" :key="name" class="mt-1 text-xs text-[#667085] dark:text-[#9ca3af]">
+                <div class="rounded-2xl border border-coursia-border bg-coursia-background p-4">
+                  <p class="font-semibold text-coursia-text">Rayons</p>
+                  <p v-for="[name, value] in radiusEntries" :key="name" class="mt-1 text-xs text-coursia-muted">
                     {{ name }} · {{ value }}
                   </p>
                 </div>
-                <div class="rounded-2xl border border-[#e6e1d8] bg-white p-4 dark:border-[#24342f] dark:bg-[#0b1f1a]">
-                  <p class="font-semibold text-[#101828] dark:text-white">Ombres</p>
-                  <p v-for="[name, value] in shadowEntries" :key="name" class="mt-1 truncate text-xs text-[#667085] dark:text-[#9ca3af]">
+                <div class="rounded-2xl border border-coursia-border bg-coursia-background p-4">
+                  <p class="font-semibold text-coursia-text">Ombres</p>
+                  <p v-for="[name, value] in shadowEntries" :key="name" class="mt-1 truncate text-xs text-coursia-muted">
                     {{ name }} · {{ value }}
                   </p>
                 </div>
@@ -164,10 +164,10 @@ const simulateLoading = () => {
         </section>
 
         <section class="grid gap-4 xl:grid-cols-2">
-          <article class="admin-card">
-            <div class="admin-section-heading">
-              <h2>Boutons et badges</h2>
-            </div>
+          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+            <h2 class="text-lg font-semibold text-coursia-text">Boutons et badges</h2>
+            <p class="mt-1 text-sm text-coursia-muted">États normal, hover, disabled et chargement.</p>
+
             <div class="mt-4 flex flex-wrap gap-3">
               <BaseButton type="button">Principal</BaseButton>
               <BaseButton type="button" variant="secondary">Secondaire</BaseButton>
@@ -177,6 +177,7 @@ const simulateLoading = () => {
                 {{ loadingButton ? 'Chargement...' : 'Simuler' }}
               </BaseButton>
             </div>
+
             <div class="mt-5 flex flex-wrap gap-2">
               <BaseBadge v-for="tone in tones" :key="tone" :tone="tone">
                 {{ tone }}
@@ -184,40 +185,43 @@ const simulateLoading = () => {
             </div>
           </article>
 
-          <article class="admin-card">
-            <div class="admin-section-heading">
-              <h2>Champs et états</h2>
-            </div>
+          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+            <h2 class="text-lg font-semibold text-coursia-text">Champs et états</h2>
+            <p class="mt-1 text-sm text-coursia-muted">Labels visibles, focus clavier et message d’erreur actionnable.</p>
+
             <div class="mt-4 grid gap-3">
-              <label>
-                <span class="text-xs font-semibold text-[#667085] dark:text-[#9ca3af]">Recherche</span>
-                <input
-                  type="search"
-                  placeholder="Rechercher un composant..."
-                  class="mt-1 w-full rounded-2xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm text-[#101828] outline-none transition focus:border-[#0f2d27] dark:border-[#24342f] dark:bg-[#071915] dark:text-white"
-                >
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+                Recherche
+                <input type="search" placeholder="Rechercher un composant...">
               </label>
-              <label>
-                <span class="text-xs font-semibold text-[#667085] dark:text-[#9ca3af]">Statut</span>
-                <select class="mt-1 w-full rounded-2xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm text-[#101828] outline-none dark:border-[#24342f] dark:bg-[#071915] dark:text-white">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+                Statut
+                <select>
                   <option>Normal</option>
                   <option>Focus</option>
                   <option>Erreur</option>
                 </select>
               </label>
-              <p role="alert" class="rounded-2xl border border-[#ef4444]/25 bg-[#ef4444]/10 p-3 text-sm text-[#b42318] dark:text-[#fecaca]">
+              <p role="alert" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-medium text-coursia-danger">
                 Erreur : action refusée par les permissions.
               </p>
             </div>
           </article>
         </section>
 
-        <section class="admin-card">
-          <div class="admin-section-heading">
-            <h2>Tableaux</h2>
+        <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
+            <div>
+              <h2 class="text-sm font-semibold text-coursia-text">Inventaire composants</h2>
+              <p class="mt-1 text-xs text-coursia-muted">
+                Les exemples doivent rendre les composants de production quand ils existent.
+              </p>
+            </div>
+            <BaseBadge tone="neutral">{{ componentCatalogItems.length }}</BaseBadge>
           </div>
-          <div class="mt-4 overflow-x-auto">
-            <table class="admin-table min-w-[44rem]">
+
+          <div class="overflow-x-auto">
+            <table class="min-w-[46rem]">
               <caption class="sr-only">Exemple de tableau de composants</caption>
               <thead>
                 <tr>
@@ -230,14 +234,14 @@ const simulateLoading = () => {
               <tbody>
                 <tr v-for="item in componentCatalogItems" :key="item.id">
                   <td>
-                    <span class="font-semibold text-[#101828] dark:text-white">{{ item.title }}</span>
-                    <span v-if="item.productionComponent" class="mt-1 block font-mono text-xs text-[#667085] dark:text-[#9ca3af]">
+                    <span class="font-semibold text-coursia-text">{{ item.title }}</span>
+                    <span v-if="item.productionComponent" class="mt-1 block font-mono text-xs text-coursia-muted">
                       {{ item.productionComponent }}
                     </span>
                   </td>
                   <td>{{ item.variants.join(', ') }}</td>
                   <td>{{ item.useCases[0] }}</td>
-                  <td><BaseBadge tone="success">Production</BaseBadge></td>
+                  <td><BaseBadge :tone="item.productionComponent ? 'success' : 'warning'">{{ item.productionComponent ? 'Production' : 'À formaliser' }}</BaseBadge></td>
                 </tr>
               </tbody>
             </table>
@@ -249,12 +253,12 @@ const simulateLoading = () => {
             v-for="item in componentCatalogItems"
             :id="item.id"
             :key="item.id"
-            class="admin-card"
+            class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm"
           >
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <h2>{{ item.title }}</h2>
-                <p v-if="item.productionComponent" class="mt-1 font-mono text-xs text-[#667085] dark:text-[#9ca3af]">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold text-coursia-text">{{ item.title }}</h2>
+                <p v-if="item.productionComponent" class="mt-1 font-mono text-xs text-coursia-muted">
                   {{ item.productionComponent }}
                 </p>
               </div>
@@ -263,38 +267,42 @@ const simulateLoading = () => {
 
             <div class="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085] dark:text-[#9ca3af]">
-                  Props
-                </p>
-                <p class="mt-2 text-sm text-[#344054] dark:text-[#d1d5db]">{{ item.usefulProps.join(', ') }}</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-coursia-muted">Props</p>
+                <p class="mt-2 text-sm leading-6 text-coursia-text">{{ item.usefulProps.join(', ') }}</p>
               </div>
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085] dark:text-[#9ca3af]">
-                  Usage
-                </p>
-                <ul class="mt-2 grid gap-1 text-sm text-[#344054] dark:text-[#d1d5db]">
-                  <li v-for="usage in item.useCases" :key="usage">• {{ usage }}</li>
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-coursia-muted">Usage</p>
+                <ul class="mt-2 grid gap-1 text-sm leading-6 text-coursia-text">
+                  <li v-for="usage in item.useCases" :key="usage" class="flex gap-2">
+                    <span class="text-coursia-primary" aria-hidden="true">•</span>
+                    <span>{{ usage }}</span>
+                  </li>
                 </ul>
               </div>
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085] dark:text-[#9ca3af]">
-                  Accessibilité
-                </p>
-                <ul class="mt-2 grid gap-1 text-sm text-[#344054] dark:text-[#d1d5db]">
-                  <li v-for="rule in item.accessibility" :key="rule">• {{ rule }}</li>
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-coursia-muted">Accessibilité</p>
+                <ul class="mt-2 grid gap-1 text-sm leading-6 text-coursia-text">
+                  <li v-for="rule in item.accessibility" :key="rule" class="flex gap-2">
+                    <span class="text-coursia-success" aria-hidden="true">✓</span>
+                    <span>{{ rule }}</span>
+                  </li>
                 </ul>
               </div>
             </div>
           </article>
         </section>
 
-        <section class="admin-card">
-          <div class="admin-section-heading">
-            <h2>Checklist qualité</h2>
+        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold text-coursia-text">Checklist qualité</h2>
+              <p class="mt-1 text-sm text-coursia-muted">À contrôler avant d’ajouter ou modifier un composant admin.</p>
+            </div>
+            <BaseBadge tone="success">DoD UI</BaseBadge>
           </div>
-          <ul class="mt-4 grid gap-2 text-sm text-[#344054] dark:text-[#d1d5db] md:grid-cols-2">
+          <ul class="mt-4 grid gap-2 text-sm text-coursia-text md:grid-cols-2">
             <li v-for="item in componentCatalogQualityChecklist" :key="item" class="flex gap-2">
-              <span aria-hidden="true" class="text-[#22c55e]">✓</span>
+              <span class="text-coursia-success" aria-hidden="true">✓</span>
               <span>{{ item }}</span>
             </li>
           </ul>

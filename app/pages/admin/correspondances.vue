@@ -10,9 +10,74 @@ definePageMeta({
 })
 
 type MatchStatus = IngredientProductMatchInput['status']
-type MatchRecord = Record<string, unknown>
 type ProductUnit = IngredientProductMatchInput['unitComparison']['ingredientUnit']
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+
+type IngredientRow = {
+  id: string
+  name: string
+  slug: string
+  units: ProductUnit[]
+  categories: string[]
+  mobile?: {
+    defaultUnit?: string | null
+    aisle?: string | null
+  }
+}
+
+type RetailerRow = {
+  id: string
+  name: string
+  slug: string
+}
+
+type ProductOffer = {
+  id: string
+  retailer_id: string
+  retailer_name: string
+  retailer_slug: string
+  format: string
+  quantity: number
+  unit: ProductUnit | string
+  active: boolean
+  latest_price_chf?: number | string | null
+}
+
+type ProductRow = {
+  id: string
+  name: string
+  slug: string
+  offers?: ProductOffer[]
+  mobile?: {
+    aisle?: string | null
+    ingredientId?: string | null
+  }
+}
+
+type MatchRecord = {
+  id: string
+  ingredient_id: string | null
+  product_id: string
+  retailer_id: string | null
+  confidence: number
+  status: MatchStatus
+  source: 'automatic' | 'manual'
+  notes?: string | null
+  product_name?: string | null
+  ingredient_name?: string | null
+  retailer_name?: string | null
+  offer_id?: string | null
+  offer_format?: string | null
+  offer_unit?: string | null
+  offer_quantity?: number | null
+}
+
+type OfferOption = ProductOffer & {
+  product_id: string
+  product_name: string
+  product_slug: string
+  linked_ingredient_id?: string | null
+}
 
 const statusOptions: Array<{ value: MatchStatus; label: string }> = [
   { value: 'suggested', label: 'Suggestion' },
@@ -23,10 +88,16 @@ const statusOptions: Array<{ value: MatchStatus; label: string }> = [
 
 const unitOptions: ProductUnit[] = ['g', 'kg', 'ml', 'l', 'piece', 'pack']
 
+const filters = reactive({
+  ingredientId: '',
+  retailerId: '',
+  status: '',
+})
+
 const form = reactive<IngredientProductMatchInput>({
-  ingredientId: '00000000-0000-4000-8000-000000000001',
-  productId: '00000000-0000-4000-8000-000000000001',
-  retailerId: '00000000-0000-4000-8000-000000000001',
+  ingredientId: '',
+  productId: '',
+  retailerId: '',
   confidence: 0.85,
   status: 'suggested',
   source: 'manual',
@@ -34,19 +105,61 @@ const form = reactive<IngredientProductMatchInput>({
   notes: '',
 })
 
-const filters = reactive({
-  ingredientId: '',
-  retailerId: '',
-  status: '',
-})
-
+const ingredients = ref<IngredientRow[]>([])
+const retailers = ref<RetailerRow[]>([])
+const products = ref<ProductRow[]>([])
 const matches = ref<MatchRecord[]>([])
-const unmatched = ref<MatchRecord[]>([])
+const unmatched = ref<IngredientRow[]>([])
+const selectedMatch = ref<MatchRecord | null>(null)
+const selectedOfferKey = ref('')
 const impact = ref<Record<string, unknown> | null>(null)
 const feedback = ref('')
 const errorMessage = ref('')
 const loading = ref(false)
 const saving = ref(false)
+const actionPending = ref('')
+
+const matchQuery = computed(() => {
+  const query: Record<string, string | number> = { limit: 100 }
+  if (filters.ingredientId) query.ingredientId = filters.ingredientId
+  if (filters.retailerId) query.retailerId = filters.retailerId
+  if (filters.status) query.status = filters.status
+  return query
+})
+
+const offerOptions = computed<OfferOption[]>(() =>
+  products.value.flatMap((product) =>
+    (product.offers ?? []).map((offer) => ({
+      ...offer,
+      product_id: product.id,
+      product_name: product.name,
+      product_slug: product.slug,
+      linked_ingredient_id: product.mobile?.ingredientId ?? null,
+    })),
+  ).filter((offer) => !filters.retailerId || offer.retailer_id === filters.retailerId),
+)
+
+const selectedIngredient = computed(() =>
+  ingredients.value.find((ingredient) => ingredient.id === form.ingredientId) ?? null,
+)
+
+const selectedOffer = computed(() =>
+  offerOptions.value.find((offer) => `${offer.product_id}:${offer.retailer_id}` === selectedOfferKey.value) ?? null,
+)
+
+const ambiguousPreview = computed(() =>
+  findAmbiguousMatches(matches.value.map((match) => ({
+    status: match.status,
+    confidence: Number(match.confidence ?? 0),
+  }))),
+)
+
+const stats = computed(() => ({
+  matches: matches.value.length,
+  confirmed: matches.value.filter((match) => match.status === 'confirmed').length,
+  ambiguous: ambiguousPreview.value.length,
+  unmatched: unmatched.value.length,
+}))
 
 const statusLabel = (status: unknown) =>
   statusOptions.find((option) => option.value === status)?.label ?? String(status || 'Inconnu')
@@ -60,27 +173,75 @@ const statusTone = (status: unknown): BadgeTone => {
 
 const confidenceTone = (confidence: unknown): BadgeTone => {
   const value = Number(confidence ?? 0)
-
   if (value >= 0.85) return 'success'
   if (value >= 0.5) return 'warning'
   return 'danger'
 }
 
-const setUnitComparison = () => {
+const normalizeUnit = (unit: unknown): ProductUnit => {
+  if (unit === 'unite') return 'piece'
+  return unitOptions.includes(unit as ProductUnit) ? unit as ProductUnit : 'piece'
+}
+
+const estimateConfidence = (ingredientName: string, productName: string) => {
+  const ingredientTokens = new Set(ingredientName.toLowerCase().split(/\s+/).filter(Boolean))
+  const productTokens = new Set(productName.toLowerCase().split(/\s+/).filter(Boolean))
+  const overlap = [...ingredientTokens].filter((token) => productTokens.has(token)).length
+  return ingredientTokens.size === 0 ? 0 : Number((overlap / ingredientTokens.size).toFixed(2))
+}
+
+const refreshUnitComparison = () => {
   form.unitComparison = buildUnitComparison(
-    form.unitComparison.ingredientUnit,
-    form.unitComparison.productUnit,
+    normalizeUnit(form.unitComparison.ingredientUnit),
+    normalizeUnit(form.unitComparison.productUnit),
   )
 }
 
-const ambiguousPreview = computed(() =>
-  findAmbiguousMatches(
-    matches.value.map((match) => ({
-      status: String(match.status) as MatchStatus,
-      confidence: Number(match.confidence ?? 0),
-    })),
-  ),
-)
+const syncFormFromSelection = () => {
+  if (selectedIngredient.value) {
+    form.unitComparison.ingredientUnit = normalizeUnit(selectedIngredient.value.units?.[0] ?? selectedIngredient.value.mobile?.defaultUnit ?? 'g')
+  }
+
+  if (selectedOffer.value) {
+    form.productId = selectedOffer.value.product_id
+    form.retailerId = selectedOffer.value.retailer_id
+    form.unitComparison.productUnit = normalizeUnit(selectedOffer.value.unit)
+  }
+
+  refreshUnitComparison()
+
+  if (selectedIngredient.value && selectedOffer.value) {
+    form.confidence = Math.max(0.35, estimateConfidence(selectedIngredient.value.name, selectedOffer.value.product_name))
+    form.status = form.confidence >= 0.85 && form.unitComparison.comparable ? 'suggested' : 'ambiguous'
+  }
+}
+
+const formatPrice = (value: unknown) => {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue)
+    ? new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF' }).format(numberValue)
+    : 'Aucun prix'
+}
+
+const loadReferenceData = async () => {
+  const [ingredientResponse, retailerResponse, productResponse] = await Promise.all([
+    $fetch<{ data: IngredientRow[] }>('/api/admin/ingredients', { query: { limit: 100 } }),
+    $fetch<{ data: RetailerRow[] }>('/api/admin/retailers', { query: { limit: 100 } }),
+    $fetch<{ data: ProductRow[] }>('/api/admin/products', { query: { limit: 100 } }),
+  ])
+
+  ingredients.value = ingredientResponse.data
+  retailers.value = retailerResponse.data
+  products.value = productResponse.data
+
+  if (!form.ingredientId && ingredients.value[0]) form.ingredientId = ingredients.value[0].id
+  if (!form.productId && offerOptions.value[0]) {
+    form.productId = offerOptions.value[0].product_id
+    form.retailerId = offerOptions.value[0].retailer_id
+    selectedOfferKey.value = `${offerOptions.value[0].product_id}:${offerOptions.value[0].retailer_id}`
+  }
+  syncFormFromSelection()
+}
 
 const loadMatches = async () => {
   loading.value = true
@@ -88,9 +249,14 @@ const loadMatches = async () => {
 
   try {
     const response = await $fetch<{ data: MatchRecord[] }>('/api/admin/matching', {
-      query: filters,
+      query: matchQuery.value,
     })
+
     matches.value = response.data
+    if (selectedMatch.value) {
+      selectedMatch.value = matches.value.find((match) => match.id === selectedMatch.value?.id && match.retailer_id === selectedMatch.value?.retailer_id) ?? null
+    }
+    if (!selectedMatch.value && matches.value[0]) selectedMatch.value = matches.value[0]
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Chargement impossible.'
   } finally {
@@ -99,18 +265,21 @@ const loadMatches = async () => {
 }
 
 const loadUnmatched = async () => {
-  const response = await $fetch<{ data: MatchRecord[] }>('/api/admin/matching/unmatched')
+  const response = await $fetch<{ data: IngredientRow[] }>('/api/admin/matching/unmatched')
   unmatched.value = response.data
 }
 
 const saveMatch = async () => {
   saving.value = true
   errorMessage.value = ''
+  feedback.value = ''
 
   try {
-    await $fetch('/api/admin/matching', { method: 'POST', body: form })
-    feedback.value = 'Correspondance créée. Elle reste confirmable manuellement.'
-    await Promise.all([loadMatches(), loadUnmatched()])
+    syncFormFromSelection()
+    const response = await $fetch<{ data: MatchRecord }>('/api/admin/matching', { method: 'POST', body: form })
+    feedback.value = form.status === 'confirmed' ? 'Correspondance confirmée.' : 'Correspondance créée pour revue.'
+    selectedMatch.value = response.data
+    await Promise.all([loadReferenceData(), loadMatches(), loadUnmatched()])
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Enregistrement impossible.'
   } finally {
@@ -118,26 +287,43 @@ const saveMatch = async () => {
   }
 }
 
-const updateMatch = async (id: string, status: 'confirmed' | 'ambiguous' | 'rejected') => {
-  await $fetch(`/api/admin/matching/${id}`, {
-    method: 'PUT',
-    body: {
-      status,
-      notes: status === 'confirmed' ? 'Confirmation manuelle' : 'Cas à vérifier',
-    },
-  })
-  feedback.value =
-    status === 'confirmed'
+const updateMatch = async (match: MatchRecord, status: 'confirmed' | 'ambiguous' | 'rejected') => {
+  actionPending.value = `${match.id}:${status}`
+  feedback.value = ''
+  errorMessage.value = ''
+
+  try {
+    await $fetch(`/api/admin/matching/${match.product_id}`, {
+      method: 'PUT',
+      body: {
+        ingredientId: match.ingredient_id ?? (form.ingredientId || undefined),
+        retailerId: match.retailer_id ?? undefined,
+        confidence: status === 'confirmed' ? Math.max(0.85, Number(match.confidence ?? 0)) : Number(match.confidence ?? 0),
+        status,
+        unitComparison: {
+          ingredientUnit: normalizeUnit(match.offer_unit ?? 'piece'),
+          productUnit: normalizeUnit(match.offer_unit ?? 'piece'),
+          comparable: true,
+        },
+        notes: status === 'confirmed' ? 'Confirmation manuelle' : 'Cas à vérifier',
+      },
+    })
+    feedback.value = status === 'confirmed'
       ? 'Correspondance confirmée manuellement.'
-      : 'Cas marqué pour revue, sans validation silencieuse.'
-  await Promise.all([loadMatches(), loadUnmatched()])
+      : 'Statut mis à jour sans validation silencieuse.'
+    await Promise.all([loadReferenceData(), loadMatches(), loadUnmatched()])
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Mise à jour impossible.'
+  } finally {
+    actionPending.value = ''
+  }
 }
 
-const loadImpact = async (ingredientId?: unknown) => {
-  const selectedIngredientId = String(ingredientId || filters.ingredientId || form.ingredientId).trim()
+const loadImpact = async (ingredientId?: string | null) => {
+  const selectedIngredientId = ingredientId || selectedMatch.value?.ingredient_id || filters.ingredientId || form.ingredientId
 
   if (!selectedIngredientId) {
-    errorMessage.value = 'Indique un ingrédient avant de calculer l’impact.'
+    errorMessage.value = 'Choisis un ingrédient avant de calculer l’impact.'
     return
   }
 
@@ -147,148 +333,209 @@ const loadImpact = async (ingredientId?: unknown) => {
   impact.value = response.data
 }
 
-const useUnmatchedIngredient = (ingredient: MatchRecord) => {
-  form.ingredientId = String(ingredient.id ?? form.ingredientId)
-  filters.ingredientId = form.ingredientId
+const useUnmatchedIngredient = (ingredient: IngredientRow) => {
+  form.ingredientId = ingredient.id
+  filters.ingredientId = ingredient.id
+  syncFormFromSelection()
 }
 
-onMounted(() => {
-  void Promise.all([loadMatches(), loadUnmatched()])
+const useMatchAsForm = (match: MatchRecord) => {
+  selectedMatch.value = match
+  form.ingredientId = match.ingredient_id ?? form.ingredientId
+  form.productId = match.product_id
+  form.retailerId = match.retailer_id ?? form.retailerId
+  selectedOfferKey.value = `${form.productId}:${form.retailerId}`
+  form.confidence = Number(match.confidence ?? 0.85)
+  form.status = match.status
+  form.notes = match.notes ?? ''
+  syncFormFromSelection()
+}
+
+const clearFilters = async () => {
+  filters.ingredientId = ''
+  filters.retailerId = ''
+  filters.status = ''
+  await loadMatches()
+}
+
+watch(() => [form.ingredientId, selectedOfferKey.value], syncFormFromSelection)
+
+onMounted(async () => {
+  await loadReferenceData()
+  await Promise.all([loadMatches(), loadUnmatched()])
 })
 </script>
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-103</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Comparateur</p>
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
           Correspondances ingrédients-produits
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Relie les ingrédients des recettes aux produits comparables par enseigne. Les cas ambigus
-          restent visibles avant d’alimenter les paniers et le comparateur mobile.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Relie les ingrédients des recettes aux offres magasin. Une correspondance confirmée alimente les paniers et la comparaison mobile.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="secondary" @click="loadUnmatched">
-          Voir les ingrédients sans produit
+        <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadMatches">
+          Rafraîchir
         </BaseButton>
-        <BaseButton type="button" :disabled="loading" @click="loadMatches">
-          {{ loading ? 'Chargement...' : 'Rafraîchir' }}
+        <BaseButton type="button" variant="secondary" @click="loadUnmatched">
+          Ingrédients sans produit
         </BaseButton>
       </div>
     </div>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-3">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Correspondances</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ matches.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">chargées depuis Supabase</p>
+    <div class="grid gap-3 md:grid-cols-4">
+      <article class="admin-stat-card">
+        <span>Correspondances</span>
+        <strong>{{ stats.matches }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">À traiter</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ unmatched.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">ingrédients sans correspondance</p>
+      <article class="admin-stat-card">
+        <span>Confirmées</span>
+        <strong class="text-coursia-success">{{ stats.confirmed }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Ambigus</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ ambiguousPreview.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">faible confiance ou statut ambigu</p>
+      <article class="admin-stat-card">
+        <span>Ambiguës</span>
+        <strong class="text-coursia-warning">{{ stats.ambiguous }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span>Sans produit</span>
+        <strong>{{ stats.unmatched }}</strong>
       </article>
     </div>
 
-    <div class="admin-toolbar mt-6 grid gap-3 md:grid-cols-[1fr_1fr_0.8fr_auto]">
-      <input
-        v-model="filters.ingredientId"
-        placeholder="ID ingrédient"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-        @keyup.enter="loadMatches"
-      >
-      <input
-        v-model="filters.retailerId"
-        placeholder="ID enseigne"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-        @keyup.enter="loadMatches"
-      >
-      <select
-        v-model="filters.status"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-      >
-        <option value="">Tous statuts</option>
-        <option v-for="status in statusOptions" :key="status.value" :value="status.value">
-          {{ status.label }}
-        </option>
-      </select>
-      <BaseButton type="button" variant="secondary" @click="loadMatches">Filtrer</BaseButton>
-    </div>
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_1fr_0.8fr_auto]" @submit.prevent="loadMatches">
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Ingrédient
+        <select v-model="filters.ingredientId">
+          <option value="">Tous les ingrédients</option>
+          <option v-for="ingredient in ingredients" :key="ingredient.id" :value="ingredient.id">
+            {{ ingredient.name }}
+          </option>
+        </select>
+      </label>
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Enseigne
+        <select v-model="filters.retailerId">
+          <option value="">Toutes les enseignes</option>
+          <option v-for="retailer in retailers" :key="retailer.id" :value="retailer.id">
+            {{ retailer.name }}
+          </option>
+        </select>
+      </label>
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Statut
+        <select v-model="filters.status">
+          <option value="">Tous statuts</option>
+          <option v-for="status in statusOptions" :key="status.value" :value="status.value">
+            {{ status.label }}
+          </option>
+        </select>
+      </label>
+      <div class="flex items-end gap-2">
+        <BaseButton type="submit" :disabled="loading">Appliquer</BaseButton>
+        <BaseButton v-if="filters.ingredientId || filters.retailerId || filters.status" type="button" variant="ghost" @click="clearFilters">
+          Effacer
+        </BaseButton>
+      </div>
+    </form>
 
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
+    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
+    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
       {{ errorMessage }}
     </p>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-        <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Correspondances actives</h2>
-            <p class="mt-1 text-xs text-[#667085]">
-              Confirme, rejette ou marque ambigu avant utilisation dans les paniers.
-            </p>
+            <h2 class="text-base font-black text-coursia-foreground">Matrice de correspondance</h2>
+            <p class="mt-1 text-xs text-coursia-muted">{{ matches.length }} ligne(s) affichée(s)</p>
           </div>
-          <BaseBadge tone="neutral">Qualité prix</BaseBadge>
+          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
         </div>
 
-        <div v-if="loading" class="p-5 text-sm text-[#667085]">Chargement des correspondances...</div>
-        <div v-else-if="matches.length === 0" class="p-5 text-sm text-[#667085]">
-          Aucune correspondance ne correspond aux filtres.
+        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
+          Chargement des correspondances...
         </div>
+
+        <div v-else-if="matches.length === 0" class="grid place-items-center p-10 text-center">
+          <div class="max-w-sm">
+            <p class="font-black text-coursia-foreground">Aucune correspondance</p>
+            <p class="mt-2 text-sm text-coursia-muted">
+              Crée d’abord des produits/offres magasin, puis relie-les à des ingrédients.
+            </p>
+            <NuxtLink class="mt-4 inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted" to="/admin/produits">
+              Aller aux produits
+            </NuxtLink>
+          </div>
+        </div>
+
         <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-            <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+          <table class="min-w-[62rem]">
+            <thead>
               <tr>
-                <th class="px-5 py-3">Ingrédient</th>
-                <th class="px-5 py-3">Produit</th>
-                <th class="px-5 py-3">Enseigne</th>
-                <th class="px-5 py-3">Confiance</th>
-                <th class="px-5 py-3">Statut</th>
-                <th class="px-5 py-3 text-right">Actions</th>
+                <th>Ingrédient</th>
+                <th>Produit magasin</th>
+                <th>Enseigne</th>
+                <th>Confiance</th>
+                <th>Statut</th>
+                <th class="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#eee8df]">
-              <tr v-for="match in matches" :key="String(match.id)" class="transition hover:bg-[#fbfaf7]">
-                <td class="px-5 py-4">
-                  <span class="block font-semibold text-[#101828]">{{ match.ingredient_name || match.ingredient_id }}</span>
-                  <span class="mt-1 block text-xs text-[#667085]">{{ match.ingredient_id }}</span>
+            <tbody>
+              <tr
+                v-for="match in matches"
+                :key="`${match.product_id}:${match.retailer_id ?? 'none'}`"
+                class="cursor-pointer transition"
+                :class="selectedMatch?.product_id === match.product_id && selectedMatch?.retailer_id === match.retailer_id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
+                @click="useMatchAsForm(match)"
+              >
+                <td>
+                  <span class="block max-w-[18rem] truncate font-black text-coursia-foreground">
+                    {{ match.ingredient_name || 'Non relié' }}
+                  </span>
+                  <span class="mt-1 block max-w-[18rem] truncate text-xs text-coursia-muted">
+                    {{ match.ingredient_id || 'Choisir un ingrédient' }}
+                  </span>
                 </td>
-                <td class="px-5 py-4">
-                  <span class="block font-medium text-[#101828]">{{ match.product_name || match.product_id }}</span>
-                  <span class="mt-1 block text-xs text-[#667085]">source {{ match.source || '—' }}</span>
+                <td>
+                  <span class="block max-w-[20rem] truncate font-semibold text-coursia-foreground">{{ match.product_name }}</span>
+                  <span class="mt-1 block text-xs text-coursia-muted">
+                    {{ match.offer_format || 'Format non renseigné' }}
+                  </span>
                 </td>
-                <td class="px-5 py-4 text-[#667085]">{{ match.retailer_name || match.retailer_id }}</td>
-                <td class="px-5 py-4">
+                <td class="text-sm text-coursia-muted">{{ match.retailer_name || 'Aucune enseigne' }}</td>
+                <td>
                   <BaseBadge :tone="confidenceTone(match.confidence)">
                     {{ Math.round(Number(match.confidence ?? 0) * 100) }} %
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <BaseBadge :tone="statusTone(match.status)">
                     {{ statusLabel(match.status) }}
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td @click.stop>
                   <div class="flex justify-end gap-2">
-                    <BaseButton size="sm" type="button" @click="updateMatch(String(match.id), 'confirmed')">
+                    <BaseButton
+                      size="sm"
+                      type="button"
+                      :disabled="!match.ingredient_id || actionPending === `${match.id}:confirmed`"
+                      @click="updateMatch(match, 'confirmed')"
+                    >
                       Confirmer
                     </BaseButton>
-                    <BaseButton size="sm" type="button" variant="secondary" @click="updateMatch(String(match.id), 'ambiguous')">
+                    <BaseButton size="sm" type="button" variant="secondary" :disabled="actionPending === `${match.id}:ambiguous`" @click="updateMatch(match, 'ambiguous')">
                       Ambigu
                     </BaseButton>
-                    <BaseButton size="sm" type="button" variant="ghost" @click="updateMatch(String(match.id), 'rejected')">
+                    <BaseButton size="sm" type="button" variant="ghost" :disabled="actionPending === `${match.id}:rejected`" @click="updateMatch(match, 'rejected')">
                       Rejeter
                     </BaseButton>
                   </div>
@@ -299,146 +546,144 @@ onMounted(() => {
         </div>
       </section>
 
-      <aside class="grid gap-5">
-        <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]" @submit.prevent="saveMatch">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Nouvelle liaison</p>
-          <h2 class="mt-2 text-lg font-semibold text-[#101828]">Associer un produit magasin</h2>
-
-          <div class="mt-5 grid gap-4">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              ID ingrédient
-              <input
-                v-model="form.ingredientId"
-                required
-                class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-              >
-            </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              ID produit
-              <input
-                v-model="form.productId"
-                required
-                class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-              >
-            </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              ID enseigne
-              <input
-                v-model="form.retailerId"
-                required
-                class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-              >
-            </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              Confiance
-              <input
-                v-model.number="form.confidence"
-                required
-                type="number"
-                min="0"
-                max="1"
-                step="0.01"
-                class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-              >
-            </label>
+      <aside class="grid gap-4">
+        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Liaison</p>
+              <h2 class="mt-1 text-lg font-black text-coursia-foreground">Associer une offre</h2>
+            </div>
+            <BaseBadge :tone="form.unitComparison.comparable ? 'success' : 'warning'">
+              {{ form.unitComparison.comparable ? 'Comparable' : 'À vérifier' }}
+            </BaseBadge>
           </div>
 
-          <div class="mt-5 grid grid-cols-2 gap-3">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              Unité ingrédient
-              <select
-                v-model="form.unitComparison.ingredientUnit"
-                class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-                @change="setUnitComparison"
-              >
-                <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
+          <form class="mt-4 grid gap-4" @submit.prevent="saveMatch">
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Ingrédient
+              <select v-model="form.ingredientId" required>
+                <option value="" disabled>Choisir un ingrédient</option>
+                <option v-for="ingredient in ingredients" :key="ingredient.id" :value="ingredient.id">
+                  {{ ingredient.name }}
+                </option>
               </select>
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
-              Unité produit
-              <select
-                v-model="form.unitComparison.productUnit"
-                class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-                @change="setUnitComparison"
-              >
-                <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Offre magasin
+              <select v-model="selectedOfferKey" required>
+                <option value="" disabled>Choisir une offre</option>
+                <option
+                  v-for="offer in offerOptions"
+                  :key="`${offer.product_id}:${offer.retailer_id}`"
+                  :value="`${offer.product_id}:${offer.retailer_id}`"
+                >
+                  {{ offer.product_name }} · {{ offer.retailer_name }} · {{ offer.format }}
+                </option>
               </select>
             </label>
-          </div>
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Enseigne
+              <select v-model="form.retailerId" required>
+                <option value="" disabled>Choisir une enseigne</option>
+                <option v-for="retailer in retailers" :key="retailer.id" :value="retailer.id">
+                  {{ retailer.name }}
+                </option>
+              </select>
+            </label>
 
-          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Statut
-            <select
-              v-model="form.status"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-            >
-              <option v-for="status in statusOptions" :key="status.value" :value="status.value">
-                {{ status.label }}
-              </option>
-            </select>
-          </label>
+            <div class="grid grid-cols-[1fr_1fr] gap-2">
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Unité ingrédient
+                <select v-model="form.unitComparison.ingredientUnit" @change="refreshUnitComparison">
+                  <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
+                </select>
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Unité produit
+                <select v-model="form.unitComparison.productUnit" @change="refreshUnitComparison">
+                  <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
+                </select>
+              </label>
+            </div>
 
-          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054]">
-            Notes de revue
-            <textarea
-              v-model="form.notes"
-              rows="3"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-            />
-          </label>
+            <div class="grid grid-cols-[0.8fr_1fr] gap-2">
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Confiance
+                <input v-model.number="form.confidence" required type="number" min="0" max="1" step="0.01" />
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Statut
+                <select v-model="form.status">
+                  <option v-for="status in statusOptions" :key="status.value" :value="status.value">
+                    {{ status.label }}
+                  </option>
+                </select>
+              </label>
+            </div>
 
-          <div class="mt-4 rounded-2xl bg-[#fbfaf7] p-4 text-xs text-[#667085]">
-            Unités comparables : {{ form.unitComparison.comparable ? 'oui' : 'non' }}.
-            <span v-if="form.unitComparison.conversionFactor">
-              Conversion : × {{ form.unitComparison.conversionFactor }}.
-            </span>
-          </div>
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Notes
+              <textarea v-model="form.notes" rows="3" placeholder="Pourquoi ce lien est validé ou ambigu ?" />
+            </label>
 
-          <BaseButton class="mt-5 w-full" type="submit" :disabled="saving">
-            {{ saving ? 'Enregistrement...' : 'Enregistrer la liaison' }}
-          </BaseButton>
-        </form>
+            <div v-if="selectedOffer || selectedIngredient" class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">
+                {{ selectedIngredient?.name || 'Ingrédient' }} → {{ selectedOffer?.product_name || 'offre magasin' }}
+              </p>
+              <p class="mt-1 text-xs text-coursia-muted">
+                Prix : {{ formatPrice(selectedOffer?.latest_price_chf) }} · format :
+                {{ selectedOffer?.format || 'non renseigné' }}
+              </p>
+            </div>
 
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5">
+            <BaseButton type="submit" :disabled="saving || !form.ingredientId || !form.productId || !form.retailerId">
+              {{ saving ? 'Enregistrement...' : 'Enregistrer la liaison' }}
+            </BaseButton>
+          </form>
+        </section>
+
+        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <h2 class="text-sm font-semibold text-[#101828]">Impact recettes/paniers</h2>
-              <p class="mt-1 text-xs text-[#667085]">À contrôler avant une correction globale.</p>
+              <h2 class="text-base font-black text-coursia-foreground">Impact</h2>
+              <p class="mt-1 text-xs text-coursia-muted">Recettes touchées par l’ingrédient sélectionné.</p>
             </div>
             <BaseButton type="button" size="sm" variant="secondary" @click="loadImpact()">
               Calculer
             </BaseButton>
           </div>
-          <pre v-if="impact" class="mt-4 max-h-64 overflow-auto rounded-2xl bg-[#fbfaf7] p-4 text-xs text-[#344054]">{{ impact }}</pre>
-          <p v-else class="mt-4 text-sm text-[#667085]">Aucun impact calculé pour le moment.</p>
-        </article>
+          <pre v-if="impact" class="mt-4 max-h-64 overflow-auto rounded-2xl bg-coursia-surface-muted p-4 text-xs text-coursia-foreground">{{ impact }}</pre>
+          <p v-else class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
+            Aucun impact calculé pour le moment.
+          </p>
+        </section>
       </aside>
     </div>
 
-    <section class="mt-6 rounded-2xl border border-[#e6e1d8] bg-white p-5">
+    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828]">Ingrédients sans correspondance</h2>
-          <p class="mt-1 text-xs text-[#667085]">
-            Priorise ces éléments pour éviter des paniers incomplets dans l’application.
+          <h2 class="text-base font-black text-coursia-foreground">Ingrédients sans produit</h2>
+          <p class="mt-1 text-xs text-coursia-muted">
+            Priorité de saisie pour éviter des paniers incomplets.
           </p>
         </div>
         <BaseBadge tone="warning">{{ unmatched.length }} à traiter</BaseBadge>
       </div>
 
-      <div v-if="unmatched.length === 0" class="mt-4 rounded-2xl bg-[#fbfaf7] p-4 text-sm text-[#667085]">
+      <div v-if="unmatched.length === 0" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
         Aucun ingrédient sans correspondance.
       </div>
       <div v-else class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <button
           v-for="ingredient in unmatched"
-          :key="String(ingredient.id)"
+          :key="ingredient.id"
           type="button"
-          class="rounded-2xl border border-[#e6e1d8] bg-[#fbfaf7] p-4 text-left transition hover:border-coursia-primary/40 hover:bg-white"
+          class="cursor-pointer rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4 text-left transition hover:border-coursia-primary/40 hover:bg-coursia-surface"
           @click="useUnmatchedIngredient(ingredient)"
         >
-          <span class="block text-sm font-semibold text-[#101828]">{{ ingredient.name }}</span>
-          <span class="mt-1 block text-xs text-[#667085]">{{ ingredient.slug || ingredient.id }}</span>
+          <span class="block text-sm font-black text-coursia-foreground">{{ ingredient.name }}</span>
+          <span class="mt-1 block text-xs text-coursia-muted">{{ ingredient.categories[0] || ingredient.mobile?.aisle || 'Non classé' }}</span>
         </button>
       </div>
     </section>

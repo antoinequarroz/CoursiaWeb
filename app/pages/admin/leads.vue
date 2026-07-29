@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status !== 'archived'"
                       type="button"
-                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50    "
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="archiveLead(lead)"
                     >
@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status === 'archived'"
                       type="button"
-                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50    "
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="reopenLead(lead)"
                     >
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
         </AdminTableShell>
       </AdminPanel>
 
-      <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  ">
+      <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
         <div v-if="selectedContact">
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -492,7 +492,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else class="rounded-2xl bg-coursia-surface-muted p-5 text-sm text-coursia-muted  ">
+        <div v-else class="rounded-2xl bg-coursia-surface-muted p-5 text-sm text-coursia-muted">
           Aucun contact sélectionné.
         </div>
       </aside>
@@ -545,7 +545,7 @@ onBeforeUnmount(() => {
         </AdminTableShell>
       </AdminPanel>
 
-      <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  ">
+      <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Acquisition</p>
         <h2 class="mt-2 text-lg font-semibold text-coursia-text">Sources waitlist</h2>
         <p class="mt-2 text-sm leading-6 text-coursia-muted">
@@ -562,7 +562,7 @@ onBeforeUnmount(() => {
             <BaseBadge tone="neutral">{{ count }}</BaseBadge>
           </div>
 
-          <div v-if="waitlistSources.length <= 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted  ">
+          <div v-if="waitlistSources.length <= 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
             Aucune source chargée.
           </div>
         </div>

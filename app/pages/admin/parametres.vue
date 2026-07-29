@@ -272,7 +272,7 @@ onMounted(loadFlags)
 
       <aside class="grid gap-4">
         <form
-          class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  "
+          class="rounded-3xl border border-coursia-border bg-coursia-surface p-5"
           @submit.prevent="saveFlag"
         >
           <div class="flex items-start justify-between gap-3">
@@ -319,11 +319,11 @@ onMounted(loadFlags)
             </label>
 
             <div class="grid grid-cols-2 gap-2">
-              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted   ">
+              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted">
                 <input v-model="flagForm.enabled" class="cursor-pointer" type="checkbox">
                 Actif
               </label>
-              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted   ">
+              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted">
                 <input v-model="flagForm.critical" class="cursor-pointer" type="checkbox">
                 Critique
               </label>
@@ -358,7 +358,7 @@ onMounted(loadFlags)
           </BaseButton>
         </form>
 
-        <div class="rounded-3xl border border-coursia-border bg-coursia-surface-muted p-5  ">
+        <div class="rounded-3xl border border-coursia-border bg-coursia-surface-muted p-5">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">
             Garde-fous
           </p>

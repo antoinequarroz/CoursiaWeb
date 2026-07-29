@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
                 v-for="content in contents"
                 :key="content.id"
                 class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
-                :class="selectedContentId === content.id ? 'bg-coursia-primary/5 dark:bg-coursia-primary/10' : ''"
+                :class="selectedContentId === content.id ? 'bg-coursia-primary/10' : ''"
                 @click="selectContent(content)"
               >
                 <td>

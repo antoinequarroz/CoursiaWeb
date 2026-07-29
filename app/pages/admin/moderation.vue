@@ -465,7 +465,7 @@ onMounted(() => {
                 v-for="submission in submissions"
                 :key="String(submission.id)"
                 class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
-                :class="selectedSubmissionId === String(submission.id) ? 'bg-coursia-primary/5 dark:bg-coursia-primary/10' : ''"
+                :class="selectedSubmissionId === String(submission.id) ? 'bg-coursia-primary/10' : ''"
                 @click="selectSubmission(submission)"
               >
                 <td>
@@ -492,7 +492,7 @@ onMounted(() => {
       </AdminPanel>
 
       <aside class="grid content-start gap-4">
-        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4">
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">Décision</p>
@@ -583,7 +583,7 @@ onMounted(() => {
 
         <form
           v-if="isCreateOpen"
-          class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm"
+          class="rounded-3xl border border-coursia-border bg-coursia-surface p-4"
           @submit.prevent="createSubmission"
         >
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">Ajout manuel</p>

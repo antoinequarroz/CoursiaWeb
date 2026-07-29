@@ -97,8 +97,8 @@ const simulateLoading = () => {
     </div>
 
     <div class="mx-auto w-full transition-all" :class="activePreviewClass" :data-theme="activeTheme">
-      <div class="grid gap-5 rounded-3xl border border-coursia-border bg-coursia-background p-4 shadow-coursia-sm md:p-5">
-        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+      <div class="grid gap-5 rounded-3xl border border-coursia-border bg-coursia-background p-4 md:p-5">
+        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Source de vérité</p>
@@ -158,7 +158,7 @@ const simulateLoading = () => {
         </section>
 
         <section class="grid gap-4 xl:grid-cols-2">
-          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
             <h2 class="text-lg font-semibold text-coursia-text">Identité et navigation</h2>
             <p class="mt-1 text-sm text-coursia-muted">
               Logo, thème et pictos réels utilisés par la navigation admin.
@@ -207,7 +207,7 @@ const simulateLoading = () => {
         </section>
 
         <section class="grid gap-4 xl:grid-cols-2">
-          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
             <h2 class="text-lg font-semibold text-coursia-text">Boutons et badges</h2>
             <p class="mt-1 text-sm text-coursia-muted">États normal, hover, disabled et chargement.</p>
 
@@ -228,7 +228,7 @@ const simulateLoading = () => {
             </div>
           </article>
 
-          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
             <h2 class="text-lg font-semibold text-coursia-text">Champs et états</h2>
             <p class="mt-1 text-sm text-coursia-muted">Labels visibles, focus clavier et message d’erreur actionnable.</p>
 
@@ -292,7 +292,7 @@ const simulateLoading = () => {
             v-for="item in componentCatalogItems"
             :id="item.id"
             :key="item.id"
-            class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm"
+            class="rounded-2xl border border-coursia-border bg-coursia-surface p-5"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -331,7 +331,7 @@ const simulateLoading = () => {
           </article>
         </section>
 
-        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold text-coursia-text">Checklist qualité</h2>

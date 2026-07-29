@@ -59,25 +59,25 @@ const markReloaded = () => {
     </AdminPageHeader>
 
     <div class="grid gap-4 md:grid-cols-4">
-      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Articles</p>
-        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ adminDocumentationArticles.length }}</p>
-        <p class="mt-1 text-xs text-coursia-muted">Procédures internes</p>
+      <article class="admin-stat-card">
+        <p class="admin-stat-label">Articles</p>
+        <p class="admin-stat-value">{{ adminDocumentationArticles.length }}</p>
+        <p class="admin-stat-caption">Procédures internes</p>
       </article>
-      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Validés</p>
-        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ validatedCount }}</p>
-        <p class="mt-1 text-xs text-coursia-muted">À jour</p>
+      <article class="admin-stat-card">
+        <p class="admin-stat-label">Validés</p>
+        <p class="admin-stat-value">{{ validatedCount }}</p>
+        <p class="admin-stat-caption">À jour</p>
       </article>
-      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">À vérifier</p>
-        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ reviewCount }}</p>
-        <p class="mt-1 text-xs text-coursia-muted">Revue requise</p>
+      <article class="admin-stat-card">
+        <p class="admin-stat-label">À vérifier</p>
+        <p class="admin-stat-value">{{ reviewCount }}</p>
+        <p class="admin-stat-caption">Revue requise</p>
       </article>
-      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Brouillons</p>
-        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ draftCount }}</p>
-        <p class="mt-1 text-xs text-coursia-muted">À compléter</p>
+      <article class="admin-stat-card">
+        <p class="admin-stat-label">Brouillons</p>
+        <p class="admin-stat-value">{{ draftCount }}</p>
+        <p class="admin-stat-caption">À compléter</p>
       </article>
     </div>
 
@@ -92,7 +92,7 @@ const markReloaded = () => {
         >
       </label>
 
-      <div class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <div class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
         <div class="flex items-center justify-between gap-3">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Liens contrôlés</p>
           <BaseBadge tone="neutral">{{ externalLinks.length }}</BaseBadge>
@@ -132,7 +132,7 @@ const markReloaded = () => {
     />
 
     <div v-else class="grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm xl:sticky xl:top-6 xl:self-start">
+      <aside class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 xl:sticky xl:top-6 xl:self-start">
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-muted">Table des matières</p>
         <nav class="mt-4 grid gap-1" aria-label="Table des matières documentation">
           <a
@@ -152,7 +152,7 @@ const markReloaded = () => {
           v-for="article in visibleArticles"
           :id="article.id"
           :key="article.id"
-          class="scroll-mt-6 rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm"
+          class="scroll-mt-6 rounded-2xl border border-coursia-border bg-coursia-surface p-5"
         >
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0">

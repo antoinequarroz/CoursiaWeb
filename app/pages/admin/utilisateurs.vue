@@ -9,10 +9,34 @@ definePageMeta({
   layout: 'admin',
 })
 
-type SupportUser = Record<string, unknown>
-type RevenueCatEvent = Record<string, unknown>
+type AccountStatus = 'active' | 'blocked' | 'deleted' | 'pending'
+type SubscriptionTier = 'free' | 'standard' | 'premium' | 'family'
 type ProcedureAction = SupportControlledProcedure['action']
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+
+type SupportUser = {
+  id: string
+  emailMasked: string
+  accountStatus: AccountStatus
+  appVersion: string | null
+  subscriptionTier: SubscriptionTier
+}
+
+type RevenueCatEvent = {
+  id: string
+  type: string
+  entitlement?: string | null
+  productId?: string | null
+  product_id?: string | null
+  purchasedAt?: string | null
+  purchased_at?: string | null
+  receivedAt?: string | null
+  received_at?: string | null
+  expiresAt?: string | null
+  expires_at?: string | null
+}
+
+const route = useRoute()
 
 const search = reactive({
   userId: '',
@@ -34,10 +58,36 @@ const errorMessage = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
 
+const accountLabels: Record<AccountStatus, string> = {
+  active: 'Actif',
+  blocked: 'Bloqué',
+  deleted: 'Supprimé',
+  pending: 'En attente',
+}
+
+const tierLabels: Record<SubscriptionTier, string> = {
+  free: 'Gratuit',
+  standard: 'Standard',
+  premium: 'Premium',
+  family: 'Famille',
+}
+
+const procedureLabels: Record<ProcedureAction, string> = {
+  export: 'Exporter',
+  delete: 'Supprimer',
+  block: 'Bloquer',
+}
+
+const procedureActionLabels: Record<ProcedureAction, string> = {
+  export: 'Demande d’export',
+  delete: 'Demande de suppression',
+  block: 'Demande de blocage',
+}
+
 const accountTone = computed<BadgeTone>(() => {
   if (!user.value) return 'neutral'
   if (user.value.accountStatus === 'active') return 'success'
-  if (user.value.accountStatus === 'blocked') return 'danger'
+  if (user.value.accountStatus === 'blocked' || user.value.accountStatus === 'deleted') return 'danger'
   if (user.value.accountStatus === 'pending') return 'warning'
   return 'neutral'
 })
@@ -49,14 +99,40 @@ const tierTone = computed<BadgeTone>(() => {
   return 'neutral'
 })
 
-const procedureLabels: Record<ProcedureAction, string> = {
-  export: 'Export',
-  delete: 'Suppression',
-  block: 'Blocage',
+const latestEvent = computed(() => revenueCatEvents.value[0] ?? null)
+const activeEntitlements = computed(() => {
+  const entitlements = revenueCatEvents.value
+    .map((event) => event.entitlement)
+    .filter((value): value is string => Boolean(value))
+
+  return Array.from(new Set(entitlements))
+})
+
+const procedureReady = computed(() =>
+  Boolean(user.value && procedure.reason.trim().length >= 10 && procedure.ticketReference.trim().length >= 3 && procedure.confirmed),
+)
+
+const getEventValue = (event: RevenueCatEvent, camelKey: keyof RevenueCatEvent, snakeKey: keyof RevenueCatEvent) =>
+  event[camelKey] ?? event[snakeKey] ?? '—'
+
+const formatDate = (value: unknown) => {
+  if (!value || typeof value !== 'string') return '—'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('fr-CH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
 }
 
-const getEventValue = (event: RevenueCatEvent, camelKey: string, snakeKey: string) =>
-  event[camelKey] ?? event[snakeKey] ?? '—'
+const resetProcedureForUser = (profile: SupportUser) => {
+  procedure.userId = profile.id
+  procedure.reason = ''
+  procedure.ticketReference = ''
+  procedure.confirmed = false
+}
 
 const lookupUser = async () => {
   isLoading.value = true
@@ -71,17 +147,17 @@ const lookupUser = async () => {
       impersonationEnabled: boolean
     }>('/api/admin/support-users/lookup', {
       query: {
-        userId: search.userId || undefined,
-        email: search.email || undefined,
+        userId: search.userId.trim() || undefined,
+        email: search.email.trim() || undefined,
       },
     })
 
     user.value = response.data
     revenueCatEvents.value = response.revenueCatEvents
-    procedure.userId = String(response.data.id)
+    resetProcedureForUser(response.data)
     feedback.value = response.sensitiveDataMasked
-      ? 'Consultation auditée. Données sensibles masquées.'
-      : 'Consultation chargée.'
+      ? 'Consultation auditée. Les données sensibles restent masquées.'
+      : 'Profil support chargé.'
   } catch (error) {
     user.value = null
     revenueCatEvents.value = []
@@ -92,17 +168,22 @@ const lookupUser = async () => {
 }
 
 const requestProcedure = async () => {
+  if (!user.value) return
+
   isSaving.value = true
   feedback.value = ''
   errorMessage.value = ''
 
   try {
-    const response = await $fetch<{ data: SupportUser }>('/api/admin/support-users/procedure', {
+    const response = await $fetch<{ data: { id?: string, action?: ProcedureAction } }>('/api/admin/support-users/procedure', {
       method: 'POST',
       body: procedure,
     })
 
-    feedback.value = `Procédure contrôlée créée : ${response.data.action ?? procedure.action}.`
+    feedback.value = `Procédure créée : ${procedureActionLabels[response.data.action ?? procedure.action]}.`
+    procedure.reason = ''
+    procedure.ticketReference = ''
+    procedure.confirmed = false
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible de créer la procédure support.'
   } finally {
@@ -111,7 +192,12 @@ const requestProcedure = async () => {
 }
 
 onMounted(() => {
-  search.email = 'info@antoinequarroz.ch'
+  if (typeof route.query.selected === 'string') {
+    search.userId = route.query.selected
+  } else {
+    search.email = 'info@antoinequarroz.ch'
+  }
+
   void lookupUser()
 })
 </script>
@@ -121,34 +207,34 @@ onMounted(() => {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-105</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Support utilisateurs
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Recherche contrôlée, données sensibles masquées, consultation auditée et procédures
-          encadrées pour export, suppression ou blocage.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Recherche contrôlée par email ou identifiant, lecture limitée, événements RevenueCat utiles
+          et procédures sensibles traçables.
         </p>
       </div>
 
       <BaseBadge tone="neutral">{{ impersonationDisabledMessage }}</BaseBadge>
     </div>
 
-    <form class="admin-toolbar mt-6 grid gap-3 md:grid-cols-[1fr_1fr_auto]" @submit.prevent="lookupUser">
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+    <form class="admin-toolbar grid gap-3 md:grid-cols-[1fr_1fr_auto]" @submit.prevent="lookupUser">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Identifiant utilisateur
         <input
           v-model="search.userId"
-          placeholder="UUID"
-          class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+          placeholder="UUID Supabase"
+          autocomplete="off"
         >
       </label>
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Email
         <input
           v-model="search.email"
           type="email"
           placeholder="email exact"
-          class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+          autocomplete="email"
         >
       </label>
       <BaseButton class="self-end" type="submit" :disabled="isLoading">
@@ -156,145 +242,183 @@ onMounted(() => {
       </BaseButton>
     </form>
 
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
-      {{ feedback }}
-    </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
-      {{ errorMessage }}
-    </p>
+    <div v-if="feedback || errorMessage" class="grid gap-3">
+      <p
+        v-if="feedback"
+        class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-medium text-coursia-success"
+      >
+        {{ feedback }}
+      </p>
+      <p
+        v-if="errorMessage"
+        class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-medium text-coursia-danger"
+      >
+        {{ errorMessage }}
+      </p>
+    </div>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Compte</p>
-        <div class="mt-3"><BaseBadge :tone="accountTone">{{ user?.accountStatus ?? '—' }}</BaseBadge></div>
-        <p class="mt-3 text-xs text-[#667085]">statut masqué</p>
+    <div class="grid gap-4 md:grid-cols-4">
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Compte</p>
+          <BaseBadge :tone="accountTone">
+            {{ user ? accountLabels[user.accountStatus] : '—' }}
+          </BaseBadge>
+        </div>
+        <p class="mt-4 text-sm text-coursia-muted">Statut consultable, données privées masquées.</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Abonnement</p>
-        <div class="mt-3"><BaseBadge :tone="tierTone">{{ user?.subscriptionTier ?? '—' }}</BaseBadge></div>
-        <p class="mt-3 text-xs text-[#667085]">palier actuel</p>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Abonnement</p>
+          <BaseBadge :tone="tierTone">
+            {{ user ? tierLabels[user.subscriptionTier] : '—' }}
+          </BaseBadge>
+        </div>
+        <p class="mt-4 text-sm text-coursia-muted">
+          {{ activeEntitlements.length ? activeEntitlements.join(', ') : 'Aucun entitlement actif chargé.' }}
+        </p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Version app</p>
-        <p class="mt-3 text-2xl font-semibold text-[#101828]">{{ user?.appVersion ?? '—' }}</p>
-        <p class="mt-1 text-xs text-[#667085]">client mobile</p>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Version app</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ user?.appVersion ?? '—' }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">Client mobile déclaré</p>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">RevenueCat</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ revenueCatEvents.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">événements utiles</p>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">RevenueCat</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ revenueCatEvents.length }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">Événements support utiles</p>
       </article>
     </div>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <section class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]">
-        <div class="flex items-center justify-between gap-3">
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_25rem]">
+      <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Profil</p>
-            <h2 class="mt-2 text-lg font-semibold text-[#101828]">Données support masquées</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Profil support</p>
+            <h2 class="mt-2 text-lg font-semibold text-coursia-text">Informations minimisées</h2>
           </div>
-          <BaseBadge tone="neutral">Lecture contrôlée</BaseBadge>
+          <BaseBadge tone="neutral">Lecture auditée</BaseBadge>
         </div>
 
         <div v-if="user" class="mt-5 grid gap-3 md:grid-cols-2">
-          <div class="rounded-2xl bg-[#fbfaf7] p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">ID</p>
-            <p class="mt-2 break-all text-sm font-medium text-[#101828]">{{ user.id }}</p>
+          <div class="rounded-2xl bg-coursia-background p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">ID utilisateur</p>
+            <p class="mt-2 break-all text-sm font-medium text-coursia-text">{{ user.id }}</p>
           </div>
-          <div class="rounded-2xl bg-[#fbfaf7] p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">Email</p>
-            <p class="mt-2 text-sm font-medium text-[#101828]">{{ user.emailMasked }}</p>
+          <div class="rounded-2xl bg-coursia-background p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Email</p>
+            <p class="mt-2 text-sm font-medium text-coursia-text">{{ user.emailMasked }}</p>
           </div>
-          <div class="rounded-2xl bg-[#fbfaf7] p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">Statut</p>
-            <p class="mt-2 text-sm font-medium text-[#101828]">{{ user.accountStatus }}</p>
+          <div class="rounded-2xl bg-coursia-background p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Dernier événement</p>
+            <p class="mt-2 text-sm font-medium text-coursia-text">
+              {{ latestEvent ? latestEvent.type : '—' }}
+            </p>
           </div>
-          <div class="rounded-2xl bg-[#fbfaf7] p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">Abonnement</p>
-            <p class="mt-2 text-sm font-medium text-[#101828]">{{ user.subscriptionTier }}</p>
+          <div class="rounded-2xl bg-coursia-background p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Reçu le</p>
+            <p class="mt-2 text-sm font-medium text-coursia-text">
+              {{ latestEvent ? formatDate(getEventValue(latestEvent, 'receivedAt', 'received_at')) : '—' }}
+            </p>
           </div>
         </div>
-        <p v-else class="mt-5 rounded-2xl bg-[#fbfaf7] p-4 text-sm text-[#667085]">
-          Aucune donnée foyer ou information sensible non nécessaire n’est affichée par défaut.
-        </p>
+
+        <div v-else class="mt-5 rounded-2xl bg-coursia-background p-5 text-sm text-coursia-muted">
+          Recherche un utilisateur par email exact ou identifiant. Aucune donnée foyer, recette privée
+          ou information sensible n’est affichée ici par défaut.
+        </div>
       </section>
 
-      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]" @submit.prevent="requestProcedure">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Procédure</p>
-        <h2 class="mt-2 text-lg font-semibold text-[#101828]">Action contrôlée</h2>
-        <p class="mt-2 text-sm text-[#667085]">
-          Aucune action sensible ne part sans ticket, raison et confirmation.
+      <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm" @submit.prevent="requestProcedure">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Procédure contrôlée</p>
+        <h2 class="mt-2 text-lg font-semibold text-coursia-text">Export, suppression, blocage</h2>
+        <p class="mt-2 text-sm text-coursia-muted">
+          Ces actions créent une demande traçable. Aucune impersonation, aucune suppression silencieuse.
         </p>
 
-        <label class="mt-5 grid gap-1.5 text-xs font-semibold text-[#344054]">
+        <label class="mt-5 grid gap-1.5 text-xs font-semibold text-coursia-text">
           Action
-          <select
-            v-model="procedure.action"
-            class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-          >
+          <select v-model="procedure.action">
             <option v-for="(label, action) in procedureLabels" :key="action" :value="action">
               {{ label }}
             </option>
           </select>
         </label>
-        <p class="mt-2 text-xs text-[#667085]">{{ supportProcedureDescriptions[procedure.action] }}</p>
+        <p class="mt-2 rounded-xl bg-coursia-background px-3 py-2 text-xs text-coursia-muted">
+          {{ supportProcedureDescriptions[procedure.action] }}
+        </p>
 
-        <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054]">
+        <label class="mt-4 grid gap-1.5 text-xs font-semibold text-coursia-text">
           Référence ticket
           <input
             v-model="procedure.ticketReference"
             required
-            class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+            placeholder="COUR-105 / support-123"
           >
         </label>
-        <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054]">
+
+        <label class="mt-4 grid gap-1.5 text-xs font-semibold text-coursia-text">
           Raison
           <textarea
             v-model="procedure.reason"
             required
             rows="4"
-            class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+            placeholder="Explique pourquoi cette procédure est nécessaire."
           />
         </label>
-        <label class="mt-4 flex items-center gap-3 rounded-xl border border-[#e6e1d8] px-3 py-2.5 text-sm text-[#344054]">
-          <input v-model="procedure.confirmed" type="checkbox">
-          Confirmation procédure contrôlée
+
+        <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-coursia-border bg-coursia-background px-3 py-2.5 text-sm text-coursia-muted">
+          <input v-model="procedure.confirmed" class="mt-1 cursor-pointer" type="checkbox">
+          <span>Je confirme que la demande est légitime, documentée et liée au ticket indiqué.</span>
         </label>
-        <BaseButton class="mt-5 w-full" type="submit" :disabled="isSaving || !user">
+
+        <BaseButton class="mt-5 w-full" type="submit" :disabled="isSaving || !procedureReady">
           {{ isSaving ? 'Création...' : 'Créer la procédure' }}
         </BaseButton>
       </form>
     </div>
 
-    <section class="admin-table mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828]">Événements RevenueCat</h2>
-          <p class="mt-1 text-xs text-[#667085]">Lecture seule, uniquement les champs utiles au support.</p>
+          <h2 class="text-sm font-semibold text-coursia-text">Événements RevenueCat</h2>
+          <p class="mt-1 text-xs text-coursia-muted">
+            Lecture seule. Les payloads bruts et données sensibles restent hors interface support.
+          </p>
         </div>
         <BaseBadge tone="neutral">{{ revenueCatEvents.length }}</BaseBadge>
       </div>
-      <div v-if="revenueCatEvents.length === 0" class="p-5 text-sm text-[#667085]">
+
+      <div v-if="revenueCatEvents.length === 0" class="p-5 text-sm text-coursia-muted">
         Aucun événement RevenueCat chargé.
       </div>
+
       <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+        <table class="min-w-full divide-y divide-coursia-border text-sm">
+          <thead>
             <tr>
               <th class="px-5 py-3">Type</th>
               <th class="px-5 py-3">Entitlement</th>
               <th class="px-5 py-3">Produit</th>
-              <th class="px-5 py-3">Reçu le</th>
-              <th class="px-5 py-3">Expire le</th>
+              <th class="px-5 py-3">Achat</th>
+              <th class="px-5 py-3">Reçu</th>
+              <th class="px-5 py-3">Expiration</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#eee8df]">
-            <tr v-for="event in revenueCatEvents" :key="String(event.id)" class="transition hover:bg-[#fbfaf7]">
-              <td class="px-5 py-4 font-medium text-[#101828]">{{ event.type }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ event.entitlement || '—' }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ getEventValue(event, 'productId', 'product_id') }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ getEventValue(event, 'receivedAt', 'received_at') }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ getEventValue(event, 'expiresAt', 'expires_at') }}</td>
+          <tbody class="divide-y divide-coursia-border">
+            <tr v-for="event in revenueCatEvents" :key="event.id" class="transition hover:bg-coursia-background">
+              <td class="px-5 py-4">
+                <p class="font-semibold text-coursia-text">{{ event.type }}</p>
+                <p class="mt-1 max-w-[12rem] truncate text-xs text-coursia-muted">{{ event.id }}</p>
+              </td>
+              <td class="px-5 py-4 text-coursia-muted">{{ event.entitlement || '—' }}</td>
+              <td class="px-5 py-4 text-coursia-muted">{{ getEventValue(event, 'productId', 'product_id') }}</td>
+              <td class="px-5 py-4 text-coursia-muted">{{ formatDate(getEventValue(event, 'purchasedAt', 'purchased_at')) }}</td>
+              <td class="px-5 py-4 text-coursia-muted">{{ formatDate(getEventValue(event, 'receivedAt', 'received_at')) }}</td>
+              <td class="px-5 py-4 text-coursia-muted">{{ formatDate(getEventValue(event, 'expiresAt', 'expires_at')) }}</td>
             </tr>
           </tbody>
         </table>

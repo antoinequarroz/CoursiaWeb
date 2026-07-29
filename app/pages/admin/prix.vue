@@ -21,6 +21,7 @@ type ProductOffer = {
   unit: string
   active: boolean
   latest_price_chf?: number | string | null
+  latest_price_collected_at?: string | null
 }
 
 type ProductRow = {
@@ -65,7 +66,7 @@ const filters = reactive({
   quality: '',
 })
 
-const form = reactive<PriceEntryInput>({
+const createEmptyForm = (): PriceEntryInput => ({
   productId: '',
   retailerId: '',
   amountChf: 0,
@@ -75,11 +76,13 @@ const form = reactive<PriceEntryInput>({
   collectedAt: new Date().toISOString(),
 })
 
+const form = reactive<PriceEntryInput>(createEmptyForm())
 const retailers = ref<RetailerRow[]>([])
 const products = ref<ProductRow[]>([])
 const prices = ref<PriceRow[]>([])
 const history = ref<PriceRow[]>([])
 const selectedPrice = ref<PriceRow | null>(null)
+const selectedOfferId = ref('')
 const importPreview = ref<RetailImportPreview | null>(null)
 const csvContent = ref(retailCsvTemplate)
 const loading = ref(false)
@@ -87,6 +90,7 @@ const saving = ref(false)
 const previewing = ref(false)
 const feedback = ref('')
 const errorMessage = ref('')
+const csvPanelOpen = ref(false)
 
 const priceQuery = computed(() => {
   const query: Record<string, string | number> = { limit: 100 }
@@ -96,22 +100,33 @@ const priceQuery = computed(() => {
 })
 
 const offerOptions = computed<OfferOption[]>(() =>
-  products.value.flatMap((product) =>
-    (product.offers ?? []).map((offer) => ({
-      ...offer,
-      product_id: product.id,
-      product_name: product.name,
-      product_slug: product.slug,
-    })),
-  ).filter((offer) => !filters.retailerId || offer.retailer_id === filters.retailerId),
+  products.value
+    .flatMap((product) =>
+      (product.offers ?? []).map((offer) => ({
+        ...offer,
+        product_id: product.id,
+        product_name: product.name,
+        product_slug: product.slug,
+      })),
+    )
+    .filter((offer) => offer.active !== false)
+    .filter((offer) => !filters.retailerId || offer.retailer_id === filters.retailerId),
 )
 
-const selectedOffer = computed(() => offerOptions.value.find((offer) => offer.id === form.productId) ?? null)
+const selectedOffer = computed(() => offerOptions.value.find((offer) => offer.id === selectedOfferId.value) ?? null)
+
+const offersWithoutPrice = computed(() =>
+  offerOptions.value.filter((offer) => offer.latest_price_chf === null || offer.latest_price_chf === undefined),
+)
+
+const selectedOfferHistory = computed(() =>
+  history.value.filter((entry) => entry.product_id === selectedOfferId.value).slice(0, 6),
+)
 
 const stats = computed(() => ({
   prices: prices.value.length,
   offers: offerOptions.value.length,
-  promoted: prices.value.filter((price) => Boolean(price.promotion_label)).length,
+  missingPrices: offersWithoutPrice.value.length,
   staleOrAnomaly: prices.value.filter((price) => price.quality_status === 'stale' || price.quality_status === 'anomaly').length,
 }))
 
@@ -140,11 +155,46 @@ const formatDate = (value: string | null | undefined) =>
     ? new Date(value).toLocaleString('fr-CH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
     : 'Jamais'
 
+const unitPricePreview = computed(() => {
+  const amount = Number(form.amountChf)
+  const quantity = Number(selectedOffer.value?.quantity)
+
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
+    return null
+  }
+
+  return Number((amount / quantity).toFixed(2))
+})
+
+const selectOffer = (offer: OfferOption) => {
+  selectedOfferId.value = offer.id
+  selectedPrice.value = prices.value.find((price) => price.product_id === offer.id) ?? null
+  form.productId = offer.id
+  form.retailerId = offer.retailer_id
+  form.unitPriceChf = unitPricePreview.value ?? undefined
+}
+
+const selectPrice = (price: PriceRow) => {
+  selectedPrice.value = price
+  selectedOfferId.value = price.product_id
+  form.productId = price.product_id
+  form.retailerId = price.retailer_id
+}
+
 const syncFormWithOffer = () => {
   if (!selectedOffer.value) return
+  form.productId = selectedOffer.value.id
   form.retailerId = selectedOffer.value.retailer_id
-  if (!form.unitPriceChf && Number(form.amountChf) > 0 && selectedOffer.value.quantity > 0) {
-    form.unitPriceChf = Number((Number(form.amountChf) / selectedOffer.value.quantity).toFixed(2))
+  if (!form.unitPriceChf && unitPricePreview.value) {
+    form.unitPriceChf = unitPricePreview.value
+  }
+}
+
+const resetForm = () => {
+  Object.assign(form, createEmptyForm())
+  if (selectedOffer.value) {
+    form.productId = selectedOffer.value.id
+    form.retailerId = selectedOffer.value.retailer_id
   }
 }
 
@@ -156,9 +206,9 @@ const loadRetailers = async () => {
 const loadProducts = async () => {
   const response = await $fetch<{ data: ProductRow[] }>('/api/admin/products', { query: { limit: 100 } })
   products.value = response.data
-  if (!form.productId && offerOptions.value[0]) {
-    form.productId = offerOptions.value[0].id
-    form.retailerId = offerOptions.value[0].retailer_id
+
+  if (!selectedOfferId.value && offerOptions.value[0]) {
+    selectOffer(offerOptions.value[0])
   }
 }
 
@@ -175,12 +225,12 @@ const loadPrices = async () => {
     prices.value = priceResponse.data
     history.value = historyResponse.data
 
-    if (selectedPrice.value) {
-      selectedPrice.value = prices.value.find((price) => price.id === selectedPrice.value?.id) ?? null
+    if (selectedOfferId.value) {
+      selectedPrice.value = prices.value.find((price) => price.product_id === selectedOfferId.value) ?? null
     }
 
     if (!selectedPrice.value && prices.value[0]) {
-      selectedPrice.value = prices.value[0]
+      selectPrice(prices.value[0])
     }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Chargement impossible.'
@@ -189,8 +239,9 @@ const loadPrices = async () => {
   }
 }
 
-const selectPrice = (price: PriceRow) => {
-  selectedPrice.value = price
+const refreshAll = async () => {
+  await Promise.all([loadRetailers(), loadProducts()])
+  await loadPrices()
 }
 
 const savePrice = async () => {
@@ -200,11 +251,17 @@ const savePrice = async () => {
 
   try {
     syncFormWithOffer()
+
+    if (!form.unitPriceChf && unitPricePreview.value) {
+      form.unitPriceChf = unitPricePreview.value
+    }
+
     const response = await $fetch<{ data: PriceRow }>('/api/admin/prices', { method: 'POST', body: form })
 
     feedback.value = 'Prix enregistré et historisé.'
     selectedPrice.value = response.data
-    await loadPrices()
+    resetForm()
+    await refreshAll()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Enregistrement impossible.'
   } finally {
@@ -238,15 +295,17 @@ const previewCsvImport = async () => {
 const clearFilters = async () => {
   filters.retailerId = ''
   filters.quality = ''
-  await loadPrices()
+  await refreshAll()
 }
 
-watch(() => form.productId, syncFormWithOffer)
-
-onMounted(async () => {
-  await Promise.all([loadRetailers(), loadProducts()])
-  await loadPrices()
+watch(() => selectedOfferId.value, syncFormWithOffer)
+watch(() => form.amountChf, () => {
+  if (unitPricePreview.value) {
+    form.unitPriceChf = unitPricePreview.value
+  }
 })
+
+onMounted(refreshAll)
 </script>
 
 <template>
@@ -255,43 +314,46 @@ onMounted(async () => {
       <div>
         <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Comparateur</p>
         <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
-          Prix et historique
+          Prix magasin
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Saisie contrôlée des prix par offre magasin. Ces valeurs alimentent le comparateur et les économies affichées.
+          Maintiens les prix réels utilisés par le comparateur mobile. Chaque saisie ajoute une ligne d’historique.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadPrices">
+        <BaseButton type="button" variant="secondary" :disabled="loading" @click="refreshAll">
           Rafraîchir
         </BaseButton>
-        <NuxtLink class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md bg-coursia-primary px-4 py-2.5 text-sm font-semibold text-coursia-primary-contrast shadow-coursia-sm transition hover:opacity-90" to="/admin/produits">
-          Gérer les offres
+        <NuxtLink
+          class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md bg-coursia-primary px-4 py-2.5 text-sm font-semibold text-coursia-primary-contrast shadow-coursia-sm transition hover:opacity-90"
+          to="/admin/produits"
+        >
+          Créer une offre
         </NuxtLink>
       </div>
     </div>
 
     <div class="grid gap-3 md:grid-cols-4">
       <article class="admin-stat-card">
-        <span>Prix</span>
+        <span>Prix récents</span>
         <strong>{{ stats.prices }}</strong>
       </article>
       <article class="admin-stat-card">
-        <span>Offres filtrées</span>
+        <span>Offres actives</span>
         <strong class="text-coursia-primary">{{ stats.offers }}</strong>
       </article>
       <article class="admin-stat-card">
-        <span>Promotions</span>
-        <strong>{{ stats.promoted }}</strong>
+        <span>Sans prix</span>
+        <strong class="text-coursia-warning">{{ stats.missingPrices }}</strong>
       </article>
       <article class="admin-stat-card">
         <span>À contrôler</span>
-        <strong class="text-coursia-warning">{{ stats.staleOrAnomaly }}</strong>
+        <strong class="text-coursia-danger">{{ stats.staleOrAnomaly }}</strong>
       </article>
     </div>
 
-    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_0.75fr_auto]" @submit.prevent="loadPrices">
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_0.75fr_auto]" @submit.prevent="refreshAll">
       <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
         Enseigne
         <select v-model="filters.retailerId">
@@ -304,7 +366,7 @@ onMounted(async () => {
       <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
         Qualité
         <select v-model="filters.quality">
-          <option value="">Tous états</option>
+          <option value="">Tous les états</option>
           <option value="fresh">Frais</option>
           <option value="stale">Périmé</option>
           <option value="anomaly">Anomalie</option>
@@ -312,7 +374,9 @@ onMounted(async () => {
       </label>
       <div class="flex items-end gap-2">
         <BaseButton type="submit" :disabled="loading">Appliquer</BaseButton>
-        <BaseButton v-if="filters.retailerId || filters.quality" type="button" variant="ghost" @click="clearFilters">Effacer</BaseButton>
+        <BaseButton v-if="filters.retailerId || filters.quality" type="button" variant="ghost" @click="clearFilters">
+          Effacer
+        </BaseButton>
       </div>
     </form>
 
@@ -323,70 +387,61 @@ onMounted(async () => {
       {{ errorMessage }}
     </p>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
+      <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <div class="flex items-center justify-between gap-4">
           <div>
-            <h2 class="text-base font-black text-coursia-foreground">Prix récents</h2>
-            <p class="mt-1 text-xs text-coursia-muted">{{ prices.length }} prix affiché(s)</p>
-          </div>
-          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
-        </div>
-
-        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
-          Chargement des prix...
-        </div>
-
-        <div v-else-if="prices.length === 0" class="grid place-items-center p-10 text-center">
-          <div class="max-w-sm">
-            <p class="font-black text-coursia-foreground">Aucun prix enregistré</p>
-            <p class="mt-2 text-sm text-coursia-muted">
-              Crée d’abord une offre magasin dans Produits, puis ajoute son premier prix ici.
+            <h2 class="text-base font-black text-coursia-foreground">Offres magasin</h2>
+            <p class="mt-1 text-xs text-coursia-muted">
+              Sélectionne une offre pour saisir son nouveau prix.
             </p>
-            <NuxtLink class="mt-4 inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted" to="/admin/produits">
+          </div>
+          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : `${offerOptions.length} offres` }}</BaseBadge>
+        </div>
+
+        <div v-if="loading" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
+          Chargement des offres...
+        </div>
+
+        <div v-else-if="offerOptions.length === 0" class="mt-4 grid place-items-center rounded-2xl bg-coursia-surface-muted p-10 text-center">
+          <div class="max-w-sm">
+            <p class="font-black text-coursia-foreground">Aucune offre disponible</p>
+            <p class="mt-2 text-sm text-coursia-muted">
+              Crée d’abord une offre magasin depuis la page Produits.
+            </p>
+            <NuxtLink
+              class="mt-4 inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted"
+              to="/admin/produits"
+            >
               Aller aux produits
             </NuxtLink>
           </div>
         </div>
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-[58rem]">
-            <thead>
-              <tr>
-                <th>Produit</th>
-                <th>Enseigne</th>
-                <th>Prix</th>
-                <th>Qualité</th>
-                <th>Collecte</th>
-                <th>Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="price in prices"
-                :key="price.id"
-                class="cursor-pointer transition"
-                :class="selectedPrice?.id === price.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
-                @click="selectPrice(price)"
-              >
-                <td>
-                  <span class="block max-w-[18rem] truncate font-black text-coursia-foreground">{{ price.product_name }}</span>
-                  <span class="mt-1 block max-w-[18rem] truncate text-xs text-coursia-muted">
-                    {{ price.offer?.format || price.product_id }}
-                  </span>
-                </td>
-                <td class="text-sm text-coursia-muted">{{ price.retailer_name }}</td>
-                <td class="font-black text-coursia-foreground">{{ formatPrice(price.amount_chf) }}</td>
-                <td>
-                  <BaseBadge :tone="qualityTone(price.quality_status)">
-                    {{ qualityLabel[String(price.quality_status)] ?? 'Non qualifié' }}
-                  </BaseBadge>
-                </td>
-                <td class="text-sm text-coursia-muted">{{ formatDate(price.collected_at) }}</td>
-                <td class="text-sm text-coursia-muted">{{ price.source }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else class="mt-4 grid gap-2">
+          <button
+            v-for="offer in offerOptions"
+            :key="offer.id"
+            type="button"
+            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-coursia-sm"
+            :class="selectedOfferId === offer.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
+            @click="selectOffer(offer)"
+          >
+            <span class="flex items-start justify-between gap-3">
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-black text-coursia-foreground">{{ offer.product_name }}</span>
+                <span class="mt-1 block truncate text-xs text-coursia-muted">
+                  {{ offer.retailer_name }} · {{ offer.format }} · {{ offer.quantity }} {{ offer.unit }}
+                </span>
+              </span>
+              <span class="text-right">
+                <span class="block text-sm font-black text-coursia-foreground">{{ formatPrice(offer.latest_price_chf) }}</span>
+                <span class="mt-1 block text-[0.68rem] font-bold uppercase tracking-[0.12em] text-coursia-muted">
+                  {{ formatDate(offer.latest_price_collected_at) }}
+                </span>
+              </span>
+            </span>
+          </button>
         </div>
       </section>
 
@@ -394,141 +449,160 @@ onMounted(async () => {
         <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Saisie</p>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Saisie rapide</p>
               <h2 class="mt-1 text-lg font-black text-coursia-foreground">Nouveau prix</h2>
             </div>
-            <BaseBadge :tone="offerOptions.length ? 'primary' : 'warning'">
-              {{ offerOptions.length }} offre(s)
+            <BaseBadge :tone="selectedOffer ? 'primary' : 'warning'">
+              {{ selectedOffer ? 'Offre choisie' : 'À choisir' }}
             </BaseBadge>
           </div>
 
+          <div v-if="selectedOffer" class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+            <p class="text-sm font-black text-coursia-foreground">{{ selectedOffer.product_name }}</p>
+            <p class="mt-1 text-xs leading-5 text-coursia-muted">
+              {{ selectedOffer.retailer_name }} · {{ selectedOffer.format }} · dernier prix :
+              {{ formatPrice(selectedOffer.latest_price_chf) }}
+            </p>
+          </div>
+
           <form class="mt-4 grid gap-4" @submit.prevent="savePrice">
-            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-              Offre magasin
-              <select v-model="form.productId" required>
-                <option value="" disabled>Choisir une offre</option>
-                <option v-for="offer in offerOptions" :key="offer.id" :value="offer.id">
-                  {{ offer.product_name }} · {{ offer.retailer_name }} · {{ offer.format }}
-                </option>
-              </select>
-            </label>
             <div class="grid grid-cols-2 gap-2">
               <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
                 Prix CHF
-                <input v-model.number="form.amountChf" required type="number" min="0.01" step="0.01" />
+                <input v-model.number="form.amountChf" required type="number" min="0.01" step="0.01" placeholder="2.40" />
               </label>
               <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
                 Prix unitaire
-                <input v-model.number="form.unitPriceChf" type="number" min="0.01" step="0.01" />
+                <input v-model.number="form.unitPriceChf" type="number" min="0.01" step="0.01" placeholder="Auto" />
               </label>
             </div>
             <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
               Promotion
               <input v-model="form.promotionLabel" placeholder="Action 20%, 2 pour 1..." />
             </label>
-            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-              Source
-              <input v-model="form.source" required placeholder="saisie_manuelle, coop.ch..." />
-            </label>
-            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-              Date de collecte
-              <input v-model="form.collectedAt" required />
-            </label>
-
-            <div v-if="selectedOffer" class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-              <p class="text-sm font-black text-coursia-foreground">{{ selectedOffer.product_name }}</p>
-              <p class="mt-1 text-xs text-coursia-muted">
-                {{ selectedOffer.retailer_name }} · {{ selectedOffer.quantity }} {{ selectedOffer.unit }} · dernier prix :
-                {{ formatPrice(selectedOffer.latest_price_chf) }}
-              </p>
+            <div class="grid grid-cols-[1fr_1.1fr] gap-2">
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Source
+                <input v-model="form.source" required placeholder="coop.ch, saisie_admin..." />
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Collecte
+                <input v-model="form.collectedAt" required />
+              </label>
             </div>
 
-            <BaseButton type="submit" :disabled="saving || !form.productId">
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
+              Ce prix est ajouté à l’historique. L’application mobile utilisera ensuite le prix le plus récent de l’offre.
+            </div>
+
+            <BaseButton type="submit" :disabled="saving || !selectedOffer">
               {{ saving ? 'Enregistrement...' : 'Enregistrer le prix' }}
             </BaseButton>
           </form>
         </section>
 
         <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <h2 class="text-base font-black text-coursia-foreground">Détail sélectionné</h2>
-          <div v-if="!selectedPrice" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
-            Aucun prix sélectionné.
+          <h2 class="text-base font-black text-coursia-foreground">Historique de l’offre</h2>
+          <div v-if="selectedOfferHistory.length === 0" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
+            Aucun historique pour cette offre.
           </div>
-          <dl v-else class="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <div class="rounded-xl bg-coursia-surface-muted p-3">
-              <dt class="text-xs font-bold text-coursia-muted">Produit</dt>
-              <dd class="mt-1 font-black text-coursia-foreground">{{ selectedPrice.product_name }}</dd>
-            </div>
-            <div class="rounded-xl bg-coursia-surface-muted p-3">
-              <dt class="text-xs font-bold text-coursia-muted">Enseigne</dt>
-              <dd class="mt-1 font-black text-coursia-foreground">{{ selectedPrice.retailer_name }}</dd>
-            </div>
-            <div class="rounded-xl bg-coursia-surface-muted p-3">
-              <dt class="text-xs font-bold text-coursia-muted">Prix</dt>
-              <dd class="mt-1 font-black text-coursia-foreground">{{ formatPrice(selectedPrice.amount_chf) }}</dd>
-            </div>
-            <div class="rounded-xl bg-coursia-surface-muted p-3">
-              <dt class="text-xs font-bold text-coursia-muted">Collecte</dt>
-              <dd class="mt-1 font-black text-coursia-foreground">{{ formatDate(selectedPrice.collected_at) }}</dd>
-            </div>
-          </dl>
+          <div v-else class="mt-4 grid gap-2">
+            <button
+              v-for="entry in selectedOfferHistory"
+              :key="entry.id"
+              type="button"
+              class="cursor-pointer rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 text-left transition hover:bg-coursia-surface"
+              @click="selectPrice(entry)"
+            >
+              <span class="flex items-center justify-between gap-3">
+                <span>
+                  <span class="block text-sm font-black text-coursia-foreground">{{ formatPrice(entry.amount_chf) }}</span>
+                  <span class="mt-1 block text-xs text-coursia-muted">{{ entry.promotion_label || entry.source || 'Saisie' }}</span>
+                </span>
+                <span class="text-right text-xs text-coursia-muted">{{ formatDate(entry.collected_at) }}</span>
+              </span>
+            </button>
+          </div>
         </section>
       </aside>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
-          <div>
-            <h2 class="text-base font-black text-coursia-foreground">Historique</h2>
-            <p class="mt-1 text-xs text-coursia-muted">{{ history.length }} ligne(s) d’historique</p>
-          </div>
+    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-4 py-3 md:flex-row md:items-center">
+        <div>
+          <h2 class="text-base font-black text-coursia-foreground">Prix récents</h2>
+          <p class="mt-1 text-xs text-coursia-muted">{{ prices.length }} ligne(s) affichée(s)</p>
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-[48rem]">
-            <thead>
-              <tr>
-                <th>Produit</th>
-                <th>Enseigne</th>
-                <th>Prix</th>
-                <th>Promotion</th>
-                <th>Collecte</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="entry in history" :key="entry.id">
-                <td class="font-semibold text-coursia-foreground">{{ entry.product_name }}</td>
-                <td class="text-sm text-coursia-muted">{{ entry.retailer_name }}</td>
-                <td class="font-black text-coursia-foreground">{{ formatPrice(entry.amount_chf) }}</td>
-                <td class="text-sm text-coursia-muted">{{ entry.promotion_label || '—' }}</td>
-                <td class="text-sm text-coursia-muted">{{ formatDate(entry.collected_at) }}</td>
-              </tr>
-              <tr v-if="history.length === 0">
-                <td colspan="5" class="p-6 text-center text-sm text-coursia-muted">
-                  Aucun historique pour le moment.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <BaseButton type="button" variant="secondary" @click="csvPanelOpen = !csvPanelOpen">
+          {{ csvPanelOpen ? 'Masquer CSV' : 'Prévisualiser CSV' }}
+        </BaseButton>
+      </div>
 
-      <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-        <h2 class="text-base font-black text-coursia-foreground">Prévisualisation CSV</h2>
-        <p class="mt-2 text-xs leading-5 text-coursia-muted">
-          Colonnes attendues : {{ retailCsvColumns.join(', ') }}.
-        </p>
-        <textarea v-model="csvContent" aria-label="Contenu CSV prix" rows="9" class="mt-4 font-mono text-sm" />
-        <BaseButton class="mt-4" type="button" variant="secondary" :disabled="previewing" @click="previewCsvImport">
+      <div class="overflow-x-auto">
+        <table class="min-w-[58rem]">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Enseigne</th>
+              <th>Prix</th>
+              <th>Qualité</th>
+              <th>Collecte</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="price in prices"
+              :key="price.id"
+              class="cursor-pointer transition"
+              :class="selectedPrice?.id === price.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
+              @click="selectPrice(price)"
+            >
+              <td>
+                <span class="block max-w-[18rem] truncate font-black text-coursia-foreground">{{ price.product_name }}</span>
+                <span class="mt-1 block max-w-[18rem] truncate text-xs text-coursia-muted">
+                  {{ price.offer?.format || price.product_id }}
+                </span>
+              </td>
+              <td class="text-sm text-coursia-muted">{{ price.retailer_name }}</td>
+              <td class="font-black text-coursia-foreground">{{ formatPrice(price.amount_chf) }}</td>
+              <td>
+                <BaseBadge :tone="qualityTone(price.quality_status)">
+                  {{ qualityLabel[String(price.quality_status)] ?? 'Non qualifié' }}
+                </BaseBadge>
+              </td>
+              <td class="text-sm text-coursia-muted">{{ formatDate(price.collected_at) }}</td>
+              <td class="text-sm text-coursia-muted">{{ price.source }}</td>
+            </tr>
+            <tr v-if="!loading && prices.length === 0">
+              <td colspan="6" class="p-6 text-center text-sm text-coursia-muted">
+                Aucun prix pour le moment.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section v-if="csvPanelOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+        <div>
+          <h2 class="text-base font-black text-coursia-foreground">Prévisualisation CSV</h2>
+          <p class="mt-2 text-xs leading-5 text-coursia-muted">
+            Colonnes attendues : {{ retailCsvColumns.join(', ') }}.
+          </p>
+        </div>
+        <BaseButton type="button" variant="secondary" :disabled="previewing" @click="previewCsvImport">
           {{ previewing ? 'Analyse...' : 'Prévisualiser' }}
         </BaseButton>
-        <div v-if="importPreview" class="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <div class="rounded-xl bg-coursia-surface-muted p-3">Créations : <strong>{{ importPreview.creates }}</strong></div>
-          <div class="rounded-xl bg-coursia-surface-muted p-3">Mises à jour : <strong>{{ importPreview.updates }}</strong></div>
-          <div class="rounded-xl bg-coursia-surface-muted p-3">Erreurs : <strong>{{ importPreview.errors }}</strong></div>
-          <div class="rounded-xl bg-coursia-surface-muted p-3">Anomalies : <strong>{{ importPreview.anomalies }}</strong></div>
-        </div>
-      </section>
-    </div>
+      </div>
+      <textarea v-model="csvContent" aria-label="Contenu CSV prix" rows="8" class="mt-4 font-mono text-sm" />
+      <div v-if="importPreview" class="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Créations : <strong>{{ importPreview.creates }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Mises à jour : <strong>{{ importPreview.updates }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Erreurs : <strong>{{ importPreview.errors }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Anomalies : <strong>{{ importPreview.anomalies }}</strong></div>
+      </div>
+    </section>
   </section>
 </template>

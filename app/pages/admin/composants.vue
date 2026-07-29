@@ -25,6 +25,7 @@ const spacingEntries = computed(() => Object.entries(componentCatalogTokens.spac
 const radiusEntries = computed(() => Object.entries(componentCatalogTokens.radius))
 const shadowEntries = computed(() => Object.entries(componentCatalogTokens.shadow))
 const productionCount = computed(() => componentCatalogItems.filter((item) => item.productionComponent).length)
+const navIconExamples = ['dashboard', 'recipes', 'ingredients', 'users', 'subscriptions', 'settings', 'notifications'] as const
 
 const simulateLoading = () => {
   loadingButton.value = true
@@ -161,6 +162,55 @@ const simulateLoading = () => {
               </div>
             </div>
           </div>
+        </section>
+
+        <section class="grid gap-4 xl:grid-cols-2">
+          <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+            <h2 class="text-lg font-semibold text-coursia-text">Identité et navigation</h2>
+            <p class="mt-1 text-sm text-coursia-muted">
+              Logo, thème et pictos réels utilisés par la navigation admin.
+            </p>
+
+            <div class="mt-5 grid gap-4">
+              <div class="rounded-2xl border border-coursia-border bg-coursia-background p-4">
+                <BrandLogo />
+              </div>
+
+              <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-coursia-border bg-coursia-background p-4">
+                <ThemeToggle />
+                <span class="text-sm text-coursia-muted">Contrôle réel du thème global.</span>
+              </div>
+
+              <div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                <span
+                  v-for="icon in navIconExamples"
+                  :key="icon"
+                  class="grid h-11 w-11 place-items-center rounded-xl border border-coursia-border bg-coursia-background text-coursia-primary"
+                  :title="icon"
+                >
+                  <NavIcon :name="icon" />
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <BaseCard>
+            <h2 class="text-lg font-semibold text-coursia-text">Cartes de production</h2>
+            <p class="mt-1 text-sm text-coursia-muted">
+              `BaseCard` sert de conteneur stable pour formulaires, états vides et blocs de documentation.
+            </p>
+
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+              <BaseCard class="p-4">
+                <p class="text-sm font-semibold text-coursia-text">Carte standard</p>
+                <p class="mt-1 text-xs text-coursia-muted">Surface, bordure et ombre cohérentes.</p>
+              </BaseCard>
+              <BaseCard glass class="p-4">
+                <p class="text-sm font-semibold text-coursia-text">Carte glass</p>
+                <p class="mt-1 text-xs text-coursia-muted">À réserver aux zones premium/marketing.</p>
+              </BaseCard>
+            </div>
+          </BaseCard>
         </section>
 
         <section class="grid gap-4 xl:grid-cols-2">

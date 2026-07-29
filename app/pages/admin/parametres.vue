@@ -154,10 +154,10 @@ onMounted(loadFlags)
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
           COUR-106 · paramètres
         </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-[#f7fbf8]">
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Paramètres non techniques
         </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
           Pilotage des feature flags administrables sans redéploiement. Les secrets, clés serveur et réglages
           techniques restent exclus de cette interface.
         </p>
@@ -212,29 +212,29 @@ onMounted(loadFlags)
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10">
+      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4 ">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
+            <h2 class="text-sm font-semibold text-coursia-text">
               Feature flags
             </h2>
-            <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">
+            <p class="mt-1 text-xs text-coursia-muted">
               Clique sur une ligne pour modifier le flag et documenter son changement.
             </p>
           </div>
           <BaseBadge tone="neutral">Sans secrets</BaseBadge>
         </div>
 
-        <div v-if="isLoading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">
           Chargement des flags...
         </div>
-        <div v-else-if="flags.length === 0" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">
+        <div v-else-if="flags.length === 0" class="p-5 text-sm text-coursia-muted">
           Aucun flag trouvé.
         </div>
 
         <div v-else class="overflow-x-auto">
           <table class="min-w-full text-sm">
-            <thead class="bg-[#f7f4ed] text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+            <thead class="bg-coursia-surface-muted text-left text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">
               <tr>
                 <th class="px-5 py-3">Flag</th>
                 <th class="px-5 py-3">Statut</th>
@@ -242,18 +242,18 @@ onMounted(loadFlags)
                 <th class="px-5 py-3">Mise à jour</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#ece6dc] dark:divide-white/10">
+            <tbody class="divide-y divide-coursia-border">
               <tr
                 v-for="flag in flags"
                 :key="String(flag.id ?? flag.key)"
-                class="cursor-pointer transition hover:bg-[#f7f4ed] dark:hover:bg-white/5"
-                :class="selectedKey === String(flag.key) ? 'bg-[#eef7f1] dark:bg-coursia-primary/15' : ''"
+                class="cursor-pointer transition hover:bg-coursia-surface-muted"
+                :class="selectedKey === String(flag.key) ? 'bg-coursia-primary/10' : ''"
                 @click="selectFlag(flag)"
               >
                 <td class="px-5 py-4">
-                  <span class="block font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ flag.name }}</span>
-                  <span class="mt-1 block font-mono text-xs text-[#667085] dark:text-[#a8b8ad]">{{ flag.key }}</span>
-                  <span class="mt-2 line-clamp-2 block max-w-xl text-xs leading-5 text-[#667085] dark:text-[#a8b8ad]">
+                  <span class="block font-semibold text-coursia-text">{{ flag.name }}</span>
+                  <span class="mt-1 block font-mono text-xs text-coursia-muted">{{ flag.key }}</span>
+                  <span class="mt-2 line-clamp-2 block max-w-xl text-xs leading-5 text-coursia-muted">
                     {{ flag.description || 'Aucune description.' }}
                   </span>
                 </td>
@@ -262,18 +262,18 @@ onMounted(loadFlags)
                 </td>
                 <td class="px-5 py-4">
                   <div class="flex min-w-[8rem] items-center gap-3">
-                    <div class="h-2 flex-1 overflow-hidden rounded-full bg-[#eee8dc] dark:bg-white/10">
+                    <div class="h-2 flex-1 overflow-hidden rounded-full bg-coursia-border ">
                       <div
                         class="h-full rounded-full bg-coursia-primary"
                         :style="{ width: `${getRollout(flag)}%` }"
                       />
                     </div>
-                    <span class="w-10 text-right text-xs font-semibold text-[#667085] dark:text-[#a8b8ad]">
+                    <span class="w-10 text-right text-xs font-semibold text-coursia-muted">
                       {{ getRollout(flag) }}%
                     </span>
                   </div>
                 </td>
-                <td class="px-5 py-4 text-[#667085] dark:text-[#a8b8ad]">
+                <td class="px-5 py-4 text-coursia-muted">
                   {{ formatDate(flag.updated_at ?? flag.created_at) }}
                 </td>
               </tr>
@@ -284,7 +284,7 @@ onMounted(loadFlags)
 
       <aside class="grid gap-4">
         <form
-          class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]"
+          class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  "
           @submit.prevent="saveFlag"
         >
           <div class="flex items-start justify-between gap-3">
@@ -292,7 +292,7 @@ onMounted(loadFlags)
               <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">
                 Réglage protégé
               </p>
-              <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">
                 {{ selectedFlag ? 'Modifier le flag' : 'Nouveau flag' }}
               </h2>
             </div>
@@ -302,7 +302,7 @@ onMounted(loadFlags)
           </div>
 
           <div class="mt-5 grid gap-4">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Clé non sensible
               <input
                 v-model="flagForm.key"
@@ -312,7 +312,7 @@ onMounted(loadFlags)
               >
             </label>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Nom
               <input
                 v-model="flagForm.name"
@@ -321,7 +321,7 @@ onMounted(loadFlags)
               >
             </label>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Description
               <textarea
                 v-model="flagForm.description"
@@ -331,17 +331,17 @@ onMounted(loadFlags)
             </label>
 
             <div class="grid grid-cols-2 gap-2">
-              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-[#e6e1d8] bg-[#fbf8f1] px-3 py-2.5 text-sm text-[#667085] dark:border-white/10 dark:bg-white/5 dark:text-[#a8b8ad]">
+              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted   ">
                 <input v-model="flagForm.enabled" class="cursor-pointer" type="checkbox">
                 Actif
               </label>
-              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-[#e6e1d8] bg-[#fbf8f1] px-3 py-2.5 text-sm text-[#667085] dark:border-white/10 dark:bg-white/5 dark:text-[#a8b8ad]">
+              <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted   ">
                 <input v-model="flagForm.critical" class="cursor-pointer" type="checkbox">
                 Critique
               </label>
             </div>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Rollout
               <input
                 v-model.number="flagForm.rolloutPercentage"
@@ -351,7 +351,7 @@ onMounted(loadFlags)
               >
             </label>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Raison auditable
               <textarea
                 v-model="flagForm.reason"
@@ -370,11 +370,11 @@ onMounted(loadFlags)
           </BaseButton>
         </form>
 
-        <div class="rounded-3xl border border-[#e6e1d8] bg-[#fbf8f1] p-5 dark:border-white/10 dark:bg-white/5">
+        <div class="rounded-3xl border border-coursia-border bg-coursia-surface-muted p-5  ">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">
             Garde-fous
           </p>
-          <ul class="mt-4 grid gap-3 text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
+          <ul class="mt-4 grid gap-3 text-sm leading-6 text-coursia-muted">
             <li v-for="guardrail in guardrails" :key="guardrail" class="flex gap-3">
               <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-coursia-primary" />
               <span>{{ guardrail }}</span>

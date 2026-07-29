@@ -233,10 +233,10 @@ onBeforeUnmount(() => {
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
           COUR-92 · acquisition
         </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-[#f7fbf8]">
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Leads publics
         </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
           Suivi des messages de contact et des inscriptions à la liste d’attente. Les contacts peuvent être
           qualifiés, annotés et archivés; la waitlist reste en lecture contrôlée.
         </p>
@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
     </div>
 
     <form class="admin-toolbar grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_10rem_auto]" @submit.prevent="loadLeads">
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Recherche
         <input
           v-model="filters.search"
@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
         >
       </label>
 
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Statut contact
         <select v-model="filters.status">
           <option value="">Tous</option>
@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
         </select>
       </label>
 
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Limite
         <select v-model.number="filters.limit">
           <option :value="25">25 lignes</option>
@@ -333,23 +333,23 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10">
+      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4 ">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Messages de contact</h2>
-            <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">
+            <h2 class="text-sm font-semibold text-coursia-text">Messages de contact</h2>
+            <p class="mt-1 text-xs text-coursia-muted">
               Sélectionne une ligne pour gérer le suivi sans exposer plus de données que nécessaire.
             </p>
           </div>
           <BaseBadge tone="neutral">{{ contactCount }}</BaseBadge>
         </div>
 
-        <div v-if="isLoading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">Chargement des contacts...</div>
-        <div v-else-if="contacts.length <= 0" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">Aucun contact trouvé.</div>
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contacts...</div>
+        <div v-else-if="contacts.length <= 0" class="p-5 text-sm text-coursia-muted">Aucun contact trouvé.</div>
 
         <div v-else class="overflow-x-auto">
           <table class="min-w-full text-sm">
-            <thead class="bg-[#f7f4ed] text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+            <thead class="bg-coursia-surface-muted text-left text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">
               <tr>
                 <th class="px-5 py-3">Contact</th>
                 <th class="px-5 py-3">Sujet</th>
@@ -358,24 +358,24 @@ onBeforeUnmount(() => {
                 <th class="px-5 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#ece6dc] dark:divide-white/10">
+            <tbody class="divide-y divide-coursia-border">
               <tr
                 v-for="lead in contacts"
                 :key="lead.id"
-                class="cursor-pointer transition hover:bg-[#f7f4ed] dark:hover:bg-white/5"
-                :class="selectedContact?.id === lead.id ? 'bg-[#eef7f1] dark:bg-coursia-primary/15' : ''"
+                class="cursor-pointer transition hover:bg-coursia-surface-muted"
+                :class="selectedContact?.id === lead.id ? 'bg-coursia-primary/10' : ''"
                 @click="selectedContactId = lead.id"
               >
                 <td class="px-5 py-4">
-                  <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ lead.name }}</p>
-                  <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">{{ lead.email }}</p>
-                  <p class="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#667085] dark:text-[#a8b8ad]">
+                  <p class="font-semibold text-coursia-text">{{ lead.name }}</p>
+                  <p class="mt-1 text-xs text-coursia-muted">{{ lead.email }}</p>
+                  <p class="mt-1 text-[11px] uppercase tracking-[0.12em] text-coursia-muted">
                     {{ sourceLabel(lead.source) }}
                   </p>
                 </td>
-                <td class="px-5 py-4 text-[#667085] dark:text-[#a8b8ad]">{{ lead.reason }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ lead.reason }}</td>
                 <td class="max-w-xl px-5 py-4">
-                  <p class="line-clamp-2 leading-6 text-[#667085] dark:text-[#a8b8ad]">{{ lead.message }}</p>
+                  <p class="line-clamp-2 leading-6 text-coursia-muted">{{ lead.message }}</p>
                   <BaseBadge v-if="lead.internal_note" class="mt-2" tone="primary">Note interne</BaseBadge>
                 </td>
                 <td class="px-5 py-4">
@@ -397,7 +397,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status !== 'archived'"
                       type="button"
-                      class="cursor-pointer rounded-lg border border-[#e6e1d8] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#667085] transition hover:bg-[#f7f4ed] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-[#a8b8ad] dark:hover:bg-white/10"
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50    "
                       :disabled="isSaving"
                       @click="archiveLead(lead)"
                     >
@@ -406,7 +406,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status === 'archived'"
                       type="button"
-                      class="cursor-pointer rounded-lg border border-[#e6e1d8] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#667085] transition hover:bg-[#f7f4ed] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-[#a8b8ad] dark:hover:bg-white/10"
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50    "
                       :disabled="isSaving"
                       @click="reopenLead(lead)"
                     >
@@ -420,13 +420,13 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <aside class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+      <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  ">
         <div v-if="selectedContact">
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Suivi</p>
-              <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedContact.name }}</h2>
-              <p class="mt-1 text-sm text-[#667085] dark:text-[#a8b8ad]">{{ selectedContact.email }}</p>
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">{{ selectedContact.name }}</h2>
+              <p class="mt-1 text-sm text-coursia-muted">{{ selectedContact.email }}</p>
             </div>
             <BaseBadge :tone="statusTone(selectedContact.status)">
               {{ statusLabel[selectedContact.status] }}
@@ -434,29 +434,29 @@ onBeforeUnmount(() => {
           </div>
 
           <dl class="mt-5 grid gap-3 text-sm">
-            <div class="rounded-2xl bg-[#fbf8f1] p-4 dark:bg-white/5">
-              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a8b8ad]">Sujet</dt>
-              <dd class="mt-1 font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedContact.reason }}</dd>
+            <div class="rounded-2xl bg-coursia-surface-muted p-4">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Sujet</dt>
+              <dd class="mt-1 font-semibold text-coursia-text">{{ selectedContact.reason }}</dd>
             </div>
 
-            <div class="rounded-2xl bg-[#fbf8f1] p-4 dark:bg-white/5">
-              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a8b8ad]">Message</dt>
-              <dd class="mt-2 whitespace-pre-wrap leading-6 text-[#667085] dark:text-[#a8b8ad]">{{ selectedContact.message }}</dd>
+            <div class="rounded-2xl bg-coursia-surface-muted p-4">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Message</dt>
+              <dd class="mt-2 whitespace-pre-wrap leading-6 text-coursia-muted">{{ selectedContact.message }}</dd>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2">
-              <div class="rounded-2xl bg-[#fbf8f1] p-4 dark:bg-white/5">
-                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a8b8ad]">Reçu</dt>
-                <dd class="mt-1 text-[#101828] dark:text-[#f7fbf8]">{{ selectedContactAge }}</dd>
+              <div class="rounded-2xl bg-coursia-surface-muted p-4">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Reçu</dt>
+                <dd class="mt-1 text-coursia-text">{{ selectedContactAge }}</dd>
               </div>
-              <div class="rounded-2xl bg-[#fbf8f1] p-4 dark:bg-white/5">
-                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:text-[#a8b8ad]">Consentement</dt>
-                <dd class="mt-1 text-[#101828] dark:text-[#f7fbf8]">{{ selectedContact.consented_at ? 'Oui' : 'Non' }}</dd>
+              <div class="rounded-2xl bg-coursia-surface-muted p-4">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Consentement</dt>
+                <dd class="mt-1 text-coursia-text">{{ selectedContact.consented_at ? 'Oui' : 'Non' }}</dd>
               </div>
             </div>
           </dl>
 
-          <label class="mt-5 grid gap-2 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="mt-5 grid gap-2 text-sm font-semibold text-coursia-text">
             Note interne
             <textarea
               v-model="noteDraft"
@@ -500,30 +500,30 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else class="rounded-2xl bg-[#fbf8f1] p-5 text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+        <div v-else class="rounded-2xl bg-coursia-surface-muted p-5 text-sm text-coursia-muted  ">
           Aucun contact sélectionné.
         </div>
       </aside>
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10">
+      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4 ">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Liste d’attente</h2>
-            <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">
+            <h2 class="text-sm font-semibold text-coursia-text">Liste d’attente</h2>
+            <p class="mt-1 text-xs text-coursia-muted">
               Source, foyer et intérêts déclarés. Pas de modification directe depuis cette page.
             </p>
           </div>
           <BaseBadge tone="neutral">{{ waitlistCount }}</BaseBadge>
         </div>
 
-        <div v-if="isLoading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">Chargement de la liste d’attente...</div>
-        <div v-else-if="waitlist.length <= 0" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">Aucune inscription trouvée.</div>
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la liste d’attente...</div>
+        <div v-else-if="waitlist.length <= 0" class="p-5 text-sm text-coursia-muted">Aucune inscription trouvée.</div>
 
         <div v-else class="overflow-x-auto">
           <table class="min-w-full text-sm">
-            <thead class="bg-[#f7f4ed] text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+            <thead class="bg-coursia-surface-muted text-left text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">
               <tr>
                 <th class="px-5 py-3">Email</th>
                 <th class="px-5 py-3">Source</th>
@@ -532,30 +532,30 @@ onBeforeUnmount(() => {
                 <th class="px-5 py-3">Inscription</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#ece6dc] dark:divide-white/10">
-              <tr v-for="lead in waitlist" :key="lead.id" class="transition hover:bg-[#f7f4ed] dark:hover:bg-white/5">
-                <td class="px-5 py-4 font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ lead.email }}</td>
-                <td class="px-5 py-4 text-[#667085] dark:text-[#a8b8ad]">{{ sourceLabel(lead.source) }}</td>
-                <td class="px-5 py-4 text-[#667085] dark:text-[#a8b8ad]">{{ lead.household_size ?? '—' }}</td>
+            <tbody class="divide-y divide-coursia-border">
+              <tr v-for="lead in waitlist" :key="lead.id" class="transition hover:bg-coursia-surface-muted">
+                <td class="px-5 py-4 font-semibold text-coursia-text">{{ lead.email }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ sourceLabel(lead.source) }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ lead.household_size ?? '—' }}</td>
                 <td class="px-5 py-4">
                   <div class="flex max-w-md flex-wrap gap-1.5">
                     <BaseBadge v-for="interest in lead.interests" :key="interest" tone="neutral">
                       {{ interest }}
                     </BaseBadge>
-                    <span v-if="lead.interests.length <= 0" class="text-[#667085] dark:text-[#a8b8ad]">—</span>
+                    <span v-if="lead.interests.length <= 0" class="text-coursia-muted">—</span>
                   </div>
                 </td>
-                <td class="px-5 py-4 text-[#667085] dark:text-[#a8b8ad]">{{ formatDate(lead.created_at) }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ formatDate(lead.created_at) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <aside class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+      <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  ">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Acquisition</p>
-        <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Sources waitlist</h2>
-        <p class="mt-2 text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
+        <h2 class="mt-2 text-lg font-semibold text-coursia-text">Sources waitlist</h2>
+        <p class="mt-2 text-sm leading-6 text-coursia-muted">
           Vue rapide pour comprendre quels CTA publics créent le plus d’inscriptions.
         </p>
 
@@ -563,13 +563,13 @@ onBeforeUnmount(() => {
           <div
             v-for="[source, count] in waitlistSources"
             :key="source"
-            class="flex items-center justify-between rounded-2xl bg-[#fbf8f1] px-4 py-3 dark:bg-white/5"
+            class="flex items-center justify-between rounded-2xl bg-coursia-surface-muted px-4 py-3"
           >
-            <span class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ source }}</span>
+            <span class="text-sm font-semibold text-coursia-text">{{ source }}</span>
             <BaseBadge tone="neutral">{{ count }}</BaseBadge>
           </div>
 
-          <div v-if="waitlistSources.length <= 0" class="rounded-2xl bg-[#fbf8f1] p-4 text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+          <div v-if="waitlistSources.length <= 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted  ">
             Aucune source chargée.
           </div>
         </div>

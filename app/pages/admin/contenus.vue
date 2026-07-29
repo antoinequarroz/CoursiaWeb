@@ -350,7 +350,7 @@ onBeforeUnmount(() => {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-106 · CMS</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-coursia-text">
           Contenus administrables
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
@@ -370,7 +370,7 @@ onBeforeUnmount(() => {
 
     <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="loadContents">
       <div class="grid gap-3 lg:grid-cols-[12rem_12rem_minmax(0,1fr)_10rem_auto]">
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+        <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
           Type
           <select v-model="filters.kind">
             <option value="">Tous</option>
@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
           </select>
         </label>
 
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+        <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
           Statut
           <select v-model="filters.status">
             <option value="">Tous</option>
@@ -392,12 +392,12 @@ onBeforeUnmount(() => {
           </select>
         </label>
 
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+        <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
           Recherche
           <input v-model="filters.search" type="search" placeholder="Titre, clé..." autocomplete="off">
         </label>
 
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+        <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
           Limite
           <select v-model.number="filters.limit">
             <option :value="25">25 lignes</option>
@@ -453,7 +453,7 @@ onBeforeUnmount(() => {
       <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Bibliothèque de contenus</h2>
+            <h2 class="text-sm font-semibold text-coursia-text">Bibliothèque de contenus</h2>
             <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour éditer, prévisualiser ou consulter l’historique.</p>
           </div>
           <BaseBadge tone="neutral">Sans redéploiement</BaseBadge>
@@ -482,7 +482,7 @@ onBeforeUnmount(() => {
                 @click="selectContent(content)"
               >
                 <td>
-                  <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ content.title }}</p>
+                  <p class="font-semibold text-coursia-text">{{ content.title }}</p>
                   <p class="mt-1 text-xs text-coursia-muted">{{ content.key }}</p>
                   <p v-if="content.url" class="mt-1 max-w-[22rem] truncate text-xs text-coursia-primary">{{ content.url }}</p>
                 </td>
@@ -506,7 +506,7 @@ onBeforeUnmount(() => {
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">
               {{ selectedContentId ? 'Édition' : 'Création' }}
             </p>
-            <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">
+            <h2 class="mt-1 text-lg font-semibold text-coursia-text">
               {{ selectedContentId ? form.title || 'Contenu sélectionné' : 'Nouveau contenu' }}
             </h2>
             <p class="mt-1 text-sm text-coursia-muted">{{ kindDescriptions[form.kind] }}</p>
@@ -515,13 +515,13 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="mt-5 grid gap-4">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Clé publique non sensible
             <input v-model="form.key" required placeholder="faq-pricing-family" autocomplete="off">
           </label>
 
           <div class="grid gap-4 md:grid-cols-2">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Type
               <select v-model="form.kind">
                 <option value="faq">FAQ</option>
@@ -531,7 +531,7 @@ onBeforeUnmount(() => {
               </select>
             </label>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Statut
               <select v-model="form.status">
                 <option value="draft">Brouillon</option>
@@ -542,28 +542,28 @@ onBeforeUnmount(() => {
             </label>
           </div>
 
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Titre
             <input v-model="form.title" required placeholder="Titre affiché">
           </label>
 
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Texte
             <textarea v-model="form.body" rows="7" placeholder="Contenu visible par l’utilisateur. Aucun secret ni token." />
           </label>
 
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             URL
             <input v-model="form.url" type="url" placeholder="https://...">
           </label>
 
           <div class="grid gap-4 md:grid-cols-2">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Publication
               <input v-model="form.publishAt" type="datetime-local">
             </label>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Archivage
               <input v-model="form.archiveAt" type="datetime-local">
             </label>
@@ -590,7 +590,7 @@ onBeforeUnmount(() => {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Aperçu</p>
-            <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">
+            <h2 class="mt-1 text-lg font-semibold text-coursia-text">
               {{ preview?.title ?? selectedContent?.title ?? 'Aucun aperçu généré' }}
             </h2>
           </div>
@@ -611,11 +611,11 @@ onBeforeUnmount(() => {
           <dl class="mt-5 grid gap-3 sm:grid-cols-2">
             <div class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
               <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Publication</dt>
-              <dd class="mt-1 text-sm text-[#101828] dark:text-[#f7fbf8]">{{ formatDate(preview.schedule.publishAt) }}</dd>
+              <dd class="mt-1 text-sm text-coursia-text">{{ formatDate(preview.schedule.publishAt) }}</dd>
             </div>
             <div class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
               <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Archivage</dt>
-              <dd class="mt-1 text-sm text-[#101828] dark:text-[#f7fbf8]">{{ formatDate(preview.schedule.archiveAt) }}</dd>
+              <dd class="mt-1 text-sm text-coursia-text">{{ formatDate(preview.schedule.archiveAt) }}</dd>
             </div>
           </dl>
         </div>
@@ -628,10 +628,10 @@ onBeforeUnmount(() => {
       <aside class="grid content-start gap-4">
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Types</p>
-          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Répartition</h2>
+          <h2 class="mt-1 text-lg font-semibold text-coursia-text">Répartition</h2>
           <div class="mt-5 grid gap-3">
             <div v-for="[kind, count] in kindStats" :key="kind" class="flex items-center justify-between rounded-2xl bg-coursia-surface-muted px-4 py-3">
-              <span class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ kindLabels[kind] }}</span>
+              <span class="text-sm font-semibold text-coursia-text">{{ kindLabels[kind] }}</span>
               <BaseBadge :tone="kindTone(kind)">{{ count }}</BaseBadge>
             </div>
           </div>
@@ -652,7 +652,7 @@ onBeforeUnmount(() => {
     <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Historique auteur</h2>
+          <h2 class="text-sm font-semibold text-coursia-text">Historique auteur</h2>
           <p class="mt-1 text-xs text-coursia-muted">Traçabilité des modifications du contenu sélectionné.</p>
         </div>
         <BaseBadge tone="neutral">{{ history.length }}</BaseBadge>
@@ -673,7 +673,7 @@ onBeforeUnmount(() => {
             <tr v-for="revision in history" :key="revision.id" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
               <td class="text-sm text-coursia-muted">{{ formatDate(revision.created_at ?? revision.createdAt) }}</td>
               <td class="text-sm text-coursia-muted">{{ revision.author_user_id ?? revision.authorUserId ?? '—' }}</td>
-              <td class="font-semibold text-[#101828] dark:text-[#f7fbf8]">
+              <td class="font-semibold text-coursia-text">
                 {{ revision.change_summary ?? revision.changeSummary ?? '—' }}
               </td>
             </tr>

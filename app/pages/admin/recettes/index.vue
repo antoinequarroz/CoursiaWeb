@@ -8,6 +8,7 @@ definePageMeta({
 type RecipeStatus = 'draft' | 'review' | 'published' | 'archived'
 type RecipeDifficulty = 'easy' | 'medium' | 'hard'
 type EditorTab = 'identity' | 'ingredients' | 'steps' | 'quality'
+type BadgeTone = 'neutral' | 'warning' | 'success' | 'danger'
 
 type RecipeIngredient = OfficialRecipeMutation['ingredients'][number]
 type RecipeStep = OfficialRecipeMutation['steps'][number]
@@ -106,6 +107,33 @@ const ingredientDraft = reactive({
   optional: false,
 })
 
+const statusLabel: Record<RecipeStatus, string> = {
+  draft: 'Brouillon',
+  review: 'En validation',
+  published: 'Publiée',
+  archived: 'Archivée',
+}
+
+const statusTone: Record<RecipeStatus, BadgeTone> = {
+  draft: 'neutral',
+  review: 'warning',
+  published: 'success',
+  archived: 'danger',
+}
+
+const difficultyLabel: Record<RecipeDifficulty, string> = {
+  easy: 'Facile',
+  medium: 'Moyenne',
+  hard: 'Difficile',
+}
+
+const tabLabel: Record<EditorTab, string> = {
+  identity: 'Identité',
+  ingredients: 'Ingrédients',
+  steps: 'Étapes',
+  quality: 'Contrôle',
+}
+
 const recipeQuery = computed(() => {
   const query: Record<string, string | number> = { limit: 100 }
 
@@ -167,37 +195,19 @@ const selectedQualityIssues = computed(() => {
 
 const selectedCost = computed(() => selectedRecipe.value?.mobile?.estimatedCost ?? null)
 const selectedImageUrl = computed(() => selectedRecipe.value?.mobile?.imageUrl ?? null)
+const selectedCompletion = computed(() => {
+  if (!selectedRecipe.value) return 0
+  const total = 8
+  const missing = selectedQualityIssues.value.length
 
-const statusLabel: Record<RecipeStatus, string> = {
-  draft: 'Brouillon',
-  review: 'En validation',
-  published: 'Publiée',
-  archived: 'Archivée',
-}
-
-const statusTone: Record<RecipeStatus, 'neutral' | 'warning' | 'success' | 'danger'> = {
-  draft: 'neutral',
-  review: 'warning',
-  published: 'success',
-  archived: 'danger',
-}
-
-const difficultyLabel: Record<RecipeDifficulty, string> = {
-  easy: 'Facile',
-  medium: 'Moyenne',
-  hard: 'Difficile',
-}
-
-const tabLabel: Record<EditorTab, string> = {
-  identity: 'Identité',
-  ingredients: 'Ingrédients',
-  steps: 'Étapes',
-  quality: 'Contrôle',
-}
+  return Math.max(0, Math.round(((total - missing) / total) * 100))
+})
+const editorTitle = computed(() => editingRecipeId.value ? 'Modifier la recette' : 'Nouvelle recette')
+const primaryActionLabel = computed(() => saving.value ? 'Enregistrement...' : editingRecipeId.value ? 'Enregistrer' : 'Créer la recette')
 
 const formatDate = (value: string | null | undefined) =>
   value
-    ? new Date(value).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? new Intl.DateTimeFormat('fr-CH', { dateStyle: 'medium' }).format(new Date(value))
     : 'Jamais'
 
 const formatCurrency = (value: number | null | undefined) =>
@@ -280,9 +290,7 @@ const loadRecipes = async () => {
 
     if (selectedId) {
       const match = recipes.value.find((recipe) => recipe.id === selectedId)
-      if (match) {
-        await selectRecipe(match, false)
-      }
+      if (match) await selectRecipe(match, false)
     }
     else if (!selectedRecipe.value && recipes.value[0]) {
       await selectRecipe(recipes.value[0], false)
@@ -349,9 +357,7 @@ const startEdit = () => {
 const closeEditor = () => {
   editorOpen.value = false
   editingRecipeId.value = null
-  if (selectedRecipe.value) {
-    fillForm(selectedRecipe.value)
-  }
+  if (selectedRecipe.value) fillForm(selectedRecipe.value)
 }
 
 const saveRecipe = async () => {
@@ -384,9 +390,7 @@ const saveRecipe = async () => {
 }
 
 const refreshSelectedAfterAction = async (response?: { data?: AdminRecipeRow }) => {
-  if (response?.data) {
-    selectedRecipe.value = response.data
-  }
+  if (response?.data) selectedRecipe.value = response.data
   await loadRecipes()
 }
 
@@ -572,113 +576,111 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+    <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Catalogue officiel</p>
-        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">Recettes</h1>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-96 / COUR-97</p>
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+          Recettes officielles
+        </h1>
         <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Back-office compact pour créer, contrôler et publier les recettes réellement utilisées par l’app mobile.
+          Crée, corrige et prépare les recettes qui alimentent le catalogue mobile Coursia.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadRecipes">
-          Rafraîchir
+          Actualiser
         </BaseButton>
-        <NuxtLink to="/admin/recettes/import" class="ds-focus-ring inline-flex cursor-pointer items-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted">
-          Import CSV
-        </NuxtLink>
         <BaseButton type="button" @click="startCreate">
           Nouvelle recette
         </BaseButton>
       </div>
     </div>
 
+    <p v-if="feedback" class="rounded-2xl border border-coursia-primary/20 bg-coursia-primary/10 p-3 text-sm font-semibold text-coursia-primary">
+      {{ feedback }}
+    </p>
+
     <div class="grid gap-3 md:grid-cols-4">
       <button type="button" class="admin-stat-card cursor-pointer text-left" :class="!filters.status ? 'ring-2 ring-coursia-primary/20' : ''" @click="applyStatusFilter('')">
         <span>Total</span>
         <strong>{{ stats.all }}</strong>
+        <small>recettes chargées</small>
       </button>
       <button type="button" class="admin-stat-card cursor-pointer text-left" :class="filters.status === 'published' ? 'ring-2 ring-coursia-success/25' : ''" @click="applyStatusFilter('published')">
         <span>Publiées</span>
         <strong class="text-coursia-success">{{ stats.published }}</strong>
+        <small>visibles côté app</small>
       </button>
       <button type="button" class="admin-stat-card cursor-pointer text-left" :class="filters.status === 'review' ? 'ring-2 ring-coursia-warning/25' : ''" @click="applyStatusFilter('review')">
         <span>À valider</span>
         <strong class="text-coursia-warning">{{ stats.review }}</strong>
+        <small>contrôle éditorial</small>
       </button>
-      <button type="button" class="admin-stat-card cursor-pointer text-left" :class="filters.status === 'draft' ? 'ring-2 ring-coursia-muted/20' : ''" @click="applyStatusFilter('draft')">
+      <button type="button" class="admin-stat-card cursor-pointer text-left" :class="filters.status === 'draft' ? 'ring-2 ring-coursia-primary/15' : ''" @click="applyStatusFilter('draft')">
         <span>Brouillons</span>
         <strong>{{ stats.draft }}</strong>
+        <small>travail en cours</small>
       </button>
     </div>
 
-    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.8fr_auto]" @submit.prevent="loadRecipes">
-      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-        Recherche
-        <input v-model="filters.search" type="search" placeholder="Nom ou slug..." />
-      </label>
-      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-        Statut
-        <select v-model="filters.status">
-          <option value="">Tous</option>
-          <option value="draft">Brouillon</option>
-          <option value="review">En validation</option>
-          <option value="published">Publiée</option>
-          <option value="archived">Archivée</option>
-        </select>
-      </label>
-      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-        Difficulté
-        <select v-model="filters.difficulty">
-          <option value="">Toutes</option>
-          <option value="easy">Facile</option>
-          <option value="medium">Moyenne</option>
-          <option value="hard">Difficile</option>
-        </select>
-      </label>
-      <div class="flex items-end gap-2">
-        <BaseButton type="submit" :disabled="loading">Appliquer</BaseButton>
-        <BaseButton type="button" variant="ghost" @click="clearFilters">Effacer</BaseButton>
+    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
+        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+          Recherche
+          <input v-model="filters.search" placeholder="Titre ou clé externe" @keydown.enter.prevent="loadRecipes">
+        </label>
+        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+          Statut
+          <select v-model="filters.status">
+            <option value="">Tous</option>
+            <option value="draft">Brouillon</option>
+            <option value="review">En validation</option>
+            <option value="published">Publiée</option>
+            <option value="archived">Archivée</option>
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+          Difficulté
+          <select v-model="filters.difficulty">
+            <option value="">Toutes</option>
+            <option value="easy">Facile</option>
+            <option value="medium">Moyenne</option>
+            <option value="hard">Difficile</option>
+          </select>
+        </label>
+        <div class="flex items-end gap-2">
+          <BaseButton type="button" :disabled="loading" @click="loadRecipes">
+            Filtrer
+          </BaseButton>
+          <BaseButton type="button" variant="ghost" @click="clearFilters">
+            Réinitialiser
+          </BaseButton>
+        </div>
       </div>
-    </form>
+    </section>
 
-    <p v-if="feedback" class="rounded-2xl border border-coursia-border bg-coursia-surface px-4 py-3 text-sm font-semibold text-coursia-foreground shadow-coursia-sm">
-      {{ feedback }}
-    </p>
-
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
       <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
           <div>
             <h2 class="text-base font-black text-coursia-foreground">Catalogue</h2>
-            <p class="mt-1 text-xs text-coursia-muted">{{ recipes.length }} recette(s) chargée(s)</p>
+            <p class="mt-1 text-xs text-coursia-muted">{{ loading ? 'Chargement...' : `${recipes.length} recette(s)` }}</p>
           </div>
-          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
+          <BaseBadge tone="neutral">Table mobile : recettes</BaseBadge>
         </div>
 
-        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
-          Chargement des recettes...
+        <div v-if="recipes.length === 0" class="p-5 text-sm text-coursia-muted">
+          Aucune recette pour ces filtres.
         </div>
-
-        <div v-else-if="recipes.length === 0" class="grid place-items-center p-10 text-center">
-          <div class="max-w-sm">
-            <p class="font-black text-coursia-foreground">Aucune recette trouvée</p>
-            <p class="mt-2 text-sm text-coursia-muted">Aucun résultat ne correspond aux filtres actuels.</p>
-            <BaseButton class="mt-4" type="button" @click="startCreate">Créer une recette</BaseButton>
-          </div>
-        </div>
-
         <div v-else class="overflow-x-auto">
-          <table class="min-w-[58rem]">
+          <table>
             <thead>
               <tr>
-                <th>Recette</th>
-                <th>Statut</th>
-                <th>Fiche</th>
-                <th>Relations</th>
-                <th>Coût</th>
-                <th>MAJ</th>
+                <th class="text-left">Recette</th>
+                <th class="text-left">Statut</th>
+                <th class="text-left">Format</th>
+                <th class="text-left">Qualité</th>
                 <th class="text-right">Actions</th>
               </tr>
             </thead>
@@ -686,34 +688,35 @@ onMounted(() => {
               <tr
                 v-for="recipe in recipes"
                 :key="recipe.id"
-                class="cursor-pointer transition"
-                :class="selectedRecipe?.id === recipe.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
+                class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
+                :class="selectedRecipe?.id === recipe.id ? 'bg-coursia-primary/5' : ''"
                 @click="selectRecipe(recipe)"
               >
                 <td>
-                  <span class="block max-w-[20rem] truncate font-black text-coursia-foreground">{{ recipe.title || 'Recette sans titre' }}</span>
-                  <span class="block max-w-[20rem] truncate text-xs text-coursia-muted">{{ recipe.slug }}</span>
+                  <div class="flex min-w-[260px] items-center gap-3">
+                    <div class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-coursia-surface-muted">
+                      <img v-if="recipe.mobile?.imageUrl" :src="recipe.mobile.imageUrl" :alt="recipe.title" class="h-full w-full object-cover">
+                      <span v-else class="text-xs font-black text-coursia-primary">R</span>
+                    </div>
+                    <div>
+                      <p class="font-black text-coursia-foreground">{{ recipe.title || 'Recette sans titre' }}</p>
+                      <p class="mt-1 truncate text-xs text-coursia-muted">{{ recipe.slug }}</p>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <BaseBadge :tone="statusTone[recipe.status]">{{ statusLabel[recipe.status] }}</BaseBadge>
                 </td>
                 <td class="text-sm text-coursia-muted">
-                  {{ recipe.difficulty ? difficultyLabel[recipe.difficulty] : 'À compléter' }} · {{ recipe.duration_minutes ?? '—' }} min · {{ recipe.portions ?? '—' }} pers.
+                  {{ recipe.portions ?? '—' }} pers. · {{ recipe.duration_minutes ?? '—' }} min · {{ recipe.difficulty ? difficultyLabel[recipe.difficulty] : '—' }}
                 </td>
                 <td class="text-sm text-coursia-muted">
                   {{ recipe.ingredients.length }} ing. · {{ recipe.steps.length }} étapes
                 </td>
-                <td>{{ formatCurrency(recipe.mobile?.estimatedCost) }}</td>
-                <td>{{ formatDate(recipe.updated_at) }}</td>
-                <td>
-                  <div class="flex justify-end gap-2" @click.stop>
-                    <BaseButton size="sm" variant="secondary" type="button" @click="selectRecipe(recipe).then(startEdit)">
-                      Modifier
-                    </BaseButton>
-                    <BaseButton size="sm" variant="ghost" type="button" :disabled="actionPending === `duplicate:${recipe.id}`" @click="runRecipeAction(recipe, 'duplicate')">
-                      Dupliquer
-                    </BaseButton>
-                  </div>
+                <td class="text-right">
+                  <button type="button" class="rounded-xl px-3 py-2 text-xs font-black text-coursia-primary hover:bg-coursia-primary/10" @click.stop="selectRecipe(recipe)">
+                    Ouvrir
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -721,310 +724,294 @@ onMounted(() => {
         </div>
       </section>
 
-      <aside class="grid gap-4">
-        <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <aside class="grid gap-4 content-start">
+        <section v-if="selectedRecipe" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">
-                {{ editingRecipeId ? 'Édition' : 'Création' }}
-              </p>
-              <h2 class="mt-1 text-lg font-black text-coursia-foreground">
-                {{ editingRecipeId ? 'Modifier la recette' : 'Nouvelle recette' }}
-              </h2>
+              <BaseBadge :tone="statusTone[selectedRecipe.status]">{{ statusLabel[selectedRecipe.status] }}</BaseBadge>
+              <h2 class="mt-3 text-xl font-black tracking-tight text-coursia-foreground">{{ selectedRecipe.title }}</h2>
+              <p class="mt-1 break-all text-xs text-coursia-muted">{{ selectedRecipe.slug }}</p>
             </div>
-            <button type="button" class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted" @click="closeEditor">
-              Fermer
+            <button type="button" class="rounded-xl px-3 py-2 text-xs font-black text-coursia-primary hover:bg-coursia-primary/10" @click="startEdit">
+              Modifier
             </button>
           </div>
 
-          <div class="mt-4 grid grid-cols-4 gap-1 rounded-2xl bg-coursia-surface-muted p-1">
-            <button
-              v-for="tab in (['identity', 'ingredients', 'steps', 'quality'] as EditorTab[])"
-              :key="tab"
-              type="button"
-              class="cursor-pointer rounded-xl px-2 py-2 text-xs font-black transition"
-              :class="editorTab === tab ? 'bg-coursia-surface text-coursia-foreground shadow-coursia-sm' : 'text-coursia-muted hover:text-coursia-foreground'"
-              @click="editorTab = tab"
-            >
-              {{ tabLabel[tab] }}
-            </button>
+          <div class="mt-4 overflow-hidden rounded-2xl bg-coursia-surface-muted">
+            <img v-if="selectedImageUrl" :src="selectedImageUrl" :alt="selectedRecipe.title" class="h-44 w-full object-cover">
+            <div v-else class="grid h-44 place-items-center bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.18),transparent_30%),linear-gradient(135deg,#fff7ed,#eef7f2)] text-sm font-semibold text-coursia-muted dark:bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.18),transparent_30%),linear-gradient(135deg,#17231f,#111827)]">
+              Aucun média publié
+            </div>
           </div>
 
-          <form class="mt-4 grid gap-4" @submit.prevent="saveRecipe">
-            <template v-if="editorTab === 'identity'">
-              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                Titre
-                <input v-model="form.title" required placeholder="Ex. One pot pasta aux légumes" />
-              </label>
-              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                Slug
-                <input v-model="form.slug" required placeholder="one-pot-pasta-legumes" />
-              </label>
-              <div class="grid grid-cols-2 gap-3">
-                <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                  Portions
-                  <input v-model.number="form.portions" type="number" min="1" max="24" />
-                </label>
-                <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                  Durée
-                  <input v-model.number="form.durationMinutes" type="number" min="1" max="1440" />
-                </label>
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                  Difficulté
-                  <select v-model="form.difficulty">
-                    <option value="easy">Facile</option>
-                    <option value="medium">Moyenne</option>
-                    <option value="hard">Difficile</option>
-                  </select>
-                </label>
-                <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                  Statut
-                  <select v-model="form.status">
-                    <option value="draft">Brouillon</option>
-                    <option value="review">En validation</option>
-                    <option value="published">Publiée</option>
-                    <option value="archived">Archivée</option>
-                  </select>
-                </label>
-              </div>
-              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-                Source
-                <input v-model="form.source" placeholder="Auteur, source ou lien de référence" />
-              </label>
-            </template>
-
-            <template v-else-if="editorTab === 'ingredients'">
-              <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-                <div class="grid gap-2">
-                  <select v-model="ingredientDraft.ingredientId" @change="onIngredientChange">
-                    <option value="">Choisir un ingrédient</option>
-                    <option v-for="ingredient in ingredientCatalog" :key="ingredient.id" :value="ingredient.id">
-                      {{ ingredient.name }}
-                    </option>
-                  </select>
-                  <div class="grid grid-cols-[1fr_1fr] gap-2">
-                    <input v-model.number="ingredientDraft.quantity" type="number" min="0.01" step="0.01" placeholder="Quantité" />
-                    <select v-model="ingredientDraft.unit">
-                      <option value="g">g</option>
-                      <option value="kg">kg</option>
-                      <option value="ml">ml</option>
-                      <option value="l">l</option>
-                      <option value="piece">pièce</option>
-                      <option value="tbsp">c. soupe</option>
-                      <option value="tsp">c. café</option>
-                    </select>
-                  </div>
-                  <div class="grid grid-cols-[1fr_auto] gap-2">
-                    <input v-model="ingredientDraft.group" placeholder="Groupe, ex. Sauce" />
-                    <BaseButton type="button" variant="secondary" @click="addIngredient">Ajouter</BaseButton>
-                  </div>
-                </div>
-              </div>
-
-              <div class="grid gap-2">
-                <article
-                  v-for="(ingredient, index) in form.ingredients"
-                  :key="`${ingredient.ingredientId}:${index}`"
-                  class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3"
-                >
-                  <div class="grid gap-2">
-                    <input v-model="ingredient.name" class="font-bold" />
-                    <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
-                      <input v-model.number="ingredient.quantity" type="number" min="0.01" step="0.01" />
-                      <select v-model="ingredient.unit">
-                        <option value="g">g</option>
-                        <option value="kg">kg</option>
-                        <option value="ml">ml</option>
-                        <option value="l">l</option>
-                        <option value="piece">pièce</option>
-                        <option value="tbsp">tbsp</option>
-                        <option value="tsp">tsp</option>
-                      </select>
-                      <button type="button" class="cursor-pointer rounded-xl px-3 text-sm font-black text-coursia-danger hover:bg-coursia-danger/10" @click="removeIngredient(index)">
-                        Retirer
-                      </button>
-                    </div>
-                    <div class="flex gap-1">
-                      <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface" @click="moveIngredient(index, -1)">↑</button>
-                      <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface" @click="moveIngredient(index, 1)">↓</button>
-                    </div>
-                  </div>
-                </article>
-                <p v-if="form.ingredients.length === 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
-                  Aucun ingrédient ajouté.
-                </p>
-              </div>
-            </template>
-
-            <template v-else-if="editorTab === 'steps'">
-              <div class="flex gap-2">
-                <input v-model="stepInput" class="min-w-0 flex-1" placeholder="Ajouter une instruction..." @keyup.enter.prevent="addStep" />
-                <BaseButton type="button" variant="secondary" @click="addStep">Ajouter</BaseButton>
-              </div>
-              <div class="grid gap-2">
-                <article
-                  v-for="(step, index) in form.steps"
-                  :key="`${step.order}:${index}`"
-                  class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3"
-                >
-                  <div class="flex items-start gap-3">
-                    <span class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-coursia-primary/10 text-xs font-black text-coursia-primary">{{ index + 1 }}</span>
-                    <textarea v-model="step.instruction" rows="3" class="min-w-0 flex-1 resize-none" />
-                  </div>
-                  <div class="mt-2 flex justify-end gap-1">
-                    <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface" @click="moveStep(index, -1)">↑</button>
-                    <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface" @click="moveStep(index, 1)">↓</button>
-                    <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-danger hover:bg-coursia-danger/10" @click="removeStep(index)">Retirer</button>
-                  </div>
-                </article>
-                <p v-if="form.steps.length === 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
-                  Aucune étape ajoutée.
-                </p>
-              </div>
-            </template>
-
-            <template v-else>
-              <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-                <p class="text-sm font-black text-coursia-foreground">Catégories</p>
-                <div class="mt-3 flex gap-2">
-                  <input v-model="categoryInput" class="min-w-0 flex-1" placeholder="Ajouter une catégorie..." @keyup.enter.prevent="addCategory" />
-                  <BaseButton type="button" variant="secondary" @click="addCategory">Ajouter</BaseButton>
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <button
-                    v-for="category in form.categories"
-                    :key="category"
-                    type="button"
-                    class="cursor-pointer rounded-full border border-coursia-border bg-coursia-surface px-3 py-1.5 text-xs font-bold text-coursia-foreground transition hover:border-coursia-primary"
-                    @click="removeCategory(category)"
-                  >
-                    {{ category }} ×
-                  </button>
-                </div>
-              </div>
-
-              <div class="grid gap-2 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 md:grid-cols-2">
-                <label class="grid gap-1 text-xs font-bold text-coursia-foreground">
-                  Calories
-                  <input v-model.number="form.nutrition.calories" type="number" min="0" max="4000" />
-                </label>
-                <label class="grid gap-1 text-xs font-bold text-coursia-foreground">
-                  Protéines (g)
-                  <input v-model.number="form.nutrition.proteinGrams" type="number" min="0" max="500" step="0.1" />
-                </label>
-                <label class="grid gap-1 text-xs font-bold text-coursia-foreground">
-                  Glucides (g)
-                  <input v-model.number="form.nutrition.carbsGrams" type="number" min="0" max="800" step="0.1" />
-                </label>
-                <label class="grid gap-1 text-xs font-bold text-coursia-foreground">
-                  Lipides (g)
-                  <input v-model.number="form.nutrition.fatGrams" type="number" min="0" max="500" step="0.1" />
-                </label>
-              </div>
-
-              <div class="rounded-2xl border p-3" :class="qualityIssues.length ? 'border-coursia-warning/30 bg-coursia-warning/10' : 'border-coursia-success/30 bg-coursia-success/10'">
-                <p class="text-sm font-black text-coursia-foreground">
-                  {{ qualityIssues.length ? 'À compléter avant publication' : 'Prête pour publication' }}
-                </p>
-                <ul v-if="qualityIssues.length" class="mt-2 grid gap-1 text-sm text-coursia-muted">
-                  <li v-for="issue in qualityIssues" :key="issue.key">• {{ issue.label }}</li>
-                </ul>
-              </div>
-            </template>
-
-            <div class="flex flex-wrap gap-2 border-t border-coursia-border pt-4">
-              <BaseButton type="submit" :disabled="saving">
-                {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
-              </BaseButton>
-              <BaseButton type="button" variant="secondary" @click="closeEditor">Annuler</BaseButton>
+          <dl class="mt-4 grid grid-cols-2 gap-3">
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <dt class="text-xs font-bold text-coursia-muted">Complétude</dt>
+              <dd class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedCompletion }}%</dd>
             </div>
-          </form>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <dt class="text-xs font-bold text-coursia-muted">Coût estimé</dt>
+              <dd class="mt-1 text-lg font-black text-coursia-foreground">{{ formatCurrency(selectedCost) }}</dd>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <dt class="text-xs font-bold text-coursia-muted">Portions</dt>
+              <dd class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipe.portions ?? '—' }}</dd>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <dt class="text-xs font-bold text-coursia-muted">Mise à jour</dt>
+              <dd class="mt-1 text-sm font-black text-coursia-foreground">{{ formatDate(selectedRecipe.updated_at) }}</dd>
+            </div>
+          </dl>
+
+          <div class="mt-4">
+            <h3 class="text-sm font-black text-coursia-foreground">Blocages publication</h3>
+            <div v-if="selectedQualityIssues.length" class="mt-2 flex flex-wrap gap-2">
+              <BaseBadge v-for="issue in selectedQualityIssues" :key="issue" tone="danger">{{ issue }}</BaseBadge>
+            </div>
+            <p v-else class="mt-2 rounded-2xl bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
+              Aucun blocage détecté.
+            </p>
+          </div>
+
+          <div class="mt-4 grid gap-2">
+            <BaseButton type="button" variant="secondary" :disabled="actionPending === `duplicate:${selectedRecipe.id}`" @click="runRecipeAction(selectedRecipe, 'duplicate')">
+              Dupliquer
+            </BaseButton>
+            <BaseButton type="button" variant="secondary" :disabled="actionPending === `submit-review:${selectedRecipe.id}` || selectedRecipe.status === 'review'" @click="runRecipeAction(selectedRecipe, 'submit-review')">
+              Envoyer en validation
+            </BaseButton>
+            <BaseButton type="button" :disabled="actionPending === `publish:${selectedRecipe.id}` || selectedRecipe.status === 'published' || selectedQualityIssues.length > 0" @click="runRecipeAction(selectedRecipe, 'publish')">
+              Publier
+            </BaseButton>
+            <BaseButton v-if="selectedRecipe.status === 'published'" type="button" variant="secondary" :disabled="actionPending === `unpublish:${selectedRecipe.id}`" @click="runRecipeAction(selectedRecipe, 'unpublish')">
+              Dépublier
+            </BaseButton>
+            <BaseButton type="button" variant="ghost" :disabled="actionPending === `archive:${selectedRecipe.id}` || selectedRecipe.status === 'archived'" @click="runRecipeAction(selectedRecipe, 'archive')">
+              Archiver
+            </BaseButton>
+            <BaseButton type="button" variant="ghost" :disabled="actionPending === `delete:${selectedRecipe.id}`" @click="deleteRecipe(selectedRecipe)">
+              Supprimer définitivement
+            </BaseButton>
+          </div>
         </section>
 
-        <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <div v-if="!selectedRecipe" class="grid place-items-center rounded-2xl bg-coursia-surface-muted p-8 text-center">
-            <div>
-              <p class="font-black text-coursia-foreground">Sélectionne une recette</p>
-              <p class="mt-2 text-sm text-coursia-muted">Le détail et les actions apparaîtront ici.</p>
-            </div>
-          </div>
-
-          <template v-else>
-            <div class="overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface-muted">
-              <div v-if="selectedImageUrl" class="h-36 bg-cover bg-center" :style="{ backgroundImage: `url(${selectedImageUrl})` }" />
-              <div v-else class="grid h-28 place-items-center bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.16),transparent_34%),linear-gradient(135deg,rgba(15,45,39,0.08),transparent)]">
-                <span class="text-xs font-black uppercase tracking-[0.16em] text-coursia-muted">Aucun visuel</span>
-              </div>
-              <div class="p-4">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <h2 class="truncate text-lg font-black text-coursia-foreground">{{ selectedRecipe.title }}</h2>
-                    <p class="mt-1 truncate text-sm text-coursia-muted">{{ selectedRecipe.slug }}</p>
-                  </div>
-                  <BaseBadge :tone="statusTone[selectedRecipe.status]">{{ statusLabel[selectedRecipe.status] }}</BaseBadge>
-                </div>
-
-                <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
-                  <div class="rounded-xl bg-coursia-surface p-3">
-                    <dt class="text-xs font-bold text-coursia-muted">Durée</dt>
-                    <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRecipe.duration_minutes ?? '—' }} min</dd>
-                  </div>
-                  <div class="rounded-xl bg-coursia-surface p-3">
-                    <dt class="text-xs font-bold text-coursia-muted">Portions</dt>
-                    <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRecipe.portions ?? '—' }}</dd>
-                  </div>
-                  <div class="rounded-xl bg-coursia-surface p-3">
-                    <dt class="text-xs font-bold text-coursia-muted">Coût</dt>
-                    <dd class="mt-1 font-black text-coursia-foreground">{{ formatCurrency(selectedCost) }}</dd>
-                  </div>
-                  <div class="rounded-xl bg-coursia-surface p-3">
-                    <dt class="text-xs font-bold text-coursia-muted">Relations</dt>
-                    <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRecipe.ingredients.length }} / {{ selectedRecipe.steps.length }}</dd>
-                  </div>
-                </dl>
-
-                <div class="mt-4 rounded-xl bg-coursia-surface p-3">
-                  <p class="text-xs font-bold text-coursia-muted">Source</p>
-                  <p class="mt-1 text-sm text-coursia-foreground">{{ selectedRecipe.source || 'Non renseignée' }}</p>
-                </div>
-
-                <div class="mt-4 rounded-xl border p-3" :class="selectedQualityIssues.length ? 'border-coursia-warning/30 bg-coursia-warning/10' : 'border-coursia-success/30 bg-coursia-success/10'">
-                  <p class="text-sm font-black text-coursia-foreground">
-                    {{ selectedQualityIssues.length ? 'Fiche incomplète' : 'Fiche complète' }}
-                  </p>
-                  <p class="mt-1 text-xs text-coursia-muted">
-                    {{ selectedQualityIssues.length ? selectedQualityIssues.join(', ') : 'La recette peut être envoyée en validation ou publiée.' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-4 grid gap-2">
-              <BaseButton type="button" @click="startEdit">Modifier</BaseButton>
-              <BaseButton type="button" variant="secondary" :disabled="actionPending === `submit-review:${selectedRecipe.id}` || selectedRecipe.status === 'review'" @click="runRecipeAction(selectedRecipe, 'submit-review')">
-                Envoyer en validation
-              </BaseButton>
-              <BaseButton type="button" variant="secondary" :disabled="actionPending === `publish:${selectedRecipe.id}` || selectedRecipe.status === 'published'" @click="runRecipeAction(selectedRecipe, 'publish')">
-                Publier
-              </BaseButton>
-              <BaseButton v-if="selectedRecipe.status === 'published'" type="button" variant="secondary" :disabled="actionPending === `unpublish:${selectedRecipe.id}`" @click="runRecipeAction(selectedRecipe, 'unpublish')">
-                Dépublier
-              </BaseButton>
-              <BaseButton type="button" variant="ghost" :disabled="actionPending === `duplicate:${selectedRecipe.id}`" @click="runRecipeAction(selectedRecipe, 'duplicate')">
-                Dupliquer en brouillon
-              </BaseButton>
-              <BaseButton type="button" variant="ghost" :disabled="actionPending === `archive:${selectedRecipe.id}` || selectedRecipe.status === 'archived'" @click="runRecipeAction(selectedRecipe, 'archive')">
-                Archiver
-              </BaseButton>
-              <BaseButton type="button" variant="ghost" :disabled="actionPending === `delete:${selectedRecipe.id}`" @click="deleteRecipe(selectedRecipe)">
-                Supprimer définitivement
-              </BaseButton>
-            </div>
-          </template>
+        <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 text-sm text-coursia-muted shadow-coursia-sm">
+          Sélectionne une recette ou crée un nouveau brouillon.
         </section>
       </aside>
     </div>
+
+    <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Éditeur structuré</p>
+          <h2 class="mt-1 text-xl font-black tracking-tight text-coursia-foreground">{{ editorTitle }}</h2>
+          <p class="mt-1 text-sm text-coursia-muted">Les données enregistrées ici sont transformées vers la table mobile `recettes`.</p>
+        </div>
+        <div class="flex gap-2">
+          <BaseButton type="button" variant="secondary" @click="closeEditor">
+            Fermer
+          </BaseButton>
+          <BaseButton type="button" :disabled="saving" @click="saveRecipe">
+            {{ primaryActionLabel }}
+          </BaseButton>
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-wrap gap-2 border-b border-coursia-border pb-3">
+        <button
+          v-for="tab in ['identity', 'ingredients', 'steps', 'quality'] as EditorTab[]"
+          :key="tab"
+          type="button"
+          class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black transition"
+          :class="editorTab === tab ? 'bg-coursia-primary text-white' : 'bg-coursia-surface-muted text-coursia-muted hover:text-coursia-foreground'"
+          @click="editorTab = tab"
+        >
+          {{ tabLabel[tab] }}
+        </button>
+      </div>
+
+      <form class="mt-4" @submit.prevent="saveRecipe">
+        <div v-if="editorTab === 'identity'" class="grid gap-4 lg:grid-cols-2">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Titre
+            <input v-model="form.title" required placeholder="One pot pasta aux légumes">
+          </label>
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Slug
+            <input v-model="form.slug" required placeholder="one-pot-pasta-legumes">
+          </label>
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Statut
+            <select v-model="form.status">
+              <option value="draft">Brouillon</option>
+              <option value="review">En validation</option>
+              <option value="published">Publiée</option>
+              <option value="archived">Archivée</option>
+            </select>
+          </label>
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Difficulté
+            <select v-model="form.difficulty">
+              <option value="easy">Facile</option>
+              <option value="medium">Moyenne</option>
+              <option value="hard">Difficile</option>
+            </select>
+          </label>
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Portions
+            <input v-model.number="form.portions" type="number" min="1" max="24">
+          </label>
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            Durée minutes
+            <input v-model.number="form.durationMinutes" type="number" min="1" max="1440">
+          </label>
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground lg:col-span-2">
+            Source
+            <input v-model="form.source" placeholder="Création Coursia, adaptation, auteur...">
+          </label>
+          <section class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 lg:col-span-2">
+            <h3 class="text-sm font-black text-coursia-foreground">Catégories</h3>
+            <div class="mt-3 flex gap-2">
+              <input v-model="categoryInput" placeholder="rapide, végétarien..." @keydown.enter.prevent="addCategory">
+              <BaseButton type="button" variant="secondary" @click="addCategory">Ajouter</BaseButton>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <BaseBadge v-for="category in form.categories" :key="category" tone="neutral">
+                <button type="button" class="cursor-pointer" @click="removeCategory(category)">{{ category }} ×</button>
+              </BaseBadge>
+              <span v-if="form.categories.length === 0" class="text-sm text-coursia-muted">Aucune catégorie.</span>
+            </div>
+          </section>
+        </div>
+
+        <div v-else-if="editorTab === 'ingredients'" class="grid gap-4">
+          <section class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_110px_100px_160px_120px]">
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Ingrédient canonique
+                <select v-model="ingredientDraft.ingredientId" @change="onIngredientChange">
+                  <option value="">Sélectionner</option>
+                  <option v-for="ingredient in ingredientCatalog" :key="ingredient.id" :value="ingredient.id">
+                    {{ ingredient.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Quantité
+                <input v-model.number="ingredientDraft.quantity" type="number" min="0.01" step="0.01">
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Unité
+                <select v-model="ingredientDraft.unit">
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                  <option value="ml">ml</option>
+                  <option value="l">l</option>
+                  <option value="piece">pièce</option>
+                  <option value="tbsp">cs</option>
+                  <option value="tsp">cc</option>
+                </select>
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Groupe
+                <input v-model="ingredientDraft.group">
+              </label>
+              <div class="flex items-end">
+                <BaseButton type="button" variant="secondary" @click="addIngredient">Ajouter</BaseButton>
+              </div>
+            </div>
+            <label class="mt-3 flex cursor-pointer items-center gap-2 text-sm font-semibold text-coursia-muted">
+              <input v-model="ingredientDraft.optional" type="checkbox" class="h-4 w-4 accent-coursia-primary">
+              Optionnel
+            </label>
+          </section>
+
+          <div class="grid gap-2">
+            <div
+              v-for="(ingredient, index) in form.ingredients"
+              :key="`${ingredient.ingredientId}-${index}`"
+              class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-coursia-border bg-coursia-surface p-3"
+            >
+              <div>
+                <p class="font-black text-coursia-foreground">{{ ingredient.name }}</p>
+                <p class="mt-1 text-xs text-coursia-muted">{{ ingredient.quantity }} {{ ingredient.unit }} · {{ ingredient.group }}{{ ingredient.optional ? ' · optionnel' : '' }}</p>
+              </div>
+              <div class="flex gap-1">
+                <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveIngredient(index, -1)">↑</button>
+                <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveIngredient(index, 1)">↓</button>
+                <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-danger hover:bg-coursia-danger/10" @click="removeIngredient(index)">Retirer</button>
+              </div>
+            </div>
+            <p v-if="form.ingredients.length === 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">Aucun ingrédient.</p>
+          </div>
+        </div>
+
+        <div v-else-if="editorTab === 'steps'" class="grid gap-4">
+          <section class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Nouvelle étape
+              <textarea v-model="stepInput" rows="3" placeholder="Décrire l’action de cuisine..." @keydown.ctrl.enter.prevent="addStep" />
+            </label>
+            <BaseButton class="mt-3" type="button" variant="secondary" @click="addStep">
+              Ajouter l’étape
+            </BaseButton>
+          </section>
+
+          <div class="grid gap-2">
+            <div v-for="(step, index) in form.steps" :key="`${step.order}-${index}`" class="rounded-2xl border border-coursia-border bg-coursia-surface p-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex gap-3">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-coursia-primary text-xs font-black text-white">{{ index + 1 }}</span>
+                  <p class="text-sm leading-6 text-coursia-foreground">{{ step.instruction }}</p>
+                </div>
+                <div class="flex shrink-0 gap-1">
+                  <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveStep(index, -1)">↑</button>
+                  <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveStep(index, 1)">↓</button>
+                  <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-danger hover:bg-coursia-danger/10" @click="removeStep(index)">Retirer</button>
+                </div>
+              </div>
+            </div>
+            <p v-if="form.steps.length === 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">Aucune étape.</p>
+          </div>
+        </div>
+
+        <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
+            <h3 class="text-sm font-black text-coursia-foreground">Nutrition</h3>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Calories
+                <input v-model.number="form.nutrition.calories" type="number" min="0">
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Protéines g
+                <input v-model.number="form.nutrition.proteinGrams" type="number" min="0">
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Glucides g
+                <input v-model.number="form.nutrition.carbsGrams" type="number" min="0">
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                Lipides g
+                <input v-model.number="form.nutrition.fatGrams" type="number" min="0">
+              </label>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
+            <h3 class="text-sm font-black text-coursia-foreground">Checklist publication</h3>
+            <div v-if="qualityIssues.length" class="mt-3 grid gap-2">
+              <div v-for="issue in qualityIssues" :key="issue.key" class="rounded-xl bg-coursia-danger/10 px-3 py-2 text-sm font-semibold text-coursia-danger">
+                {{ issue.label }}
+              </div>
+            </div>
+            <p v-else class="mt-3 rounded-xl bg-coursia-success/10 px-3 py-2 text-sm font-semibold text-coursia-success">
+              La recette est prête pour validation/publication.
+            </p>
+          </section>
+        </div>
+      </form>
+    </section>
   </section>
 </template>

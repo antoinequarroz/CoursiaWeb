@@ -52,7 +52,9 @@ const saving = ref(false)
 const renditionPreview = computed(() => buildRecipeMediaRenditions(form.fileName || 'recipe.webp'))
 const readableMaxSize = computed(() => `${Math.round(recipeMediaMaxBytes / 1024 / 1024)} Mo`)
 const selectedRecipe = computed(() => recipes.value.find((recipe) => recipe.id === form.recipeId) ?? null)
-const canUpload = computed(() => !!selectedFile.value && validationIssues.value.length === 0)
+const canUpload = computed(() => Boolean(selectedFile.value && validationIssues.value.length === 0))
+const formattedFileSize = computed(() => form.sizeBytes > 0 ? `${Math.round(form.sizeBytes / 1024)} Ko` : '—')
+const selectedMediaLabel = computed(() => selectedMediaId.value ? selectedMediaId.value.slice(0, 8) : 'Non importé')
 const cropPercent = computed(() => ({
   x: Math.round(form.crop.x * 100),
   y: Math.round(form.crop.y * 100),
@@ -248,14 +250,14 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
         <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-99</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-white">
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
           Photos de recettes
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085] dark:text-white/60">
-          Importe l’image réelle dans Supabase Storage, conserve les droits, puis publie uniquement le média validé.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Importe une image réelle dans Supabase Storage, vérifie les droits, puis publie uniquement le média validé.
         </p>
       </div>
 
@@ -264,188 +266,197 @@ onBeforeUnmount(() => {
       </BaseButton>
     </div>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Statut</p>
-        <div class="mt-3">
+    <div class="grid gap-3 md:grid-cols-4">
+      <article class="admin-stat-card">
+        <span>Statut</span>
+        <strong class="text-base">
           <BaseBadge :tone="statusTone(form.status)">{{ form.status }}</BaseBadge>
-        </div>
-        <p class="mt-3 text-xs text-[#667085] dark:text-white/50">média courant</p>
+        </strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Dimensions</p>
-        <p class="mt-3 text-2xl font-semibold text-[#101828] dark:text-white">{{ form.width }}×{{ form.height }}</p>
-        <p class="mt-1 text-xs text-[#667085] dark:text-white/50">lues depuis le fichier</p>
+      <article class="admin-stat-card">
+        <span>Dimensions</span>
+        <strong>{{ form.width }}×{{ form.height }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Renditions</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828] dark:text-white">{{ recipeMediaRenditions.length }}</p>
-        <p class="mt-1 text-xs text-[#667085] dark:text-white/50">mobile, web, social</p>
+      <article class="admin-stat-card">
+        <span>Renditions</span>
+        <strong>{{ recipeMediaRenditions.length }}</strong>
       </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085] dark:text-white/50">Orphelins</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828] dark:text-white">{{ orphanAssets.length }}</p>
-        <p class="mt-1 text-xs text-[#667085] dark:text-white/50">à vérifier</p>
+      <article class="admin-stat-card">
+        <span>Orphelins</span>
+        <strong class="text-coursia-warning">{{ orphanAssets.length }}</strong>
       </article>
     </div>
 
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
+    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
+    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
       {{ errorMessage }}
     </p>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)] dark:border-white/10 dark:bg-white/5" @submit.prevent="uploadMedia()">
-        <div class="flex items-start justify-between gap-3">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
+      <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm" @submit.prevent="uploadMedia()">
+        <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Validation privée</p>
-            <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-white">Image et métadonnées</h2>
+            <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Validation privée</p>
+            <h2 class="mt-1 text-lg font-black text-coursia-foreground">Image et métadonnées</h2>
+            <p class="mt-2 text-sm text-coursia-muted">
+              Le fichier reste privé tant que les droits et l’accessibilité ne sont pas validés.
+            </p>
           </div>
-          <BaseBadge tone="neutral">{{ selectedMediaId || 'Non importé' }}</BaseBadge>
+          <BaseBadge tone="neutral">{{ selectedMediaLabel }}</BaseBadge>
         </div>
 
-        <label class="mt-5 grid cursor-pointer gap-2 rounded-2xl border border-dashed border-[#cfc7b8] bg-[#fbfaf7] p-5 text-sm text-[#344054] transition hover:border-coursia-primary dark:border-white/15 dark:bg-white/5 dark:text-white/70">
-          <span class="font-semibold text-[#101828] dark:text-white">Importer une photo</span>
-          <span>JPEG, PNG ou WebP. Maximum {{ readableMaxSize }}. Les dimensions sont lues automatiquement.</span>
+        <label class="mt-4 grid cursor-pointer gap-2 rounded-2xl border border-dashed border-coursia-border bg-coursia-surface-muted p-5 text-sm text-coursia-muted transition hover:border-coursia-primary">
+          <span class="font-black text-coursia-foreground">Importer une photo</span>
+          <span>JPEG, PNG ou WebP. Maximum {{ readableMaxSize }}. Dimensions lues automatiquement.</span>
           <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" @change="onFileSelected">
-          <span v-if="selectedFile" class="mt-1 break-all text-xs text-coursia-primary">{{ selectedFile.name }}</span>
+          <span v-if="selectedFile" class="mt-1 break-all text-xs font-bold text-coursia-primary">{{ selectedFile.name }}</span>
         </label>
 
-        <div class="mt-5 grid gap-4 md:grid-cols-2">
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70 md:col-span-2">
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground md:col-span-2">
             Recette
-            <select
-              v-model="form.recipeId"
-              :disabled="loadingRecipes"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white"
-            >
+            <select v-model="form.recipeId" :disabled="loadingRecipes">
               <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
               <option v-for="recipe in recipes" :key="recipe.id" :value="recipe.id">
                 {{ recipe.title || 'Recette sans titre' }} · {{ recipe.slug }}
               </option>
             </select>
-            <span v-if="selectedRecipe" class="truncate text-[11px] font-medium text-[#667085] dark:text-white/50">{{ selectedRecipe.id }}</span>
+            <span v-if="selectedRecipe" class="truncate text-xs font-medium text-coursia-muted">{{ selectedRecipe.id }}</span>
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
             Nom de fichier
-            <input v-model="form.fileName" required readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
+            <input v-model="form.fileName" required readonly>
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
             Type
-            <input v-model="form.mimeType" readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
+            <input v-model="form.mimeType" readonly>
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
             Taille
-            <input :value="`${Math.round(form.sizeBytes / 1024)} Ko`" readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
+            <input :value="formattedFileSize" readonly>
           </label>
-          <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-white/70">
+          <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
             Dimensions
-            <input :value="`${form.width} × ${form.height}`" readonly class="rounded-xl border border-[#e6e1d8] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white">
+            <input :value="`${form.width} × ${form.height}`" readonly>
           </label>
         </div>
 
-        <section class="mt-5 rounded-2xl bg-[#fbfaf7] p-4 dark:bg-white/5">
-          <h3 class="text-sm font-semibold text-[#101828] dark:text-white">Recadrage</h3>
+        <section class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
+          <h3 class="text-sm font-black text-coursia-foreground">Recadrage</h3>
           <div class="mt-3 grid grid-cols-4 gap-2">
-            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">X<input v-model.number="form.crop.x" type="number" min="0" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
-            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">Y<input v-model.number="form.crop.y" type="number" min="0" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
-            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">L<input v-model.number="form.crop.width" type="number" min="0.01" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
-            <label class="grid gap-1 text-xs text-[#667085] dark:text-white/50">H<input v-model.number="form.crop.height" type="number" min="0.01" max="1" step="0.01" class="rounded-xl border border-[#e6e1d8] bg-white px-2 py-2 text-sm dark:border-white/10 dark:bg-[#101827] dark:text-white"></label>
+            <label class="grid gap-1 text-xs font-bold text-coursia-muted">
+              X
+              <input v-model.number="form.crop.x" type="number" min="0" max="1" step="0.01">
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-coursia-muted">
+              Y
+              <input v-model.number="form.crop.y" type="number" min="0" max="1" step="0.01">
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-coursia-muted">
+              L
+              <input v-model.number="form.crop.width" type="number" min="0.01" max="1" step="0.01">
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-coursia-muted">
+              H
+              <input v-model.number="form.crop.height" type="number" min="0.01" max="1" step="0.01">
+            </label>
           </div>
-          <p class="mt-3 text-xs text-[#667085] dark:text-white/50">
+          <p class="mt-3 text-xs text-coursia-muted">
             Zone : {{ cropPercent.x }}%, {{ cropPercent.y }}%, {{ cropPercent.width }}% × {{ cropPercent.height }}%.
           </p>
         </section>
 
-        <section class="mt-5 rounded-2xl border border-[#e6e1d8] p-4 dark:border-white/10">
-          <h3 class="text-sm font-semibold text-[#101828] dark:text-white">Droits et accessibilité</h3>
+        <section class="mt-4 rounded-2xl border border-coursia-border p-4">
+          <h3 class="text-sm font-black text-coursia-foreground">Droits et accessibilité</h3>
           <div class="mt-3 grid gap-3">
-            <input v-model="form.rights.author" required placeholder="Auteur" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
-            <input v-model="form.rights.source" required placeholder="Source" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
-            <input v-model="form.rights.license" required placeholder="Licence" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
-            <label class="flex cursor-pointer items-center gap-3 text-sm text-[#344054] dark:text-white/70">
-              <input v-model="form.rights.consentConfirmed" required type="checkbox">
+            <input v-model="form.rights.author" required placeholder="Auteur">
+            <input v-model="form.rights.source" required placeholder="Source">
+            <input v-model="form.rights.license" required placeholder="Licence">
+            <label class="flex cursor-pointer items-center gap-3 text-sm font-semibold text-coursia-foreground">
+              <input v-model="form.rights.consentConfirmed" required type="checkbox" class="h-4 w-4 accent-coursia-primary">
               Consentement confirmé
             </label>
-            <input v-model="form.altText" placeholder="Texte alternatif avant publication" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary dark:border-white/10 dark:bg-[#101827] dark:text-white">
+            <input v-model="form.altText" placeholder="Texte alternatif avant publication">
           </div>
         </section>
 
-        <div v-if="validationIssues.length" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-xs text-coursia-danger">
+        <div v-if="validationIssues.length" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-xs font-semibold text-coursia-danger">
           <p v-for="issue in validationIssues" :key="issue">{{ issue }}</p>
         </div>
 
-        <div class="mt-5 flex flex-wrap gap-2">
+        <div class="mt-4 flex flex-wrap gap-2 border-t border-coursia-border pt-4">
           <BaseButton type="submit" :disabled="saving || !canUpload">
             {{ saving ? 'Import...' : 'Importer dans Storage' }}
           </BaseButton>
           <BaseButton type="button" variant="secondary" @click="publishMedia">Publier</BaseButton>
-          <BaseButton type="button" variant="ghost" @click="replaceMedia">Remplacer par ce fichier</BaseButton>
+          <BaseButton type="button" variant="ghost" @click="replaceMedia">Remplacer</BaseButton>
         </div>
       </form>
 
-      <aside class="grid gap-5">
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-white">Aperçu média</h2>
-          <div class="mt-4 overflow-hidden rounded-2xl bg-[#fbfaf7] dark:bg-white/5">
+      <aside class="grid gap-4">
+        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <h2 class="text-base font-black text-coursia-foreground">Aperçu média</h2>
+          <div class="mt-4 overflow-hidden rounded-2xl bg-coursia-surface-muted">
             <img
               v-if="previewUrl"
               :src="previewUrl"
               :alt="form.altText || 'Aperçu du média recette'"
               class="aspect-[4/3] w-full object-cover"
             >
-            <div v-else class="grid aspect-[4/3] place-items-center bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.20),transparent_30%),linear-gradient(135deg,#fff7ed,#eef7f2)] text-sm text-[#667085] dark:text-white/50">
+            <div v-else class="grid aspect-[4/3] place-items-center bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.18),transparent_30%),linear-gradient(135deg,#fff7ed,#eef7f2)] text-sm text-coursia-muted dark:bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.18),transparent_30%),linear-gradient(135deg,#17231f,#111827)]">
               Aucun fichier sélectionné
             </div>
           </div>
-          <p class="mt-3 text-xs text-[#667085] dark:text-white/50">
-            Le fichier est d’abord privé, puis copié dans le bucket public lors de la publication.
+          <p class="mt-3 text-xs leading-5 text-coursia-muted">
+            Publication = copie vers le bucket public avec texte alternatif obligatoire.
           </p>
         </article>
 
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 dark:border-white/10 dark:bg-white/5">
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-white">Renditions prévues</h2>
+        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <h2 class="text-base font-black text-coursia-foreground">Renditions prévues</h2>
           <div class="mt-4 grid gap-3">
-            <div v-for="rendition in renditionPreview" :key="rendition.name" class="rounded-2xl bg-[#fbfaf7] p-4 dark:bg-white/5">
+            <div v-for="rendition in renditionPreview" :key="rendition.name" class="rounded-2xl bg-coursia-surface-muted p-3">
               <div class="flex items-center justify-between gap-3">
-                <span class="font-semibold text-[#101828] dark:text-white">{{ rendition.name }}</span>
+                <span class="font-black text-coursia-foreground">{{ rendition.name }}</span>
                 <BaseBadge tone="neutral">{{ rendition.width }}×{{ rendition.height }}</BaseBadge>
               </div>
-              <p class="mt-2 break-all text-xs text-[#667085] dark:text-white/50">{{ rendition.path }}</p>
+              <p class="mt-2 break-all text-xs text-coursia-muted">{{ rendition.path }}</p>
             </div>
           </div>
         </article>
       </aside>
     </div>
 
-    <section class="admin-table mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white dark:border-white/10 dark:bg-white/5">
-      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4 dark:border-white/10">
+    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-4 py-3 md:flex-row md:items-center">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-white">Fichiers orphelins</h2>
-          <p class="mt-1 text-xs text-[#667085] dark:text-white/50">Fichiers sans recette ou marqués orphelins avant nettoyage.</p>
+          <h2 class="text-base font-black text-coursia-foreground">Fichiers orphelins</h2>
+          <p class="mt-1 text-xs text-coursia-muted">Fichiers sans recette ou marqués orphelins avant nettoyage.</p>
         </div>
         <BaseBadge tone="warning">{{ orphanAssets.length }}</BaseBadge>
       </div>
 
-      <div v-if="orphanAssets.length === 0" class="p-5 text-sm text-[#667085] dark:text-white/50">
+      <div v-if="orphanAssets.length === 0" class="p-5 text-sm text-coursia-muted">
         Aucun fichier orphelin chargé.
       </div>
       <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#eee8df] text-sm dark:divide-white/10">
-          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085] dark:bg-white/5 dark:text-white/50">
+        <table class="min-w-[48rem]">
+          <thead>
             <tr>
-              <th class="px-5 py-3">Chemin privé</th>
-              <th class="px-5 py-3">Recette</th>
-              <th class="px-5 py-3">Statut</th>
+              <th>Chemin privé</th>
+              <th>Recette</th>
+              <th>Statut</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#eee8df] dark:divide-white/10">
-            <tr v-for="asset in orphanAssets" :key="String(asset.id)" class="transition hover:bg-[#fbfaf7] dark:hover:bg-white/5">
-              <td class="px-5 py-4 font-medium text-[#101828] dark:text-white">{{ asset.private_path || asset.path || asset.id }}</td>
-              <td class="px-5 py-4 text-[#667085] dark:text-white/50">{{ asset.recipe_id || '—' }}</td>
-              <td class="px-5 py-4"><BaseBadge tone="warning">{{ asset.status || 'orphaned' }}</BaseBadge></td>
+          <tbody>
+            <tr v-for="asset in orphanAssets" :key="String(asset.id)">
+              <td class="font-semibold text-coursia-foreground">{{ asset.private_path || asset.path || asset.id }}</td>
+              <td class="text-sm text-coursia-muted">{{ asset.recipe_id || '—' }}</td>
+              <td>
+                <BaseBadge tone="warning">{{ asset.status || 'orphaned' }}</BaseBadge>
+              </td>
             </tr>
           </tbody>
         </table>

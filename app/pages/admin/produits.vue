@@ -29,6 +29,9 @@ type ProductRow = {
   offer_count?: number
   active_offer_count?: number
   offers?: ProductOffer[]
+  offer?: {
+    id?: string
+  }
   mobile?: {
     table?: string
     aisle?: string | null
@@ -65,6 +68,14 @@ const filters = reactive({
 })
 
 const form = reactive<ProductInput>(createEmptyForm())
+const firstPrice = reactive({
+  enabled: true,
+  amountChf: 0,
+  unitPriceChf: undefined as number | undefined,
+  promotionLabel: '',
+  source: 'saisie_manuelle',
+  collectedAt: new Date().toISOString(),
+})
 const products = ref<ProductRow[]>([])
 const retailers = ref<RetailerRow[]>([])
 const selectedProduct = ref<ProductRow | null>(null)
@@ -121,6 +132,14 @@ const formatDate = (value: string | null | undefined) =>
 const resetForm = () => {
   Object.assign(form, createEmptyForm())
   form.retailerId = filters.retailerId || retailers.value[0]?.id || ''
+  Object.assign(firstPrice, {
+    enabled: true,
+    amountChf: 0,
+    unitPriceChf: undefined,
+    promotionLabel: '',
+    source: 'saisie_manuelle',
+    collectedAt: new Date().toISOString(),
+  })
 }
 
 const loadRetailers = async () => {
@@ -214,8 +233,32 @@ const saveProduct = async () => {
     const endpoint = editingProductId.value ? `/api/admin/products/${editingProductId.value}` : '/api/admin/products'
     const method = editingProductId.value ? 'PUT' : 'POST'
     const response = await $fetch<{ data: ProductRow }>(endpoint, { method, body: form })
+    const createdOfferId = response.data.offer?.id ?? response.data.offers?.[0]?.id
 
-    feedback.value = editingProductId.value ? 'Produit et offre magasin mis à jour.' : 'Produit et offre magasin créés.'
+    if (!editingProductId.value && firstPrice.enabled && firstPrice.amountChf > 0) {
+      if (!createdOfferId) {
+        throw new Error('Produit créé, mais aucune offre magasin retournée pour enregistrer le prix.')
+      }
+
+      await $fetch('/api/admin/prices', {
+        method: 'POST',
+        body: {
+          productId: createdOfferId,
+          retailerId: form.retailerId,
+          amountChf: firstPrice.amountChf,
+          unitPriceChf: firstPrice.unitPriceChf || undefined,
+          promotionLabel: firstPrice.promotionLabel || undefined,
+          source: firstPrice.source,
+          collectedAt: firstPrice.collectedAt,
+        },
+      })
+    }
+
+    feedback.value = editingProductId.value
+      ? 'Produit et offre magasin mis à jour.'
+      : firstPrice.enabled && firstPrice.amountChf > 0
+        ? 'Produit, offre magasin et premier prix créés.'
+        : 'Produit et offre magasin créés.'
     selectedProduct.value = response.data
     editorOpen.value = false
     editingProductId.value = null
@@ -453,11 +496,50 @@ onMounted(async () => {
               <input v-model="form.source" required placeholder="saisie_admin, coop.ch..." />
             </label>
 
+            <div v-if="!editingProductId" class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <label class="flex cursor-pointer items-start gap-3 text-sm font-bold text-coursia-foreground">
+                <input v-model="firstPrice.enabled" type="checkbox" class="mt-1 h-4 w-4 accent-coursia-primary" />
+                <span>
+                  Ajouter directement le premier prix
+                  <span class="mt-1 block text-xs font-medium leading-5 text-coursia-muted">
+                    Recommandé pour avoir une offre immédiatement exploitable par le comparateur mobile.
+                  </span>
+                </span>
+              </label>
+
+              <div v-if="firstPrice.enabled" class="mt-3 grid gap-3">
+                <div class="grid grid-cols-2 gap-2">
+                  <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                    Prix CHF
+                    <input v-model.number="firstPrice.amountChf" type="number" min="0" step="0.01" placeholder="2.40" />
+                  </label>
+                  <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                    Prix unitaire
+                    <input v-model.number="firstPrice.unitPriceChf" type="number" min="0" step="0.01" placeholder="optionnel" />
+                  </label>
+                </div>
+                <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                  Promotion
+                  <input v-model="firstPrice.promotionLabel" placeholder="Action 20%, 2 pour 1..." />
+                </label>
+                <div class="grid grid-cols-[1fr_1.1fr] gap-2">
+                  <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                    Source prix
+                    <input v-model="firstPrice.source" required />
+                  </label>
+                  <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+                    Collecte
+                    <input v-model="firstPrice.collectedAt" required />
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
               <p class="text-sm font-black text-coursia-foreground">Impact mobile</p>
               <p class="mt-1 text-xs leading-5 text-coursia-muted">
                 La sauvegarde crée ou met à jour le produit canonique et son offre magasin pour l’enseigne sélectionnée.
-                Les prix se saisissent ensuite dans l’onglet Prix.
+                Si un prix est renseigné, il est historisé dans la table mobile des prix.
               </p>
             </div>
 

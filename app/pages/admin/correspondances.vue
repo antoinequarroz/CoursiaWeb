@@ -419,28 +419,20 @@ onMounted(async () => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-103 · matching
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-[#f7fbf8]">
-          Correspondances ingrédients-produits
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
-          Relie les ingrédients des recettes aux offres magasin. Une correspondance confirmée alimente les paniers et la comparaison mobile.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-103 · matching"
+      title="Correspondances ingrédients-produits"
+      description="Relie les ingrédients des recettes aux offres magasin. Une correspondance confirmée alimente les paniers et la comparaison mobile."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadMatches">
           {{ loading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
         <BaseButton type="button" variant="secondary" @click="loadUnmatched">
           Ingrédients sans produit
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-4 md:grid-cols-4">
       <article class="admin-stat-card">
@@ -522,20 +514,21 @@ onMounted(async () => {
           Chargement des correspondances...
         </div>
 
-        <div v-else-if="matches.length === 0" class="grid place-items-center p-10 text-center">
-          <div class="max-w-sm">
-            <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">Aucune correspondance</p>
-            <p class="mt-2 text-sm text-[#667085] dark:text-[#a8b8ad]">
-              Crée d’abord des produits/offres magasin, puis relie-les à des ingrédients.
-            </p>
+        <AdminEmptyState
+          v-else-if="matches.length === 0"
+          icon="matching"
+          title="Aucune correspondance"
+          description="Crée d’abord des produits/offres magasin, puis relie-les à des ingrédients."
+        >
+          <template #actions>
             <NuxtLink
-              class="mt-4 inline-flex cursor-pointer rounded-coursia-md border border-[#e6e1d8] bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-[#344054] transition hover:bg-[#f7f4ed] dark:border-white/10 dark:bg-white/5 dark:text-[#dbe7df] dark:hover:bg-white/10"
+              class="inline-flex cursor-pointer rounded-coursia-md border border-[#e6e1d8] bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-[#344054] transition hover:bg-[#f7f4ed] dark:border-white/10 dark:bg-white/5 dark:text-[#dbe7df] dark:hover:bg-white/10"
               to="/admin/produits"
             >
               Aller aux produits
             </NuxtLink>
-          </div>
-        </div>
+          </template>
+        </AdminEmptyState>
 
         <div v-else class="grid gap-2 p-4">
           <button

@@ -347,26 +347,20 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-106 · CMS</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-coursia-text">
-          Contenus administrables
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          FAQ, textes marketing, liens et annonces modifiables sans redéploiement. Les secrets et paramètres techniques restent hors module.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-106 · CMS"
+      title="Contenus administrables"
+      description="FAQ, textes marketing, liens et annonces modifiables sans redéploiement. Les secrets et paramètres techniques restent hors module."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" @click="resetForm">
           Nouveau contenu
         </BaseButton>
         <BaseButton type="button" :disabled="isLoading" @click="loadContents">
           {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="loadContents">
       <div class="grid gap-3 lg:grid-cols-[12rem_12rem_minmax(0,1fr)_10rem_auto]">
@@ -460,7 +454,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contenus...</div>
-        <div v-else-if="contents.length === 0" class="p-5 text-sm text-coursia-muted">Aucun contenu trouvé.</div>
+        <AdminEmptyState
+          v-else-if="contents.length === 0"
+          icon="content"
+          title="Aucun contenu trouvé"
+          description="Crée un premier contenu administrable pour alimenter le site ou l’application."
+        />
 
         <div v-else class="overflow-x-auto">
           <table>

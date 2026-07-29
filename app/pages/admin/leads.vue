@@ -228,27 +228,18 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-92 · acquisition
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Leads publics
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Suivi des messages de contact et des inscriptions à la liste d’attente. Les contacts peuvent être
-          qualifiés, annotés et archivés; la waitlist reste en lecture contrôlée.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-92 · acquisition"
+      title="Leads publics"
+      description="Suivi des messages de contact et des inscriptions à la liste d’attente. Les contacts peuvent être qualifiés, annotés et archivés; la waitlist reste en lecture contrôlée."
+    >
+      <template #actions>
         <BaseBadge tone="neutral">{{ latestLeadDate }}</BaseBadge>
         <BaseButton type="button" :disabled="isLoading" @click="loadLeads">
           {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <form class="admin-toolbar grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_10rem_auto]" @submit.prevent="loadLeads">
       <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
@@ -345,7 +336,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contacts...</div>
-        <div v-else-if="contacts.length <= 0" class="p-5 text-sm text-coursia-muted">Aucun contact trouvé.</div>
+        <AdminEmptyState
+          v-else-if="contacts.length <= 0"
+          icon="users"
+          title="Aucun contact trouvé"
+          description="Les messages validés depuis le site public apparaîtront ici."
+        />
 
         <div v-else class="overflow-x-auto">
           <table class="min-w-full text-sm">
@@ -519,7 +515,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la liste d’attente...</div>
-        <div v-else-if="waitlist.length <= 0" class="p-5 text-sm text-coursia-muted">Aucune inscription trouvée.</div>
+        <AdminEmptyState
+          v-else-if="waitlist.length <= 0"
+          icon="users"
+          title="Aucune inscription trouvée"
+          description="Les inscriptions à la liste d’attente apparaîtront ici."
+        />
 
         <div v-else class="overflow-x-auto">
           <table class="min-w-full text-sm">

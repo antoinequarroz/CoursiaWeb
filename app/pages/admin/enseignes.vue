@@ -208,29 +208,20 @@ onMounted(loadRetailers)
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-102 · comparateur
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828] dark:text-[#f7fbf8]">
-          Enseignes
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-[#667085] dark:text-[#a8b8ad]">
-          Référentiel des magasins utilisés par les offres, les prix et les paniers de l’application mobile.
-          Un code stable évite de casser les imports et les correspondances produits.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-102 · comparateur"
+      title="Enseignes"
+      description="Référentiel des magasins utilisés par les offres, les prix et les paniers de l’application mobile. Un code stable évite de casser les imports et les correspondances produits."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadRetailers">
           {{ loading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
         <BaseButton type="button" @click="startCreate">
           Nouvelle enseigne
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-4 md:grid-cols-5">
       <article class="admin-stat-card">
@@ -292,15 +283,16 @@ onMounted(loadRetailers)
           Chargement des enseignes...
         </div>
 
-        <div v-else-if="retailers.length === 0" class="grid place-items-center p-10 text-center">
-          <div class="max-w-sm">
-            <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">Aucune enseigne trouvée</p>
-            <p class="mt-2 text-sm text-[#667085] dark:text-[#a8b8ad]">
-              Crée la première enseigne avant d’ajouter des produits et des prix.
-            </p>
+        <AdminEmptyState
+          v-else-if="retailers.length === 0"
+          icon="retailers"
+          title="Aucune enseigne trouvée"
+          description="Crée la première enseigne avant d’ajouter des produits et des prix."
+        >
+          <template #actions>
             <BaseButton class="mt-4" type="button" @click="startCreate">Créer une enseigne</BaseButton>
-          </div>
-        </div>
+          </template>
+        </AdminEmptyState>
 
         <div v-else class="grid gap-2 p-4">
           <button

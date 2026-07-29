@@ -6,10 +6,52 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, canonicalIngredientListQuerySchema.parse)
   const supabase = createSupabaseServiceRoleClient()
+
+  let ingredientIdsMatchingAllergen: string[] | null = null
+
+  if (query.allergen) {
+    const { data: allergen, error: allergenError } = await mobileTable(supabase, 'allergenes')
+      .select('id')
+      .eq('code', query.allergen)
+      .maybeSingle()
+
+    if (allergenError) {
+      throwApiError('UPSTREAM_ERROR', 'Impossible de charger l allergene demande.')
+    }
+
+    const allergenId = typeof allergen === 'object' && allergen && 'id' in allergen
+      ? String((allergen as Record<string, unknown>).id)
+      : ''
+
+    if (!allergenId) {
+      return { data: [] }
+    }
+
+    const { data: links, error: linksError } = await mobileTable(supabase, 'ingredient_allergenes')
+      .select('ingredient_id')
+      .eq('allergene_id', allergenId)
+
+    if (linksError) {
+      throwApiError('UPSTREAM_ERROR', 'Impossible de filtrer les ingredients par allergene.')
+    }
+
+    ingredientIdsMatchingAllergen = Array.isArray(links)
+      ? links.map((link) => String((link as Record<string, unknown>).ingredient_id)).filter(Boolean)
+      : []
+
+    if (ingredientIdsMatchingAllergen.length === 0) {
+      return { data: [] }
+    }
+  }
+
   let request = mobileTable(supabase, 'ingredients')
     .select('*')
     .order('nom', { ascending: true })
     .limit(query.limit)
+
+  if (ingredientIdsMatchingAllergen) {
+    request = request.in('id', ingredientIdsMatchingAllergen)
+  }
 
   if (query.search) {
     request = request.or(`nom.ilike.%${query.search}%,rayon.ilike.%${query.search}%`)

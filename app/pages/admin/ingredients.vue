@@ -7,6 +7,7 @@ definePageMeta({
 
 type IngredientUnit = CanonicalIngredientInput['units'][number]
 type IngredientStatus = 'active' | 'archived'
+type AllergenCode = CanonicalIngredientInput['allergens'][number]
 
 type LinkedAllergen = {
   code: string
@@ -65,10 +66,25 @@ const categoryOptions = [
   'Hygiene',
 ]
 
+const allergenOptions: Array<{ value: AllergenCode, label: string }> = [
+  { value: 'gluten', label: 'Gluten' },
+  { value: 'milk', label: 'Lait' },
+  { value: 'eggs', label: 'Œufs' },
+  { value: 'peanuts', label: 'Arachides' },
+  { value: 'nuts', label: 'Fruits à coque' },
+  { value: 'soy', label: 'Soja' },
+  { value: 'fish', label: 'Poisson' },
+  { value: 'shellfish', label: 'Crustacés' },
+  { value: 'sesame', label: 'Sésame' },
+]
+
+const route = useRoute()
+
 const filters = reactive({
   search: '',
   status: '',
   category: '',
+  allergen: '',
 })
 
 const ingredients = ref<IngredientRow[]>([])
@@ -93,6 +109,7 @@ const ingredientQuery = computed(() => {
 
   if (filters.search.trim()) query.search = filters.search.trim()
   if (filters.status) query.status = filters.status
+  if (filters.allergen) query.allergen = filters.allergen
 
   return query
 })
@@ -117,7 +134,7 @@ const selectedAllergens = computed(() => selectedIngredient.value?.linked_allerg
 const selectedUsageCount = computed(() => selectedIngredient.value?.usage_count ?? 0)
 
 const activeFilterCount = computed(() =>
-  [filters.search.trim(), filters.status, filters.category].filter(Boolean).length,
+  [filters.search.trim(), filters.status, filters.category, filters.allergen].filter(Boolean).length,
 )
 
 const statusLabel: Record<IngredientStatus, string> = {
@@ -286,6 +303,7 @@ const clearFilters = async () => {
   filters.search = ''
   filters.status = ''
   filters.category = ''
+  filters.allergen = ''
   await loadIngredients()
 }
 
@@ -298,7 +316,13 @@ watch(
   },
 )
 
-onMounted(loadIngredients)
+onMounted(() => {
+  if (typeof route.query.allergen === 'string') {
+    filters.allergen = route.query.allergen
+  }
+
+  void loadIngredients()
+})
 </script>
 
 <template>
@@ -343,7 +367,7 @@ onMounted(loadIngredients)
       </article>
     </div>
 
-    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.8fr_auto]" @submit.prevent="loadIngredients">
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr_auto]" @submit.prevent="loadIngredients">
       <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
         Recherche
         <input v-model="filters.search" type="search" placeholder="Nom ou rayon..." />
@@ -354,6 +378,15 @@ onMounted(loadIngredients)
           <option value="">Tous</option>
           <option v-for="category in categoryOptions" :key="category" :value="category">
             {{ category }}
+          </option>
+        </select>
+      </label>
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        Allergène
+        <select v-model="filters.allergen">
+          <option value="">Tous</option>
+          <option v-for="allergen in allergenOptions" :key="allergen.value" :value="allergen.value">
+            {{ allergen.label }}
           </option>
         </select>
       </label>

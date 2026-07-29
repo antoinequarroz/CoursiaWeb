@@ -303,28 +303,20 @@ onMounted(async () => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-101 · Workflow recettes
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Publication des recettes
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Contrôler les champs bloquants, comparer le rendu mobile/web et appliquer les transitions réellement utilisées par l’application.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-101 · Workflow recettes"
+      title="Publication des recettes"
+      description="Contrôler les champs bloquants, comparer le rendu mobile/web et appliquer les transitions réellement utilisées par l’application."
+    >
+      <template #actions>
         <BaseBadge :tone="statusTone(loadedStatus)">
           {{ currentStatusLabel }}
         </BaseBadge>
         <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId" @click="loadPreview">
           {{ loading ? 'Chargement…' : 'Actualiser l’aperçu' }}
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <p
       v-if="feedback"
@@ -379,14 +371,13 @@ onMounted(async () => {
 
     <div class="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
       <aside class="grid gap-4">
-        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold text-coursia-text">Cycle de publication</h2>
-              <p class="mt-1 text-xs text-coursia-muted">Le statut officiel pilote la visibilité mobile/web.</p>
-            </div>
+        <AdminPanel
+          title="Cycle de publication"
+          description="Le statut officiel pilote la visibilité mobile/web."
+        >
+          <template #actions>
             <BaseBadge tone="neutral">statut</BaseBadge>
-          </div>
+          </template>
 
           <div class="mt-4 grid gap-2">
             <div
@@ -409,10 +400,9 @@ onMounted(async () => {
               </div>
             </div>
           </div>
-        </section>
+        </AdminPanel>
 
-        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <h2 class="text-base font-semibold text-coursia-text">Actions réelles</h2>
+        <AdminPanel title="Actions réelles">
           <div class="mt-4 grid gap-2">
             <BaseButton
               type="button"
@@ -449,22 +439,19 @@ onMounted(async () => {
           <p class="mt-4 rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
             {{ unpublishBehaviorMessage }}
           </p>
-        </section>
+        </AdminPanel>
       </aside>
 
       <section class="grid gap-4">
-        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold text-coursia-text">Checklist bloquante</h2>
-              <p class="mt-1 text-xs text-coursia-muted">
-                La publication reste désactivée tant que cette liste n’est pas vide.
-              </p>
-            </div>
+        <AdminPanel
+          title="Checklist bloquante"
+          description="La publication reste désactivée tant que cette liste n’est pas vide."
+        >
+          <template #actions>
             <BaseBadge :tone="!isPreviewLoaded ? 'neutral' : blockingCount === 0 ? 'success' : 'danger'">
               {{ readinessLabel }}
             </BaseBadge>
-          </div>
+          </template>
 
           <div v-if="!isPreviewLoaded" class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
             Charge l’aperçu pour calculer les champs bloquants depuis les données réelles.
@@ -481,7 +468,7 @@ onMounted(async () => {
           <div v-else class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-4 text-sm font-semibold text-coursia-success">
             Aucun champ bloquant détecté pour l’aperçu chargé.
           </div>
-        </article>
+        </AdminPanel>
 
         <div class="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
           <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">

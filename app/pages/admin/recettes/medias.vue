@@ -361,28 +361,20 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-99 · Supabase Storage
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Médias de recettes
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Importer, valider, publier et nettoyer les images utilisées par les fiches recettes web et mobile.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-99 · Supabase Storage"
+      title="Médias de recettes"
+      description="Importer, valider, publier et nettoyer les images utilisées par les fiches recettes web et mobile."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadOrphans">
           {{ loading ? 'Chargement…' : 'Contrôler les orphelins' }}
         </BaseButton>
         <BaseButton type="button" variant="ghost" @click="resetWorkspace">
           Réinitialiser
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-3 md:grid-cols-4">
       <article v-for="stat in mediaStats" :key="stat.label" class="admin-stat-card">
@@ -604,32 +596,27 @@ onBeforeUnmount(() => {
       </aside>
     </div>
 
-    <section class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-      <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-4 py-3 md:flex-row md:items-center">
-        <div>
-          <h2 class="text-base font-semibold text-coursia-text">Fichiers orphelins</h2>
-          <p class="mt-1 text-xs text-coursia-muted">
-            Médias sans recette ou marqués orphelins. Ils ne doivent pas alimenter l’application.
-          </p>
-        </div>
+    <AdminPanel
+      title="Fichiers orphelins"
+      description="Médias sans recette ou marqués orphelins. Ils ne doivent pas alimenter l’application."
+      :padded="false"
+    >
+      <template #actions>
         <BaseBadge :tone="orphanAssets.length > 0 ? 'warning' : 'success'">
           {{ loading ? 'Chargement' : `${orphanAssets.length} fichier(s)` }}
         </BaseBadge>
-      </div>
+      </template>
 
       <div v-if="loading" class="p-5 text-sm text-coursia-muted">
         Chargement des fichiers orphelins…
       </div>
-      <div v-else-if="orphanAssets.length === 0" class="grid place-items-center p-10 text-center">
-        <div class="max-w-sm">
-          <p class="font-semibold text-coursia-text">Aucun fichier orphelin</p>
-          <p class="mt-2 text-sm text-coursia-muted">
-            Le stockage est propre pour le périmètre actuellement contrôlé.
-          </p>
-        </div>
-      </div>
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-[54rem]">
+      <AdminEmptyState
+        v-else-if="orphanAssets.length === 0"
+        icon="media"
+        title="Aucun fichier orphelin"
+        description="Le stockage est propre pour le périmètre actuellement contrôlé."
+      />
+      <AdminTableShell v-else>
           <thead>
             <tr>
               <th>Chemin</th>
@@ -654,8 +641,7 @@ onBeforeUnmount(() => {
               <td class="text-sm text-coursia-muted">{{ formatDate(asset.updated_at) }}</td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    </section>
+      </AdminTableShell>
+    </AdminPanel>
   </section>
 </template>

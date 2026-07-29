@@ -362,20 +362,12 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-104 · Modération
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Modération communautaire
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Contrôler les recettes proposées par la communauté, appliquer une décision motivée et conserver l’audit serveur.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-104 · Modération"
+      title="Modération communautaire"
+      description="Contrôler les recettes proposées par la communauté, appliquer une décision motivée et conserver l’audit serveur."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" @click="isHistoryOpen = !isHistoryOpen">
           {{ isHistoryOpen ? 'Masquer historique' : 'Voir historique' }}
         </BaseButton>
@@ -385,8 +377,8 @@ onMounted(() => {
         <BaseButton type="button" :disabled="isLoading" @click="loadQueue">
           {{ isLoading ? 'Chargement…' : 'Rafraîchir' }}
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div v-if="feedback || errorMessage" class="grid gap-2">
       <p
@@ -442,21 +434,23 @@ onMounted(() => {
     </section>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <section class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold text-coursia-text">File de soumissions</h2>
-            <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour ouvrir le contrôle détaillé.</p>
-          </div>
+      <AdminPanel
+        title="File de soumissions"
+        description="Sélectionne une ligne pour ouvrir le contrôle détaillé."
+        :padded="false"
+      >
+        <template #actions>
           <BaseBadge tone="neutral">Audit serveur</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la file…</div>
-        <div v-else-if="submissions.length === 0" class="p-5 text-sm text-coursia-muted">
-          Aucune soumission pour ces filtres.
-        </div>
-        <div v-else class="overflow-x-auto">
-          <table>
+        <AdminEmptyState
+          v-else-if="submissions.length === 0"
+          icon="moderation"
+          title="Aucune soumission"
+          description="Aucune soumission ne correspond aux filtres actuels."
+        />
+        <AdminTableShell v-else>
             <thead>
               <tr>
                 <th class="text-left">Recette</th>
@@ -494,9 +488,8 @@ onMounted(() => {
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <aside class="grid content-start gap-4">
         <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
@@ -634,18 +627,23 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section v-if="isHistoryOpen" class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
-        <div>
-          <h2 class="text-base font-semibold text-coursia-text">Décisions auditées</h2>
-          <p class="mt-1 text-xs text-coursia-muted">Historique récent des arbitrages de modération.</p>
-        </div>
+    <AdminPanel
+      v-if="isHistoryOpen"
+      title="Décisions auditées"
+      description="Historique récent des arbitrages de modération."
+      :padded="false"
+    >
+      <template #actions>
         <BaseBadge tone="neutral">{{ decisions.length }}</BaseBadge>
-      </div>
+      </template>
 
-      <div v-if="decisions.length === 0" class="p-5 text-sm text-coursia-muted">Aucune décision chargée.</div>
-      <div v-else class="overflow-x-auto">
-        <table>
+      <AdminEmptyState
+        v-if="decisions.length === 0"
+        icon="moderation"
+        title="Aucune décision chargée"
+        description="L’historique récent apparaîtra ici après une décision."
+      />
+      <AdminTableShell v-else>
           <thead>
             <tr>
               <th class="text-left">Décision</th>
@@ -662,8 +660,7 @@ onMounted(() => {
               <td class="text-sm text-coursia-muted">{{ formatDate(decision.decided_at ?? decision.created_at ?? decision.createdAt) }}</td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    </section>
+      </AdminTableShell>
+    </AdminPanel>
   </section>
 </template>

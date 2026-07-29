@@ -16,6 +16,7 @@ const errorMessage = ref('')
 const loading = ref(false)
 const report = ref<RecipeCsvImportReport | null>(null)
 const idempotentReplay = ref(false)
+const selectedFileName = ref('')
 const templateHref = '/api/admin/recipes/import/template'
 
 const csvLines = computed(() => content.value.trim().split(/\r?\n/).filter(Boolean))
@@ -45,11 +46,19 @@ const csvPreviewRows = computed(() => {
   const [headerLine = '', ...rows] = csvLines.value
   const headers = headerLine.split(',').map((header) => header.trim())
 
-  return rows.slice(0, 4).map((line, index) => ({
+  return rows.slice(0, 5).map((line, index) => ({
     rowNumber: index + 2,
     values: parsePreviewLine(line, headers),
   }))
 })
+
+const importStats = computed(() => [
+  { label: 'Étape', value: stepStatus.value, tone: reportTone.value, detail: importMode.value },
+  { label: 'Lignes', value: String(dataLineCount.value), tone: 'neutral' as BadgeTone, detail: `${csvLineCount.value} ligne(s) avec en-tête` },
+  { label: 'Créations', value: String(report.value?.creates ?? 0), tone: 'success' as BadgeTone, detail: 'nouvelles recettes' },
+  { label: 'Mises à jour', value: String(report.value?.updates ?? 0), tone: 'primary' as BadgeTone, detail: 'slugs existants' },
+  { label: 'À corriger', value: String(rowsToReview.value.length), tone: rowsToReview.value.length ? 'warning' as BadgeTone : 'success' as BadgeTone, detail: 'erreurs ou doublons' },
+])
 
 function parsePreviewLine(line: string, headers: string[]) {
   const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map((value) =>
@@ -88,8 +97,29 @@ function clearReport() {
 function resetTemplate() {
   content.value = recipeCsvTemplate
   fileName.value = 'recettes.csv'
+  selectedFileName.value = ''
   dryRun.value = true
   clearReport()
+}
+
+function onFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) return
+
+  selectedFileName.value = file.name
+  fileName.value = file.name
+  clearReport()
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    content.value = String(reader.result ?? '')
+  }
+  reader.onerror = () => {
+    errorMessage.value = 'Impossible de lire le fichier CSV.'
+  }
+  reader.readAsText(file)
 }
 
 async function runImport(forceDryRun = dryRun.value) {
@@ -133,12 +163,14 @@ async function runImport(forceDryRun = dryRun.value) {
   <section class="admin-page">
     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-100 · CSV</p>
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
+          COUR-100 · Import CSV
+        </p>
         <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Import CSV de recettes
         </h1>
         <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Prévisualise les créations, mises à jour, doublons et erreurs avant d’écrire dans le catalogue officiel.
+          Prévisualiser les créations, mises à jour, doublons et erreurs avant d’écrire dans le catalogue officiel.
         </p>
       </div>
 
@@ -156,43 +188,41 @@ async function runImport(forceDryRun = dryRun.value) {
     </div>
 
     <div class="grid gap-3 md:grid-cols-5">
-      <article class="admin-stat-card">
-        <span>Étape</span>
-        <strong class="text-coursia-primary">{{ stepStatus }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span>Lignes</span>
-        <strong>{{ dataLineCount }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span>Créations</span>
-        <strong class="text-coursia-success">{{ report?.creates ?? 0 }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span>Mises à jour</span>
-        <strong>{{ report?.updates ?? 0 }}</strong>
-      </article>
-      <article class="admin-stat-card">
-        <span>À corriger</span>
-        <strong class="text-coursia-warning">{{ rowsToReview.length }}</strong>
+      <article v-for="stat in importStats" :key="stat.label" class="admin-stat-card">
+        <span>{{ stat.label }}</span>
+        <strong>
+          <BaseBadge :tone="stat.tone">{{ stat.value }}</BaseBadge>
+        </strong>
+        <small>{{ stat.detail }}</small>
       </article>
     </div>
 
-    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
+    <p
+      v-if="feedback"
+      class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success"
+    >
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
+    <p
+      v-if="errorMessage"
+      class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger"
+    >
       {{ errorMessage }}
     </p>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
-      <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm" @submit.prevent="runImport(true)">
-        <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
+      <form
+        class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm"
+        @submit.prevent="runImport(true)"
+      >
+        <div class="flex flex-col justify-between gap-3 border-b border-coursia-border pb-4 md:flex-row md:items-start">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">Prévisualisation</p>
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">
+              Préparation
+            </p>
             <h2 class="mt-2 text-lg font-semibold text-coursia-text">Fichier à contrôler</h2>
-            <p class="mt-2 text-sm text-coursia-muted">
-              Le dry-run appelle la validation Supabase sans publier les recettes.
+            <p class="mt-1 text-sm text-coursia-muted">
+              Le dry-run appelle la fonction Supabase sans publier les recettes.
             </p>
           </div>
           <BaseBadge :tone="dryRun ? 'warning' : 'danger'">
@@ -200,19 +230,40 @@ async function runImport(forceDryRun = dryRun.value) {
           </BaseBadge>
         </div>
 
-        <div class="mt-4 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
+        <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <label
+            class="group grid cursor-pointer content-center gap-2 rounded-2xl border border-dashed border-coursia-border bg-coursia-surface-muted p-5 text-sm text-coursia-muted transition hover:border-coursia-primary hover:bg-coursia-primary/5"
+          >
+            <span class="font-semibold text-coursia-text">Importer un fichier CSV</span>
+            <span>Le contenu reste modifiable avant l’appel API.</span>
+            <input type="file" accept=".csv,text/csv" class="sr-only" @change="onFileSelected">
+            <span v-if="selectedFileName" class="break-all text-xs font-semibold text-coursia-primary">
+              {{ selectedFileName }}
+            </span>
+          </label>
+
+          <section class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
+            <p class="text-sm font-semibold text-coursia-text">Contrat attendu</p>
+            <p class="mt-2 text-xs leading-5 text-coursia-muted">
+              Slug stable, données recette, ingrédients structurés et étapes séparées par point-virgule.
+            </p>
+            <BaseBadge class="mt-3" tone="neutral">{{ recipeCsvColumns.length }} colonnes</BaseBadge>
+          </section>
+        </div>
+
+        <div class="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem]">
           <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
             Nom du fichier
             <input v-model="fileName" required placeholder="recettes.csv">
           </label>
           <label class="flex cursor-pointer items-center gap-3 rounded-2xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm font-semibold text-coursia-text">
-            <input v-model="dryRun" type="checkbox" class="h-4 w-4 accent-coursia-primary">
-            Dry-run uniquement
+            <input v-model="dryRun" type="checkbox" class="h-4 w-4 cursor-pointer accent-coursia-primary">
+            Dry-run
           </label>
         </div>
 
         <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-coursia-muted">Colonnes attendues</p>
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-coursia-muted">Colonnes attendues</p>
           <p class="mt-2 break-words font-mono text-xs leading-5 text-coursia-text">
             {{ recipeCsvColumns.join(', ') }}
           </p>
@@ -220,12 +271,12 @@ async function runImport(forceDryRun = dryRun.value) {
 
         <label class="mt-4 grid gap-1.5 text-xs font-semibold text-coursia-text">
           Contenu CSV
-          <textarea v-model="content" rows="18" class="font-mono text-xs leading-6" />
+          <textarea v-model="content" rows="16" class="font-mono text-xs leading-6" />
         </label>
 
         <div class="mt-4 flex flex-wrap gap-2 border-t border-coursia-border pt-4">
           <BaseButton type="submit" :disabled="loading || dataLineCount === 0">
-            {{ loading ? 'Analyse...' : 'Prévisualiser' }}
+            {{ loading ? 'Analyse…' : 'Prévisualiser' }}
           </BaseButton>
           <BaseButton type="button" variant="secondary" :disabled="loading || !canExecute" @click="runImport(false)">
             Exécuter l’import
@@ -234,25 +285,25 @@ async function runImport(forceDryRun = dryRun.value) {
       </form>
 
       <aside class="grid gap-4">
-        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <h2 class="text-base font-semibold text-coursia-text">Garde-fous</h2>
           <div class="mt-4 grid gap-2">
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <p class="text-sm font-semibold text-coursia-text">1. Dry-run obligatoire</p>
+              <p class="text-sm font-semibold text-coursia-text">Dry-run d’abord</p>
               <p class="mt-1 text-xs leading-5 text-coursia-muted">Aucune écriture tant que le rapport contient des erreurs.</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <p class="text-sm font-semibold text-coursia-text">2. Idempotence</p>
+              <p class="text-sm font-semibold text-coursia-text">Idempotence</p>
               <p class="mt-1 text-xs leading-5 text-coursia-muted">Relancer le même fichier réutilise le rapport déjà conservé.</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <p class="text-sm font-semibold text-coursia-text">3. Traçabilité</p>
+              <p class="text-sm font-semibold text-coursia-text">Traçabilité</p>
               <p class="mt-1 text-xs leading-5 text-coursia-muted">Le rapport est relié au fichier, à l’utilisateur et à l’audit admin.</p>
             </div>
           </div>
         </article>
 
-        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-coursia-text">Aperçu rapide</h2>
@@ -275,7 +326,7 @@ async function runImport(forceDryRun = dryRun.value) {
           </div>
         </article>
 
-        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <h2 class="text-base font-semibold text-coursia-text">Dernier rapport</h2>
           <p class="mt-3 break-all rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
             {{ report ? report.idempotencyKey : 'Aucun rapport généré.' }}
@@ -285,7 +336,7 @@ async function runImport(forceDryRun = dryRun.value) {
       </aside>
     </div>
 
-    <section v-if="report" class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+    <section v-if="report" class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
       <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-4 py-3 md:flex-row md:items-center">
         <div>
           <h2 class="text-base font-semibold text-coursia-text">Rapport d’import</h2>

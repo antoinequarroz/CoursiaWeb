@@ -200,18 +200,15 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-105 · RevenueCat</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-coursia-text">
-          Abonnements
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Diagnostic lecture seule du palier courant, des entitlements et des derniers événements RevenueCat.
-        </p>
-      </div>
+    <AdminPageHeader
+      eyebrow="COUR-105 · RevenueCat"
+      title="Abonnements"
+      description="Diagnostic lecture seule du palier courant, des entitlements et des derniers événements RevenueCat."
+    >
+      <template #actions>
       <BaseBadge tone="neutral">Lecture seule</BaseBadge>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <form class="admin-toolbar" @submit.prevent="lookupSubscription">
       <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
@@ -250,14 +247,13 @@ onMounted(() => {
     </div>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Résumé abonnement</p>
-            <h2 class="mt-1 text-lg font-semibold text-coursia-text">État courant</h2>
-          </div>
+      <AdminPanel
+        title="État courant"
+        description="Résumé abonnement"
+      >
+        <template #actions>
           <BaseBadge :tone="tierTone">{{ user ? tierLabels[user.subscriptionTier] : 'Aucun compte' }}</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="user" class="mt-5 grid gap-3 md:grid-cols-3">
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
@@ -299,7 +295,7 @@ onMounted(() => {
             </div>
           </div>
         </div>
-      </section>
+      </AdminPanel>
 
       <aside class="grid content-start gap-4">
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
@@ -333,23 +329,23 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section class="admin-table overflow-hidden">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
-        <div>
-          <h2 class="text-sm font-semibold text-coursia-text">Timeline RevenueCat</h2>
-          <p class="mt-1 text-xs text-coursia-muted">
-            Diagnostic uniquement. Les changements d’abonnement se font hors de cette page.
-          </p>
-        </div>
+    <AdminPanel
+      title="Timeline RevenueCat"
+      description="Diagnostic uniquement. Les changements d’abonnement se font hors de cette page."
+      :padded="false"
+    >
+      <template #actions>
         <BaseBadge tone="neutral">{{ revenueCatEvents.length }}</BaseBadge>
-      </div>
+      </template>
 
-      <div v-if="revenueCatEvents.length === 0" class="p-5 text-sm text-coursia-muted">
-        Recherche un utilisateur pour afficher ses événements d’abonnement.
-      </div>
+      <AdminEmptyState
+        v-if="revenueCatEvents.length === 0"
+        icon="users"
+        title="Aucun événement RevenueCat"
+        description="Recherche un utilisateur pour afficher ses événements d’abonnement."
+      />
 
-      <div v-else class="overflow-x-auto">
-        <table>
+      <AdminTableShell v-else>
           <thead>
             <tr>
               <th class="text-left">Type</th>
@@ -373,8 +369,7 @@ onMounted(() => {
               <td class="text-sm text-coursia-muted">{{ formatDate(getEventValue(event, 'expiresAt', 'expires_at')) }}</td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    </section>
+      </AdminTableShell>
+    </AdminPanel>
   </section>
 </template>

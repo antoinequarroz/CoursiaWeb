@@ -251,19 +251,15 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-105 · support</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-coursia-text">
-          Support utilisateurs
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Vue contrôlée pour retrouver un compte, comprendre son état et lancer une procédure sensible sans exposer le foyer.
-        </p>
-      </div>
-
+    <AdminPageHeader
+      eyebrow="COUR-105 · support"
+      title="Support utilisateurs"
+      description="Vue contrôlée pour retrouver un compte, comprendre son état et lancer une procédure sensible sans exposer le foyer."
+    >
+      <template #actions>
       <BaseBadge tone="neutral">{{ impersonationDisabledMessage }}</BaseBadge>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <form class="admin-toolbar" @submit.prevent="lookupUser">
       <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
@@ -302,14 +298,13 @@ onMounted(() => {
     </div>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Profil minimisé</p>
-            <h2 class="mt-1 text-lg font-semibold text-coursia-text">Données support disponibles</h2>
-          </div>
+      <AdminPanel
+        title="Données support disponibles"
+        description="Profil minimisé"
+      >
+        <template #actions>
           <BaseBadge tone="neutral">Lecture auditée</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="user" class="mt-5 grid gap-3 md:grid-cols-2">
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
@@ -345,7 +340,7 @@ onMounted(() => {
             </li>
           </ul>
         </div>
-      </section>
+      </AdminPanel>
 
       <aside class="grid content-start gap-4">
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
@@ -400,23 +395,23 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section class="admin-table overflow-hidden">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
-        <div>
-          <h2 class="text-sm font-semibold text-coursia-text">Événements RevenueCat</h2>
-          <p class="mt-1 text-xs text-coursia-muted">
-            Lecture seule. Les payloads bruts et données sensibles restent hors interface support.
-          </p>
-        </div>
+    <AdminPanel
+      title="Événements RevenueCat"
+      description="Lecture seule. Les payloads bruts et données sensibles restent hors interface support."
+      :padded="false"
+    >
+      <template #actions>
         <BaseBadge tone="neutral">{{ revenueCatEvents.length }}</BaseBadge>
-      </div>
+      </template>
 
-      <div v-if="revenueCatEvents.length === 0" class="p-5 text-sm text-coursia-muted">
-        Aucun événement RevenueCat chargé.
-      </div>
+      <AdminEmptyState
+        v-if="revenueCatEvents.length === 0"
+        icon="users"
+        title="Aucun événement RevenueCat"
+        description="Recherche un utilisateur pour charger l’historique disponible."
+      />
 
-      <div v-else class="overflow-x-auto">
-        <table>
+      <AdminTableShell v-else>
           <thead>
             <tr>
               <th class="text-left">Type</th>
@@ -440,8 +435,7 @@ onMounted(() => {
               <td class="text-sm text-coursia-muted">{{ formatDate(getEventValue(event, 'expiresAt', 'expires_at')) }}</td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    </section>
+      </AdminTableShell>
+    </AdminPanel>
   </section>
 </template>

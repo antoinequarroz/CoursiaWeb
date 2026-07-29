@@ -161,20 +161,12 @@ async function runImport(forceDryRun = dryRun.value) {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-      <div>
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-100 · Import CSV
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Import CSV de recettes
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Prévisualiser les créations, mises à jour, doublons et erreurs avant d’écrire dans le catalogue officiel.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-100 · Import CSV"
+      title="Import CSV de recettes"
+      description="Prévisualiser les créations, mises à jour, doublons et erreurs avant d’écrire dans le catalogue officiel."
+    >
+      <template #actions>
         <a
           :href="templateHref"
           class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
@@ -184,8 +176,8 @@ async function runImport(forceDryRun = dryRun.value) {
         <BaseButton type="button" variant="secondary" @click="resetTemplate">
           Réinitialiser
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-3 md:grid-cols-5">
       <article v-for="stat in importStats" :key="stat.label" class="admin-stat-card">
@@ -285,8 +277,7 @@ async function runImport(forceDryRun = dryRun.value) {
       </form>
 
       <aside class="grid gap-4">
-        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <h2 class="text-base font-semibold text-coursia-text">Garde-fous</h2>
+        <AdminPanel title="Garde-fous">
           <div class="mt-4 grid gap-2">
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
               <p class="text-sm font-semibold text-coursia-text">Dry-run d’abord</p>
@@ -301,16 +292,15 @@ async function runImport(forceDryRun = dryRun.value) {
               <p class="mt-1 text-xs leading-5 text-coursia-muted">Le rapport est relié au fichier, à l’utilisateur et à l’audit admin.</p>
             </div>
           </div>
-        </article>
+        </AdminPanel>
 
-        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold text-coursia-text">Aperçu rapide</h2>
-              <p class="mt-1 text-xs text-coursia-muted">{{ dataLineCount }} ligne(s) de données détectée(s).</p>
-            </div>
+        <AdminPanel
+          title="Aperçu rapide"
+          :description="`${dataLineCount} ligne(s) de données détectée(s).`"
+        >
+          <template #actions>
             <BaseBadge :tone="reportTone">{{ report ? stepStatus : 'Local' }}</BaseBadge>
-          </div>
+          </template>
 
           <div class="mt-4 grid gap-2">
             <div v-for="row in csvPreviewRows" :key="row.rowNumber" class="rounded-2xl bg-coursia-surface-muted p-3">
@@ -324,33 +314,30 @@ async function runImport(forceDryRun = dryRun.value) {
               Aucune ligne de données à prévisualiser.
             </p>
           </div>
-        </article>
+        </AdminPanel>
 
-        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <h2 class="text-base font-semibold text-coursia-text">Dernier rapport</h2>
+        <AdminPanel title="Dernier rapport">
           <p class="mt-3 break-all rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
             {{ report ? report.idempotencyKey : 'Aucun rapport généré.' }}
           </p>
           <BaseBadge v-if="idempotentReplay" class="mt-3" tone="primary">Rejeu idempotent</BaseBadge>
-        </article>
+        </AdminPanel>
       </aside>
     </div>
 
-    <section v-if="report" class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-      <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-4 py-3 md:flex-row md:items-center">
-        <div>
-          <h2 class="text-base font-semibold text-coursia-text">Rapport d’import</h2>
-          <p class="mt-1 text-xs text-coursia-muted">
-            {{ report.dryRun ? 'Prévisualisation sans écriture' : 'Import réel exécuté' }}
-          </p>
-        </div>
+    <AdminPanel
+      v-if="report"
+      title="Rapport d’import"
+      :description="report.dryRun ? 'Prévisualisation sans écriture' : 'Import réel exécuté'"
+      :padded="false"
+    >
+      <template #actions>
         <BaseBadge :tone="reportTone">
           {{ canExecute ? 'Prêt à exécuter' : rowsToReview.length > 0 ? 'Correction requise' : 'Terminé' }}
         </BaseBadge>
-      </div>
+      </template>
 
-      <div class="overflow-x-auto">
-        <table class="min-w-[58rem]">
+      <AdminTableShell>
           <thead>
             <tr>
               <th>Ligne</th>
@@ -371,8 +358,7 @@ async function runImport(forceDryRun = dryRun.value) {
               <td class="text-sm text-coursia-muted">{{ row.message || 'Prêt' }}</td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    </section>
+      </AdminTableShell>
+    </AdminPanel>
   </section>
 </template>

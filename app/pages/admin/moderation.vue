@@ -61,6 +61,8 @@ const allergenInput = ref('')
 const errorMessage = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
+const isHistoryOpen = ref(false)
+const isCreateOpen = ref(false)
 
 const checklistLabels: Record<ChecklistKey, string> = {
   recipeChecked: 'Recette',
@@ -68,6 +70,14 @@ const checklistLabels: Record<ChecklistKey, string> = {
   sourceChecked: 'Source',
   rightsChecked: 'Droits',
   allergensChecked: 'Allergènes',
+}
+
+const checklistDescriptions: Record<ChecklistKey, string> = {
+  recipeChecked: 'Titre, portions, étapes et cohérence éditoriale.',
+  photoChecked: 'Image conforme, lisible et exploitable.',
+  sourceChecked: 'Origine identifiable et vérifiable.',
+  rightsChecked: 'Droits, licence ou consentement connus.',
+  allergensChecked: 'Allergènes et régimes sensibles contrôlés.',
 }
 
 const checklistKeys = Object.keys(checklistLabels) as ChecklistKey[]
@@ -94,7 +104,19 @@ const decisionLabels: Record<Decision, string> = {
   archive: 'Archiver',
 }
 
+const decisionHelp: Record<Decision, string> = {
+  accept: 'Publie la contribution dans le flux de validation accepté.',
+  reject: 'Refuse la soumission avec une raison obligatoire.',
+  request_correction: 'Renvoie une demande claire à l’auteur.',
+  archive: 'Retire la soumission de la file active.',
+}
+
 const missingChecks = computed(() => getCommunitySubmissionMissingChecks(decisionForm.checklist))
+const completionRatio = computed(() => {
+  const checked = checklistKeys.filter((key) => decisionForm.checklist[key]).length
+
+  return Math.round((checked / checklistKeys.length) * 100)
+})
 const selectedSubmission = computed(() =>
   submissions.value.find((submission) => String(submission.id) === selectedSubmissionId.value) ?? null,
 )
@@ -103,6 +125,9 @@ const urgentCount = computed(() =>
 )
 const pendingCount = computed(() =>
   submissions.value.filter((submission) => submission.status === 'pending').length,
+)
+const correctionCount = computed(() =>
+  submissions.value.filter((submission) => submission.status === 'correction_requested').length,
 )
 const selectedAllergens = computed(() => {
   const value = selectedSubmission.value?.allergens
@@ -125,15 +150,27 @@ const selectedRecipePreview = computed(() => ({
   ingredients: Array.isArray(selectedRecipePayload.value.ingredients) ? selectedRecipePayload.value.ingredients.length : '—',
   steps: Array.isArray(selectedRecipePayload.value.steps) ? selectedRecipePayload.value.steps.length : '—',
 }))
+const selectedStatusLabel = computed(() =>
+  selectedSubmission.value ? statusLabels[String(selectedSubmission.value.status)] ?? String(selectedSubmission.value.status) : 'Aucune sélection',
+)
+const selectedPriorityLabel = computed(() =>
+  selectedSubmission.value ? priorityLabels[String(selectedSubmission.value.priority) as Priority] ?? String(selectedSubmission.value.priority) : '—',
+)
+const canAccept = computed(() =>
+  Boolean(selectedSubmissionId.value) && missingChecks.value.length === 0 && !isSaving.value,
+)
+const canReject = computed(() =>
+  Boolean(selectedSubmissionId.value) && (decisionForm.reason ?? '').trim().length > 0 && !isSaving.value,
+)
 
-const priorityTone = (priority: unknown): BadgeTone => {
+function priorityTone(priority: unknown): BadgeTone {
   if (priority === 'urgent') return 'danger'
   if (priority === 'high') return 'warning'
   if (priority === 'normal') return 'primary'
   return 'neutral'
 }
 
-const statusTone = (status: unknown): BadgeTone => {
+function statusTone(status: unknown): BadgeTone {
   if (status === 'accepted') return 'success'
   if (status === 'rejected') return 'danger'
   if (status === 'correction_requested') return 'warning'
@@ -141,7 +178,7 @@ const statusTone = (status: unknown): BadgeTone => {
   return 'primary'
 }
 
-const formatDate = (value: unknown) => {
+function formatDate(value: unknown) {
   if (typeof value !== 'string' || !value) return '—'
 
   return new Intl.DateTimeFormat('fr-CH', {
@@ -150,19 +187,33 @@ const formatDate = (value: unknown) => {
   }).format(new Date(value))
 }
 
-const formatSubmissionAge = (submission: SubmissionRecord) => {
+function formatSubmissionAge(submission: SubmissionRecord) {
   const age = submission.ageDays
 
   return typeof age === 'number' ? `${age} j` : '—'
 }
 
-const loadQueue = async () => {
+function buildQueueQuery() {
+  return {
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.priority ? { priority: filters.priority } : {}),
+    oldestFirst: filters.oldestFirst,
+    limit: 50,
+  }
+}
+
+function clearMessages() {
+  feedback.value = ''
+  errorMessage.value = ''
+}
+
+async function loadQueue() {
   isLoading.value = true
   errorMessage.value = ''
 
   try {
     const response = await $fetch<{ data: SubmissionRecord[] }>('/api/admin/community-moderation', {
-      query: filters,
+      query: buildQueueQuery(),
     })
     submissions.value = response.data
 
@@ -179,16 +230,18 @@ const loadQueue = async () => {
   }
 }
 
-const loadDecisions = async () => {
+async function loadDecisions() {
   try {
-    const response = await $fetch<{ data: DecisionRecord[] }>('/api/admin/community-moderation/decisions')
+    const response = await $fetch<{ data: DecisionRecord[] }>('/api/admin/community-moderation/decisions', {
+      query: { limit: 25 },
+    })
     decisions.value = response.data
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les décisions.'
   }
 }
 
-const resetSubmissionForm = () => {
+function resetSubmissionForm() {
   submissionForm.title = ''
   submissionForm.authorUserId = undefined
   submissionForm.status = 'pending'
@@ -203,10 +256,9 @@ const resetSubmissionForm = () => {
   })
 }
 
-const createSubmission = async () => {
+async function createSubmission() {
   isSaving.value = true
-  feedback.value = ''
-  errorMessage.value = ''
+  clearMessages()
 
   try {
     await $fetch('/api/admin/community-moderation', {
@@ -215,6 +267,7 @@ const createSubmission = async () => {
     })
     feedback.value = 'Soumission ajoutée dans la file.'
     resetSubmissionForm()
+    isCreateOpen.value = false
     await loadQueue()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible d’ajouter la soumission.'
@@ -223,13 +276,22 @@ const createSubmission = async () => {
   }
 }
 
-const decide = async (decision: Decision) => {
+async function decide(decision: Decision) {
   decisionForm.decision = decision
-  feedback.value = ''
-  errorMessage.value = ''
+  clearMessages()
 
   if (!selectedSubmissionId.value) {
     errorMessage.value = 'Sélectionne une soumission avant de décider.'
+    return
+  }
+
+  if (decision === 'accept' && missingChecks.value.length > 0) {
+    errorMessage.value = 'Toutes les vérifications doivent être terminées avant acceptation.'
+    return
+  }
+
+  if (decision === 'reject' && !(decisionForm.reason ?? '').trim()) {
+    errorMessage.value = 'Une raison est obligatoire pour refuser une soumission.'
     return
   }
 
@@ -238,12 +300,16 @@ const decide = async (decision: Decision) => {
   try {
     await $fetch(`/api/admin/community-moderation/${selectedSubmissionId.value}/decision`, {
       method: 'POST',
-      body: decisionForm,
+      body: {
+        ...decisionForm,
+        reason: (decisionForm.reason ?? '').trim() || undefined,
+      },
     })
 
     feedback.value = decision === 'reject'
       ? 'Refus enregistré avec raison obligatoire et décision auditée.'
       : 'Décision de modération enregistrée et auditée.'
+    decisionForm.reason = ''
     await Promise.all([loadQueue(), loadDecisions()])
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible d’enregistrer la décision.'
@@ -252,7 +318,7 @@ const decide = async (decision: Decision) => {
   }
 }
 
-const addAllergen = () => {
+function addAllergen() {
   const value = allergenInput.value.trim()
 
   if (value && !submissionForm.allergens.includes(value)) {
@@ -261,11 +327,11 @@ const addAllergen = () => {
   }
 }
 
-const removeAllergen = (allergen: string) => {
+function removeAllergen(allergen: string) {
   submissionForm.allergens = submissionForm.allergens.filter((item) => item !== allergen)
 }
 
-const selectSubmission = (submission: SubmissionRecord) => {
+function selectSubmission(submission: SubmissionRecord) {
   selectedSubmissionId.value = String(submission.id)
 
   if (submission.checklist && typeof submission.checklist === 'object') {
@@ -291,35 +357,42 @@ onMounted(() => {
   <section class="admin-page">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-104</p>
-        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-104 · communauté</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
           Modération communautaire
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Vérifie recette, photo, source, droits et allergènes avant d’accepter, refuser ou demander une correction.
+          Contrôle éditorial des recettes proposées par la communauté, avec raison de décision et audit côté serveur.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="secondary" @click="loadDecisions">Historique</BaseButton>
+        <BaseButton type="button" variant="secondary" @click="isHistoryOpen = !isHistoryOpen">
+          {{ isHistoryOpen ? 'Masquer historique' : 'Voir historique' }}
+        </BaseButton>
+        <BaseButton type="button" variant="secondary" @click="isCreateOpen = !isCreateOpen">
+          {{ isCreateOpen ? 'Fermer ajout' : 'Nouvelle soumission' }}
+        </BaseButton>
         <BaseButton type="button" :disabled="isLoading" @click="loadQueue">
           {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
       </div>
     </div>
 
-    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
-      {{ feedback }}
-    </p>
-    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
-      {{ errorMessage }}
-    </p>
+    <div v-if="feedback || errorMessage" class="grid gap-2">
+      <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
+        {{ feedback }}
+      </p>
+      <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
+        {{ errorMessage }}
+      </p>
+    </div>
 
     <div class="grid gap-3 md:grid-cols-4">
       <article class="admin-stat-card">
-        <span>Soumissions</span>
+        <span>File filtrée</span>
         <strong>{{ submissions.length }}</strong>
-        <small>dans la file filtrée</small>
+        <small>soumissions visibles</small>
       </article>
       <article class="admin-stat-card">
         <span>En attente</span>
@@ -332,15 +405,15 @@ onMounted(() => {
         <small>haute ou urgente</small>
       </article>
       <article class="admin-stat-card">
-        <span>Décisions</span>
-        <strong>{{ decisions.length }}</strong>
-        <small>auditées</small>
+        <span>Corrections</span>
+        <strong>{{ correctionCount }}</strong>
+        <small>retours demandés</small>
       </article>
     </div>
 
-    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
       <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        <label class="grid gap-1 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
           Statut
           <select v-model="filters.status">
             <option value="">Tous statuts</option>
@@ -351,7 +424,7 @@ onMounted(() => {
             <option value="archived">Archivée</option>
           </select>
         </label>
-        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+        <label class="grid gap-1 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
           Priorité
           <select v-model="filters.priority">
             <option value="">Toutes priorités</option>
@@ -368,14 +441,14 @@ onMounted(() => {
       </div>
     </section>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
       <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
           <div>
-            <h2 class="text-base font-black text-coursia-foreground">File de soumissions</h2>
-            <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour contrôler et décider.</p>
+            <h2 class="text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">File de soumissions</h2>
+            <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour ouvrir le contrôle détaillé.</p>
           </div>
-          <BaseBadge tone="neutral">Audit actif</BaseBadge>
+          <BaseBadge tone="neutral">Audit serveur</BaseBadge>
         </div>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la file...</div>
@@ -390,7 +463,7 @@ onMounted(() => {
                 <th class="text-left">Priorité</th>
                 <th class="text-left">Statut</th>
                 <th class="text-left">Ancienneté</th>
-                <th class="text-left">Conformité</th>
+                <th class="text-left">Contrôle</th>
               </tr>
             </thead>
             <tbody>
@@ -398,11 +471,11 @@ onMounted(() => {
                 v-for="submission in submissions"
                 :key="String(submission.id)"
                 class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
-                :class="selectedSubmissionId === String(submission.id) ? 'bg-coursia-primary/5' : ''"
+                :class="selectedSubmissionId === String(submission.id) ? 'bg-coursia-primary/5 dark:bg-coursia-primary/10' : ''"
                 @click="selectSubmission(submission)"
               >
                 <td>
-                  <p class="font-black text-coursia-foreground">{{ submission.title }}</p>
+                  <p class="max-w-[320px] truncate font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ submission.title }}</p>
                   <p class="mt-1 truncate text-xs text-coursia-muted">Source {{ submission.source || '—' }}</p>
                 </td>
                 <td>
@@ -425,89 +498,100 @@ onMounted(() => {
         </div>
       </section>
 
-      <aside class="grid gap-4 content-start">
-        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <aside class="grid content-start gap-4">
+        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Décision</p>
-              <h2 class="mt-1 text-xl font-black tracking-tight text-coursia-foreground">
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Décision</p>
+              <h2 class="mt-1 text-xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
                 {{ selectedSubmission?.title ?? 'Aucune soumission' }}
               </h2>
               <p class="mt-1 text-xs text-coursia-muted">{{ selectedSubmissionId || 'Sélection requise' }}</p>
             </div>
             <BaseBadge :tone="statusTone(selectedSubmission?.status)">
-              {{ statusLabels[String(selectedSubmission?.status ?? 'pending')] ?? 'En attente' }}
+              {{ selectedStatusLabel }}
             </BaseBadge>
           </div>
 
           <div v-if="selectedSubmission" class="mt-4 grid grid-cols-2 gap-3">
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <span class="text-xs font-bold text-coursia-muted">Portions</span>
-              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.portions }}</p>
+              <span class="text-xs font-semibold text-coursia-muted">Priorité</span>
+              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedPriorityLabel }}</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <span class="text-xs font-bold text-coursia-muted">Durée</span>
-              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.duration }}</p>
+              <span class="text-xs font-semibold text-coursia-muted">Complétion</span>
+              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ completionRatio }}%</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <span class="text-xs font-bold text-coursia-muted">Ingrédients</span>
-              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.ingredients }}</p>
+              <span class="text-xs font-semibold text-coursia-muted">Ingrédients</span>
+              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedRecipePreview.ingredients }}</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
-              <span class="text-xs font-bold text-coursia-muted">Étapes</span>
-              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.steps }}</p>
+              <span class="text-xs font-semibold text-coursia-muted">Étapes</span>
+              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedRecipePreview.steps }}</p>
             </div>
           </div>
 
           <fieldset class="mt-5">
-            <legend class="text-sm font-black text-coursia-foreground">Checklist de validation</legend>
-            <div class="mt-2 grid grid-cols-2 gap-2">
+            <legend class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Checklist de validation</legend>
+            <div class="mt-2 grid gap-2">
               <label
                 v-for="key in checklistKeys"
                 :key="key"
-                class="flex cursor-pointer items-center gap-2 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2 text-xs font-semibold text-coursia-muted"
+                class="flex cursor-pointer items-start gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-xs text-coursia-muted transition hover:border-coursia-primary/40"
               >
-                <input v-model="decisionForm.checklist[key]" type="checkbox" class="h-4 w-4 accent-coursia-primary">
-                {{ checklistLabels[key] }}
+                <input v-model="decisionForm.checklist[key]" type="checkbox" class="mt-0.5 h-4 w-4 accent-coursia-primary">
+                <span>
+                  <span class="block font-semibold text-[#344054] dark:text-[#dbe7df]">{{ checklistLabels[key] }}</span>
+                  <span>{{ checklistDescriptions[key] }}</span>
+                </span>
               </label>
             </div>
           </fieldset>
 
           <div class="mt-3 rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
-            Checks manquants sélection : {{ missingChecks.map((key) => checklistLabels[key as ChecklistKey] ?? key).join(', ') || 'aucun' }}.
+            À valider maintenant :
+            {{ missingChecks.map((key) => checklistLabels[key as ChecklistKey] ?? key).join(', ') || 'aucun point bloquant' }}.
             <br>
-            Checks manquants en base : {{ selectedMissingChecks.map((key) => checklistLabels[key as ChecklistKey] ?? key).join(', ') || 'aucun' }}.
+            Manquants enregistrés :
+            {{ selectedMissingChecks.map((key) => checklistLabels[key as ChecklistKey] ?? key).join(', ') || 'aucun' }}.
           </div>
 
           <div v-if="selectedAllergens.length" class="mt-3 flex flex-wrap gap-2">
             <BaseBadge v-for="allergen in selectedAllergens" :key="allergen" tone="warning">{{ allergen }}</BaseBadge>
           </div>
 
-          <label class="mt-4 grid gap-1 text-sm font-bold text-coursia-foreground">
-            Raison — obligatoire pour le refus
-            <textarea v-model="decisionForm.reason" rows="4" placeholder="Motif, correction demandée ou note interne..." />
+          <label class="mt-4 grid gap-1 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
+            Raison ou note interne
+            <textarea v-model="decisionForm.reason" rows="4" placeholder="Motif du refus, correction attendue ou note de modération..." />
           </label>
 
-          <div class="mt-4 grid grid-cols-2 gap-2">
-            <BaseButton type="button" :disabled="isSaving || !selectedSubmissionId" @click="decide('accept')">
+          <div class="mt-4 grid gap-2">
+            <BaseButton type="button" :disabled="!canAccept" @click="decide('accept')">
               {{ decisionLabels.accept }}
             </BaseButton>
-            <BaseButton type="button" variant="secondary" :disabled="isSaving || !selectedSubmissionId" @click="decide('request_correction')">
-              {{ decisionLabels.request_correction }}
-            </BaseButton>
-            <BaseButton type="button" variant="secondary" :disabled="isSaving || !selectedSubmissionId" @click="decide('reject')">
-              {{ decisionLabels.reject }}
-            </BaseButton>
-            <BaseButton type="button" variant="ghost" :disabled="isSaving || !selectedSubmissionId" @click="decide('archive')">
-              {{ decisionLabels.archive }}
-            </BaseButton>
+            <div class="grid grid-cols-3 gap-2">
+              <BaseButton type="button" variant="secondary" :disabled="isSaving || !selectedSubmissionId" @click="decide('request_correction')">
+                Correction
+              </BaseButton>
+              <BaseButton type="button" variant="secondary" :disabled="!canReject" @click="decide('reject')">
+                Refuser
+              </BaseButton>
+              <BaseButton type="button" variant="ghost" :disabled="isSaving || !selectedSubmissionId" @click="decide('archive')">
+                Archiver
+              </BaseButton>
+            </div>
           </div>
+
+          <p class="mt-3 text-xs leading-5 text-coursia-muted">
+            {{ decisionHelp[decisionForm.decision] }}
+          </p>
         </article>
 
-        <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm" @submit.prevent="createSubmission">
-          <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Ajout manuel</p>
-          <h2 class="mt-1 text-lg font-black text-coursia-foreground">Soumission de test</h2>
-          <p class="mt-1 text-xs text-coursia-muted">Utile pour tester le workflow sans attendre une contribution mobile.</p>
+        <form v-if="isCreateOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="createSubmission">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Ajout manuel</p>
+          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Soumission de test</h2>
+          <p class="mt-1 text-xs text-coursia-muted">Pour tester le workflow sans attendre une contribution mobile.</p>
 
           <div class="mt-4 grid gap-3">
             <input v-model="submissionForm.title" required placeholder="Titre">
@@ -546,10 +630,10 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+    <section v-if="isHistoryOpen" class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
         <div>
-          <h2 class="text-base font-black text-coursia-foreground">Décisions auditées</h2>
+          <h2 class="text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">Décisions auditées</h2>
           <p class="mt-1 text-xs text-coursia-muted">Historique récent des arbitrages de modération.</p>
         </div>
         <BaseBadge tone="neutral">{{ decisions.length }}</BaseBadge>
@@ -568,9 +652,9 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-for="decision in decisions" :key="String(decision.id)" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
-              <td class="font-black text-coursia-foreground">{{ decision.decision }}</td>
+              <td class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ decision.decision }}</td>
               <td class="text-sm text-coursia-muted">{{ decision.submission_id || decision.submissionId }}</td>
-              <td class="text-sm text-coursia-muted">{{ decision.reason || '—' }}</td>
+              <td class="max-w-xl truncate text-sm text-coursia-muted">{{ decision.reason || '—' }}</td>
               <td class="text-sm text-coursia-muted">{{ formatDate(decision.decided_at ?? decision.created_at ?? decision.createdAt) }}</td>
             </tr>
           </tbody>

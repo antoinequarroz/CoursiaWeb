@@ -51,7 +51,15 @@ const stats = computed(() => ({
   offers: retailers.value.reduce((sum, retailer) => sum + (retailer.offer_count ?? 0), 0),
   activeOffers: retailers.value.reduce((sum, retailer) => sum + (retailer.active_offer_count ?? 0), 0),
   prices: retailers.value.reduce((sum, retailer) => sum + (retailer.price_count ?? 0), 0),
+  emptyRetailers: retailers.value.filter((retailer) => (retailer.offer_count ?? 0) === 0).length,
 }))
+
+const selectedCoverage = computed(() => {
+  if (!selectedRetailer.value) return 0
+  const offers = selectedRetailer.value.offer_count ?? 0
+  if (offers === 0) return 0
+  return Math.round(((selectedRetailer.value.active_offer_count ?? 0) / offers) * 100)
+})
 
 const toSlug = (value: string) =>
   value
@@ -196,7 +204,7 @@ onMounted(loadRetailers)
       </div>
     </div>
 
-    <div class="grid gap-3 md:grid-cols-4">
+    <div class="grid gap-3 md:grid-cols-5">
       <article class="admin-stat-card">
         <span>Enseignes</span>
         <strong>{{ stats.retailers }}</strong>
@@ -206,16 +214,20 @@ onMounted(loadRetailers)
         <strong class="text-coursia-primary">{{ stats.offers }}</strong>
       </article>
       <article class="admin-stat-card">
-        <span>Offres actives</span>
+        <span>Actives</span>
         <strong class="text-coursia-success">{{ stats.activeOffers }}</strong>
       </article>
       <article class="admin-stat-card">
-        <span>Prix enregistrés</span>
+        <span>Prix</span>
         <strong>{{ stats.prices }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span>Sans offre</span>
+        <strong class="text-coursia-warning">{{ stats.emptyRetailers }}</strong>
       </article>
     </div>
 
-    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_auto_auto]" @submit.prevent="loadRetailers">
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_auto]" @submit.prevent="loadRetailers">
       <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
         Recherche
         <input v-model="filters.search" type="search" placeholder="Coop, Migros, Aldi..." />
@@ -233,9 +245,9 @@ onMounted(loadRetailers)
       {{ errorMessage }}
     </p>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
+      <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <h2 class="text-base font-black text-coursia-foreground">Catalogue magasins</h2>
             <p class="mt-1 text-xs text-coursia-muted">{{ retailers.length }} enseigne(s) affichée(s)</p>
@@ -243,62 +255,46 @@ onMounted(loadRetailers)
           <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
         </div>
 
-        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
+        <div v-if="loading" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
           Chargement des enseignes...
         </div>
 
-        <div v-else-if="retailers.length === 0" class="grid place-items-center p-10 text-center">
+        <div v-else-if="retailers.length === 0" class="mt-4 grid place-items-center rounded-2xl bg-coursia-surface-muted p-10 text-center">
           <div class="max-w-sm">
             <p class="font-black text-coursia-foreground">Aucune enseigne trouvée</p>
-            <p class="mt-2 text-sm text-coursia-muted">Crée la première enseigne avant d’ajouter des produits et des prix.</p>
+            <p class="mt-2 text-sm text-coursia-muted">
+              Crée la première enseigne avant d’ajouter des produits et des prix.
+            </p>
             <BaseButton class="mt-4" type="button" @click="startCreate">Créer une enseigne</BaseButton>
           </div>
         </div>
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-[48rem]">
-            <thead>
-              <tr>
-                <th>Enseigne</th>
-                <th>Offres</th>
-                <th>Prix</th>
-                <th>Source mobile</th>
-                <th class="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="retailer in retailers"
-                :key="retailer.id"
-                class="cursor-pointer transition"
-                :class="selectedRetailer?.id === retailer.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
-                @click="selectRetailer(retailer)"
-              >
-                <td>
-                  <span class="block max-w-[18rem] truncate font-black text-coursia-foreground">{{ retailer.name }}</span>
-                  <span class="mt-1 block max-w-[18rem] truncate text-xs text-coursia-muted">{{ retailer.slug }}</span>
-                </td>
-                <td>
-                  <BaseBadge :tone="(retailer.active_offer_count ?? 0) > 0 ? 'primary' : 'neutral'">
-                    {{ retailer.active_offer_count ?? 0 }} active(s)
-                  </BaseBadge>
-                </td>
-                <td class="text-sm text-coursia-muted">
-                  {{ retailer.price_count ?? 0 }} historique(s)
-                </td>
-                <td class="text-sm text-coursia-muted">
-                  {{ retailer.mobile?.table ?? 'enseignes' }}
-                </td>
-                <td @click.stop>
-                  <div class="flex justify-end gap-2">
-                    <BaseButton size="sm" variant="secondary" type="button" @click="startEdit(retailer)">
-                      Modifier
-                    </BaseButton>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else class="mt-4 grid gap-2">
+          <button
+            v-for="retailer in retailers"
+            :key="retailer.id"
+            type="button"
+            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-coursia-sm"
+            :class="selectedRetailer?.id === retailer.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
+            @click="selectRetailer(retailer)"
+          >
+            <span class="flex items-start justify-between gap-3">
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-black text-coursia-foreground">{{ retailer.name }}</span>
+                <span class="mt-1 block truncate text-xs text-coursia-muted">
+                  Code mobile : {{ retailer.slug }}
+                </span>
+              </span>
+              <span class="flex shrink-0 items-center gap-2">
+                <BaseBadge :tone="(retailer.active_offer_count ?? 0) > 0 ? 'primary' : 'neutral'">
+                  {{ retailer.active_offer_count ?? 0 }} offre(s)
+                </BaseBadge>
+                <BaseBadge :tone="(retailer.price_count ?? 0) > 0 ? 'success' : 'warning'">
+                  {{ retailer.price_count ?? 0 }} prix
+                </BaseBadge>
+              </span>
+            </span>
+          </button>
         </div>
       </section>
 
@@ -311,26 +307,30 @@ onMounted(loadRetailers)
               </p>
               <h2 class="mt-1 text-lg font-black text-coursia-foreground">Fiche enseigne</h2>
             </div>
-            <button type="button" class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted" @click="closeEditor">
+            <button
+              type="button"
+              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted"
+              @click="closeEditor"
+            >
               Fermer
             </button>
           </div>
 
           <form class="mt-4 grid gap-4" @submit.prevent="saveRetailer">
             <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-              Nom
+              Nom public
               <input v-model="form.name" required placeholder="Ex. Coop" />
             </label>
             <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-              Code
+              Code technique
               <input v-model="form.slug" required placeholder="coop" />
             </label>
 
             <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-              <p class="text-sm font-black text-coursia-foreground">Champs réellement persistés</p>
+              <p class="text-sm font-black text-coursia-foreground">Impact comparateur</p>
               <p class="mt-1 text-xs leading-5 text-coursia-muted">
-                Le modèle mobile actuel stocke uniquement le nom et le code de l’enseigne. L’archivage
-                et les sites publics doivent être ajoutés au schéma avant d’être proposés comme action.
+                Le code est utilisé pour relier offres, prix et imports CSV. Évite de le modifier si des produits
+                existent déjà pour cette enseigne.
               </p>
             </div>
 
@@ -355,29 +355,56 @@ onMounted(loadRetailers)
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <h2 class="truncate text-lg font-black text-coursia-foreground">{{ selectedRetailer.name }}</h2>
-                <p class="mt-1 truncate text-sm text-coursia-muted">{{ selectedRetailer.slug }}</p>
+                <p class="mt-1 truncate text-sm text-coursia-muted">Code : {{ selectedRetailer.slug }}</p>
               </div>
               <BaseBadge tone="success">Active</BaseBadge>
             </div>
 
             <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
               <div class="rounded-xl bg-coursia-surface-muted p-3">
-                <dt class="text-xs font-bold text-coursia-muted">Offres</dt>
+                <dt class="text-xs font-bold text-coursia-muted">Offres totales</dt>
                 <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.offer_count ?? 0 }}</dd>
               </div>
               <div class="rounded-xl bg-coursia-surface-muted p-3">
-                <dt class="text-xs font-bold text-coursia-muted">Prix</dt>
+                <dt class="text-xs font-bold text-coursia-muted">Prix historisés</dt>
                 <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.price_count ?? 0 }}</dd>
+              </div>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Offres actives</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.active_offer_count ?? 0 }}</dd>
+              </div>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Couverture</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedCoverage }}%</dd>
               </div>
             </dl>
 
+            <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">Prochaine action utile</p>
+              <p v-if="(selectedRetailer.offer_count ?? 0) === 0" class="mt-1 text-xs leading-5 text-coursia-muted">
+                Ajoute au moins une offre produit pour que cette enseigne soit exploitable dans le comparateur.
+              </p>
+              <p v-else-if="(selectedRetailer.price_count ?? 0) === 0" class="mt-1 text-xs leading-5 text-coursia-muted">
+                Ajoute les premiers prix pour rendre les offres utilisables côté mobile.
+              </p>
+              <p v-else class="mt-1 text-xs leading-5 text-coursia-muted">
+                L’enseigne est prête pour le comparateur. Continue la maintenance des produits ou prix.
+              </p>
+            </div>
+
             <div class="mt-4 grid gap-2">
-              <BaseButton type="button" @click="startEdit()">Modifier</BaseButton>
-              <NuxtLink class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted" :to="`/admin/produits?retailerId=${selectedRetailer.id}`">
-                Voir les produits liés
+              <BaseButton type="button" @click="startEdit()">Modifier l’enseigne</BaseButton>
+              <NuxtLink
+                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted"
+                :to="`/admin/produits?retailerId=${selectedRetailer.id}`"
+              >
+                Gérer les produits liés
               </NuxtLink>
-              <NuxtLink class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted" :to="`/admin/prix?retailerId=${selectedRetailer.id}`">
-                Voir les prix
+              <NuxtLink
+                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted"
+                :to="`/admin/prix?retailerId=${selectedRetailer.id}`"
+              >
+                Gérer les prix
               </NuxtLink>
             </div>
           </template>

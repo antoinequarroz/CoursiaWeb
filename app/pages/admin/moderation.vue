@@ -13,6 +13,7 @@ type SubmissionRecord = Record<string, unknown>
 type DecisionRecord = Record<string, unknown>
 type Decision = CommunityModerationDecisionInput['decision']
 type Priority = CommunitySubmissionInput['priority']
+type ChecklistKey = keyof CommunityModerationDecisionInput['checklist']
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 
 const filters = reactive({
@@ -61,13 +62,15 @@ const errorMessage = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
 
-const missingChecks = computed(() => getCommunitySubmissionMissingChecks(decisionForm.checklist))
-const selectedSubmission = computed(() =>
-  submissions.value.find((submission) => String(submission.id) === selectedSubmissionId.value) ?? null,
-)
-const urgentCount = computed(() =>
-  submissions.value.filter((submission) => submission.priority === 'urgent' || submission.priority === 'high').length,
-)
+const checklistLabels: Record<ChecklistKey, string> = {
+  recipeChecked: 'Recette',
+  photoChecked: 'Photo',
+  sourceChecked: 'Source',
+  rightsChecked: 'Droits',
+  allergensChecked: 'Allergènes',
+}
+
+const checklistKeys = Object.keys(checklistLabels) as ChecklistKey[]
 
 const statusLabels: Record<string, string> = {
   pending: 'En attente',
@@ -84,13 +87,44 @@ const priorityLabels: Record<Priority, string> = {
   urgent: 'Urgente',
 }
 
-const checklistLabels: Record<keyof CommunityModerationDecisionInput['checklist'], string> = {
-  recipeChecked: 'Recette',
-  photoChecked: 'Photo',
-  sourceChecked: 'Source',
-  rightsChecked: 'Droits',
-  allergensChecked: 'Allergènes',
+const decisionLabels: Record<Decision, string> = {
+  accept: 'Accepter',
+  reject: 'Refuser',
+  request_correction: 'Demander correction',
+  archive: 'Archiver',
 }
+
+const missingChecks = computed(() => getCommunitySubmissionMissingChecks(decisionForm.checklist))
+const selectedSubmission = computed(() =>
+  submissions.value.find((submission) => String(submission.id) === selectedSubmissionId.value) ?? null,
+)
+const urgentCount = computed(() =>
+  submissions.value.filter((submission) => submission.priority === 'urgent' || submission.priority === 'high').length,
+)
+const pendingCount = computed(() =>
+  submissions.value.filter((submission) => submission.status === 'pending').length,
+)
+const selectedAllergens = computed(() => {
+  const value = selectedSubmission.value?.allergens
+
+  return Array.isArray(value) ? value.map(String) : []
+})
+const selectedMissingChecks = computed(() => {
+  const value = selectedSubmission.value?.missingChecks
+
+  return Array.isArray(value) ? value.map(String) : []
+})
+const selectedRecipePayload = computed(() => {
+  const value = selectedSubmission.value?.recipe_payload ?? selectedSubmission.value?.recipePayload
+
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+})
+const selectedRecipePreview = computed(() => ({
+  portions: selectedRecipePayload.value.portions ?? selectedRecipePayload.value.servings ?? '—',
+  duration: selectedRecipePayload.value.durationMinutes ?? selectedRecipePayload.value.duration ?? '—',
+  ingredients: Array.isArray(selectedRecipePayload.value.ingredients) ? selectedRecipePayload.value.ingredients.length : '—',
+  steps: Array.isArray(selectedRecipePayload.value.steps) ? selectedRecipePayload.value.steps.length : '—',
+}))
 
 const priorityTone = (priority: unknown): BadgeTone => {
   if (priority === 'urgent') return 'danger'
@@ -107,15 +141,19 @@ const statusTone = (status: unknown): BadgeTone => {
   return 'primary'
 }
 
-const decisionLabel = (decision: Decision) => {
-  const labels: Record<Decision, string> = {
-    accept: 'Accepter',
-    reject: 'Refuser',
-    request_correction: 'Demander correction',
-    archive: 'Archiver',
-  }
+const formatDate = (value: unknown) => {
+  if (typeof value !== 'string' || !value) return '—'
 
-  return labels[decision]
+  return new Intl.DateTimeFormat('fr-CH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+const formatSubmissionAge = (submission: SubmissionRecord) => {
+  const age = submission.ageDays
+
+  return typeof age === 'number' ? `${age} j` : '—'
 }
 
 const loadQueue = async () => {
@@ -127,6 +165,13 @@ const loadQueue = async () => {
       query: filters,
     })
     submissions.value = response.data
+
+    if (!selectedSubmissionId.value && submissions.value[0]) {
+      selectSubmission(submissions.value[0])
+    }
+    else if (selectedSubmissionId.value && !submissions.value.some((submission) => String(submission.id) === selectedSubmissionId.value)) {
+      selectedSubmissionId.value = ''
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger la file de modération.'
   } finally {
@@ -168,7 +213,7 @@ const createSubmission = async () => {
       method: 'POST',
       body: submissionForm,
     })
-    feedback.value = 'Soumission ajoutée dans la file avec priorité et ancienneté.'
+    feedback.value = 'Soumission ajoutée dans la file.'
     resetSubmissionForm()
     await loadQueue()
   } catch (error) {
@@ -196,10 +241,9 @@ const decide = async (decision: Decision) => {
       body: decisionForm,
     })
 
-    feedback.value =
-      decision === 'reject'
-        ? 'Refus enregistré avec raison obligatoire et décision auditée.'
-        : 'Décision de modération enregistrée et auditée.'
+    feedback.value = decision === 'reject'
+      ? 'Refus enregistré avec raison obligatoire et décision auditée.'
+      : 'Décision de modération enregistrée et auditée.'
     await Promise.all([loadQueue(), loadDecisions()])
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible d’enregistrer la décision.'
@@ -247,188 +291,229 @@ onMounted(() => {
   <section class="admin-page">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-104</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
-          File de modération communautaire
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-104</p>
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+          Modération communautaire
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Vérifie recette, photo, source, droits et allergènes avant toute décision sur les
-          contributions futures.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Vérifie recette, photo, source, droits et allergènes avant d’accepter, refuser ou demander une correction.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="secondary" @click="loadDecisions">Décisions</BaseButton>
+        <BaseButton type="button" variant="secondary" @click="loadDecisions">Historique</BaseButton>
         <BaseButton type="button" :disabled="isLoading" @click="loadQueue">
           {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
       </div>
     </div>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Soumissions</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ submissions.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">dans la file filtrée</p>
-      </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Prioritaires</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ urgentCount }}</p>
-        <p class="mt-1 text-xs text-[#667085]">haute ou urgente</p>
-      </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Checks manquants</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ missingChecks.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">sur la sélection</p>
-      </article>
-      <article class="admin-stat-card rounded-2xl border border-[#e6e1d8] bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Décisions</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ decisions.length }}</p>
-        <p class="mt-1 text-xs text-[#667085]">auditées</p>
-      </article>
-    </div>
-
-    <div class="admin-toolbar mt-6 grid gap-3 md:grid-cols-[1fr_1fr_1fr]">
-      <select v-model="filters.status" class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-        <option value="">Tous statuts</option>
-        <option value="pending">En attente</option>
-        <option value="correction_requested">Correction demandée</option>
-        <option value="accepted">Acceptée</option>
-        <option value="rejected">Refusée</option>
-        <option value="archived">Archivée</option>
-      </select>
-      <select v-model="filters.priority" class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-        <option value="">Toutes priorités</option>
-        <option value="urgent">Urgente</option>
-        <option value="high">Haute</option>
-        <option value="normal">Normale</option>
-        <option value="low">Basse</option>
-      </select>
-      <label class="flex items-center gap-3 rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm text-[#344054]">
-        <input v-model="filters.oldestFirst" type="checkbox">
-        Ancienneté d’abord
-      </label>
-    </div>
-
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
+    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
       {{ feedback }}
     </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
+    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
       {{ errorMessage }}
     </p>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-        <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <div class="grid gap-3 md:grid-cols-4">
+      <article class="admin-stat-card">
+        <span>Soumissions</span>
+        <strong>{{ submissions.length }}</strong>
+        <small>dans la file filtrée</small>
+      </article>
+      <article class="admin-stat-card">
+        <span>En attente</span>
+        <strong class="text-coursia-primary">{{ pendingCount }}</strong>
+        <small>à traiter</small>
+      </article>
+      <article class="admin-stat-card">
+        <span>Prioritaires</span>
+        <strong class="text-coursia-warning">{{ urgentCount }}</strong>
+        <small>haute ou urgente</small>
+      </article>
+      <article class="admin-stat-card">
+        <span>Décisions</span>
+        <strong>{{ decisions.length }}</strong>
+        <small>auditées</small>
+      </article>
+    </div>
+
+    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+      <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+          Statut
+          <select v-model="filters.status">
+            <option value="">Tous statuts</option>
+            <option value="pending">En attente</option>
+            <option value="correction_requested">Correction demandée</option>
+            <option value="accepted">Acceptée</option>
+            <option value="rejected">Refusée</option>
+            <option value="archived">Archivée</option>
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+          Priorité
+          <select v-model="filters.priority">
+            <option value="">Toutes priorités</option>
+            <option value="urgent">Urgente</option>
+            <option value="high">Haute</option>
+            <option value="normal">Normale</option>
+            <option value="low">Basse</option>
+          </select>
+        </label>
+        <label class="flex cursor-pointer items-end gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-4 py-2.5 text-sm font-semibold text-coursia-muted">
+          <input v-model="filters.oldestFirst" type="checkbox" class="h-4 w-4 accent-coursia-primary">
+          Ancienneté d’abord
+        </label>
+      </div>
+    </section>
+
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Soumissions</h2>
-            <p class="mt-1 text-xs text-[#667085]">Sélectionne une ligne pour décider.</p>
+            <h2 class="text-base font-black text-coursia-foreground">File de soumissions</h2>
+            <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour contrôler et décider.</p>
           </div>
           <BaseBadge tone="neutral">Audit actif</BaseBadge>
         </div>
 
-        <div v-if="isLoading" class="p-5 text-sm text-[#667085]">Chargement de la file...</div>
-        <div v-else-if="submissions.length === 0" class="p-5 text-sm text-[#667085]">
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la file...</div>
+        <div v-else-if="submissions.length === 0" class="p-5 text-sm text-coursia-muted">
           Aucune soumission pour ces filtres.
         </div>
         <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-            <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+          <table>
+            <thead>
               <tr>
-                <th class="px-5 py-3">Recette</th>
-                <th class="px-5 py-3">Priorité</th>
-                <th class="px-5 py-3">Statut</th>
-                <th class="px-5 py-3">Ancienneté</th>
-                <th class="px-5 py-3">Conformité</th>
+                <th class="text-left">Recette</th>
+                <th class="text-left">Priorité</th>
+                <th class="text-left">Statut</th>
+                <th class="text-left">Ancienneté</th>
+                <th class="text-left">Conformité</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#eee8df]">
+            <tbody>
               <tr
                 v-for="submission in submissions"
                 :key="String(submission.id)"
-                class="cursor-pointer transition hover:bg-[#fbfaf7]"
-                :class="selectedSubmissionId === String(submission.id) ? 'bg-[#f1f7f4]' : ''"
+                class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
+                :class="selectedSubmissionId === String(submission.id) ? 'bg-coursia-primary/5' : ''"
                 @click="selectSubmission(submission)"
               >
-                <td class="px-5 py-4">
-                  <span class="block font-semibold text-[#101828]">{{ submission.title }}</span>
-                  <span class="mt-1 block text-xs text-[#667085]">Source {{ submission.source || '—' }}</span>
+                <td>
+                  <p class="font-black text-coursia-foreground">{{ submission.title }}</p>
+                  <p class="mt-1 truncate text-xs text-coursia-muted">Source {{ submission.source || '—' }}</p>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <BaseBadge :tone="priorityTone(submission.priority)">
                     {{ priorityLabels[String(submission.priority) as Priority] ?? submission.priority }}
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <BaseBadge :tone="statusTone(submission.status)">
                     {{ statusLabels[String(submission.status)] ?? submission.status }}
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4 text-[#667085]">{{ submission.ageDays ?? '—' }} j</td>
-                <td class="px-5 py-4 text-[#667085]">{{ submission.missingChecks ?? '—' }} manquant(s)</td>
+                <td class="text-sm text-coursia-muted">{{ formatSubmissionAge(submission) }}</td>
+                <td class="text-sm text-coursia-muted">
+                  {{ Array.isArray(submission.missingChecks) ? submission.missingChecks.length : '—' }} manquant(s)
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <aside class="grid gap-5">
-        <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.06)]">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Décision</p>
-          <h2 class="mt-2 text-lg font-semibold text-[#101828]">
-            {{ selectedSubmission?.title ?? 'Aucune soumission sélectionnée' }}
-          </h2>
+      <aside class="grid gap-4 content-start">
+        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Décision</p>
+              <h2 class="mt-1 text-xl font-black tracking-tight text-coursia-foreground">
+                {{ selectedSubmission?.title ?? 'Aucune soumission' }}
+              </h2>
+              <p class="mt-1 text-xs text-coursia-muted">{{ selectedSubmissionId || 'Sélection requise' }}</p>
+            </div>
+            <BaseBadge :tone="statusTone(selectedSubmission?.status)">
+              {{ statusLabels[String(selectedSubmission?.status ?? 'pending')] ?? 'En attente' }}
+            </BaseBadge>
+          </div>
 
-          <label class="mt-5 grid gap-1.5 text-xs font-semibold text-[#344054]">
-            ID sélectionné
-            <input v-model="selectedSubmissionId" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-          </label>
+          <div v-if="selectedSubmission" class="mt-4 grid grid-cols-2 gap-3">
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <span class="text-xs font-bold text-coursia-muted">Portions</span>
+              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.portions }}</p>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <span class="text-xs font-bold text-coursia-muted">Durée</span>
+              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.duration }}</p>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <span class="text-xs font-bold text-coursia-muted">Ingrédients</span>
+              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.ingredients }}</p>
+            </div>
+            <div class="rounded-2xl bg-coursia-surface-muted p-3">
+              <span class="text-xs font-bold text-coursia-muted">Étapes</span>
+              <p class="mt-1 text-lg font-black text-coursia-foreground">{{ selectedRecipePreview.steps }}</p>
+            </div>
+          </div>
 
           <fieldset class="mt-5">
-            <legend class="text-xs font-semibold text-[#344054]">Checklist de validation</legend>
+            <legend class="text-sm font-black text-coursia-foreground">Checklist de validation</legend>
             <div class="mt-2 grid grid-cols-2 gap-2">
               <label
-                v-for="(label, key) in checklistLabels"
+                v-for="key in checklistKeys"
                 :key="key"
-                class="flex items-center gap-2 rounded-xl border border-[#e6e1d8] px-3 py-2 text-xs text-[#667085]"
+                class="flex cursor-pointer items-center gap-2 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2 text-xs font-semibold text-coursia-muted"
               >
-                <input v-model="decisionForm.checklist[key]" type="checkbox">
-                {{ label }}
+                <input v-model="decisionForm.checklist[key]" type="checkbox" class="h-4 w-4 accent-coursia-primary">
+                {{ checklistLabels[key] }}
               </label>
             </div>
           </fieldset>
 
-          <p class="mt-3 text-xs text-[#667085]">
-            Checks manquants : {{ missingChecks.join(', ') || 'aucun' }}.
-          </p>
+          <div class="mt-3 rounded-2xl bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
+            Checks manquants sélection : {{ missingChecks.map((key) => checklistLabels[key as ChecklistKey] ?? key).join(', ') || 'aucun' }}.
+            <br>
+            Checks manquants en base : {{ selectedMissingChecks.map((key) => checklistLabels[key as ChecklistKey] ?? key).join(', ') || 'aucun' }}.
+          </div>
 
-          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054]">
+          <div v-if="selectedAllergens.length" class="mt-3 flex flex-wrap gap-2">
+            <BaseBadge v-for="allergen in selectedAllergens" :key="allergen" tone="warning">{{ allergen }}</BaseBadge>
+          </div>
+
+          <label class="mt-4 grid gap-1 text-sm font-bold text-coursia-foreground">
             Raison — obligatoire pour le refus
-            <textarea v-model="decisionForm.reason" rows="4" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary" />
+            <textarea v-model="decisionForm.reason" rows="4" placeholder="Motif, correction demandée ou note interne..." />
           </label>
 
-          <div class="mt-5 grid grid-cols-2 gap-2">
-            <BaseButton
-              v-for="decision in ['accept', 'request_correction', 'reject', 'archive']"
-              :key="decision"
-              type="button"
-              :variant="decision === 'accept' ? 'primary' : 'secondary'"
-              :disabled="isSaving"
-              @click="decide(decision as Decision)"
-            >
-              {{ decisionLabel(decision as Decision) }}
+          <div class="mt-4 grid grid-cols-2 gap-2">
+            <BaseButton type="button" :disabled="isSaving || !selectedSubmissionId" @click="decide('accept')">
+              {{ decisionLabels.accept }}
+            </BaseButton>
+            <BaseButton type="button" variant="secondary" :disabled="isSaving || !selectedSubmissionId" @click="decide('request_correction')">
+              {{ decisionLabels.request_correction }}
+            </BaseButton>
+            <BaseButton type="button" variant="secondary" :disabled="isSaving || !selectedSubmissionId" @click="decide('reject')">
+              {{ decisionLabels.reject }}
+            </BaseButton>
+            <BaseButton type="button" variant="ghost" :disabled="isSaving || !selectedSubmissionId" @click="decide('archive')">
+              {{ decisionLabels.archive }}
             </BaseButton>
           </div>
         </article>
 
-        <form class="rounded-2xl border border-[#e6e1d8] bg-white p-5" @submit.prevent="createSubmission">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Ajout manuel</p>
-          <h2 class="mt-2 text-lg font-semibold text-[#101828]">Soumission de test</h2>
-          <div class="mt-5 grid gap-3">
-            <input v-model="submissionForm.title" required placeholder="Titre" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <input v-model="submissionForm.source" required placeholder="Source" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <input v-model="submissionForm.rights" required placeholder="Droits" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
-            <select v-model="submissionForm.priority" class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary">
+        <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm" @submit.prevent="createSubmission">
+          <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Ajout manuel</p>
+          <h2 class="mt-1 text-lg font-black text-coursia-foreground">Soumission de test</h2>
+          <p class="mt-1 text-xs text-coursia-muted">Utile pour tester le workflow sans attendre une contribution mobile.</p>
+
+          <div class="mt-4 grid gap-3">
+            <input v-model="submissionForm.title" required placeholder="Titre">
+            <input v-model="submissionForm.source" required placeholder="Source">
+            <input v-model="submissionForm.rights" required placeholder="Droits / licence">
+            <select v-model="submissionForm.priority">
               <option value="low">Basse</option>
               <option value="normal">Normale</option>
               <option value="high">Haute</option>
@@ -438,11 +523,17 @@ onMounted(() => {
 
           <div class="mt-4">
             <div class="flex gap-2">
-              <input v-model="allergenInput" placeholder="Allergène" class="min-w-0 flex-1 rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary" @keyup.enter.prevent="addAllergen">
+              <input v-model="allergenInput" placeholder="Allergène" class="min-w-0 flex-1" @keyup.enter.prevent="addAllergen">
               <BaseButton type="button" size="sm" variant="secondary" @click="addAllergen">Ajouter</BaseButton>
             </div>
             <div class="mt-2 flex flex-wrap gap-1.5">
-              <button v-for="allergen in submissionForm.allergens" :key="allergen" type="button" class="rounded-full bg-[#fff2e8] px-3 py-1 text-xs text-[#7a4b2b]" @click="removeAllergen(allergen)">
+              <button
+                v-for="allergen in submissionForm.allergens"
+                :key="allergen"
+                type="button"
+                class="cursor-pointer rounded-full bg-coursia-warning/10 px-3 py-1 text-xs font-semibold text-coursia-warning"
+                @click="removeAllergen(allergen)"
+              >
                 {{ allergen }} ×
               </button>
             </div>
@@ -455,31 +546,32 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section class="admin-table mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828]">Décisions auditées</h2>
-          <p class="mt-1 text-xs text-[#667085]">Historique récent des arbitrages de modération.</p>
+          <h2 class="text-base font-black text-coursia-foreground">Décisions auditées</h2>
+          <p class="mt-1 text-xs text-coursia-muted">Historique récent des arbitrages de modération.</p>
         </div>
         <BaseBadge tone="neutral">{{ decisions.length }}</BaseBadge>
       </div>
-      <div v-if="decisions.length === 0" class="p-5 text-sm text-[#667085]">Aucune décision chargée.</div>
+
+      <div v-if="decisions.length === 0" class="p-5 text-sm text-coursia-muted">Aucune décision chargée.</div>
       <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+        <table>
+          <thead>
             <tr>
-              <th class="px-5 py-3">Décision</th>
-              <th class="px-5 py-3">Soumission</th>
-              <th class="px-5 py-3">Raison</th>
-              <th class="px-5 py-3">Date</th>
+              <th class="text-left">Décision</th>
+              <th class="text-left">Soumission</th>
+              <th class="text-left">Raison</th>
+              <th class="text-left">Date</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#eee8df]">
-            <tr v-for="decision in decisions" :key="String(decision.id)" class="transition hover:bg-[#fbfaf7]">
-              <td class="px-5 py-4 font-medium text-[#101828]">{{ decision.decision }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ decision.submission_id || decision.submissionId }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ decision.reason || '—' }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ decision.created_at || decision.createdAt || '—' }}</td>
+          <tbody>
+            <tr v-for="decision in decisions" :key="String(decision.id)" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
+              <td class="font-black text-coursia-foreground">{{ decision.decision }}</td>
+              <td class="text-sm text-coursia-muted">{{ decision.submission_id || decision.submissionId }}</td>
+              <td class="text-sm text-coursia-muted">{{ decision.reason || '—' }}</td>
+              <td class="text-sm text-coursia-muted">{{ formatDate(decision.decided_at ?? decision.created_at ?? decision.createdAt) }}</td>
             </tr>
           </tbody>
         </table>

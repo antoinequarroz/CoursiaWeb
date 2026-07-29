@@ -56,13 +56,13 @@ export const maskSupportUser = (user: {
 })
 
 export const supportProcedureDescriptions = {
-  export: 'Exporter les donnees suit une procedure controlee avec ticket, raison et confirmation.',
-  delete: 'Supprimer un compte suit une procedure controlee et ne supprime rien silencieusement.',
-  block: 'Bloquer un compte exige une raison support et une reference de ticket.',
+  export: 'Exporter les données suit une procédure contrôlée avec ticket, raison et confirmation.',
+  delete: 'Supprimer un compte suit une procédure contrôlée et ne supprime rien silencieusement.',
+  block: 'Bloquer un compte exige une raison support et une référence de ticket.',
 } as const
 
 export const impersonationDisabledMessage =
-  'Aucune fonction d impersonation n est ajoutee par defaut.'
+  'Aucune impersonation par défaut.'
 
 export type SupportUserSearch = z.infer<typeof supportUserSearchSchema>
 export type SupportControlledProcedure = z.infer<typeof supportControlledProcedureSchema>

@@ -944,7 +944,48 @@ textarea {
   }
 
   .admin-table tbody tr:hover {
-    background: #fbf9f5;
+    background: color-mix(in srgb, var(--admin-primary) 9%, var(--admin-card-strong));
+  }
+
+  .admin-row {
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .admin-row:hover {
+    background: color-mix(in srgb, var(--admin-primary) 9%, var(--admin-card-strong));
+  }
+
+  .admin-row-selected {
+    background: color-mix(in srgb, var(--admin-primary) 16%, var(--admin-card-strong));
+    box-shadow: inset 4px 0 0 var(--admin-primary);
+  }
+
+  .admin-card-action {
+    cursor: pointer;
+    border-color: var(--admin-border);
+    background: var(--admin-muted-panel);
+    transition:
+      transform 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .admin-card-action:hover {
+    border-color: color-mix(in srgb, var(--admin-primary) 46%, var(--admin-border));
+    background: color-mix(in srgb, var(--admin-primary) 9%, var(--admin-card-strong));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--admin-primary) 10%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .admin-card-selected {
+    border-color: color-mix(in srgb, var(--admin-primary) 64%, var(--admin-border));
+    background: color-mix(in srgb, var(--admin-primary) 16%, var(--admin-card-strong));
+    box-shadow: inset 4px 0 0 var(--admin-primary);
   }
 
   .admin-console {
@@ -1085,7 +1126,7 @@ textarea {
   }
 
   .admin-table tbody tr:hover {
-    background: var(--admin-muted-panel);
+    background: color-mix(in srgb, var(--admin-primary) 10%, var(--admin-card-strong));
   }
 
   [data-theme='dark'] .admin-console :where(.shadow-sm, .shadow-coursia-sm, .shadow-coursia-md, .shadow-coursia-glass) {
@@ -1118,7 +1159,20 @@ textarea {
   }
 
   [data-theme='dark'] .admin-console main :where(.admin-page tbody tr:hover) {
-    background: color-mix(in srgb, var(--admin-card-strong) 70%, var(--admin-primary-soft));
+    background: color-mix(in srgb, var(--admin-primary) 18%, var(--admin-card-strong));
+  }
+
+  [data-theme='dark'] .admin-row:hover {
+    background: color-mix(in srgb, var(--admin-primary) 18%, var(--admin-card-strong));
+  }
+
+  [data-theme='dark'] .admin-row-selected,
+  [data-theme='dark'] .admin-card-selected {
+    background: color-mix(in srgb, var(--admin-primary) 26%, var(--admin-card-strong));
+  }
+
+  [data-theme='dark'] .admin-card-action:hover {
+    background: color-mix(in srgb, var(--admin-primary) 18%, var(--admin-card-strong));
   }
 
   [data-theme='dark'] .admin-console main :where(.admin-page input, .admin-page select, .admin-page textarea) {

@@ -689,8 +689,8 @@ onMounted(() => {
               <tr
                 v-for="recipe in recipes"
                 :key="recipe.id"
-                class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
-                :class="selectedRecipe?.id === recipe.id ? 'bg-coursia-primary/5' : ''"
+                class="admin-row border-t border-coursia-border"
+                :class="selectedRecipe?.id === recipe.id ? 'admin-row-selected' : ''"
                 @click="selectRecipe(recipe)"
               >
                 <td>
@@ -942,8 +942,8 @@ onMounted(() => {
                 <p class="mt-1 text-xs text-coursia-muted">{{ ingredient.quantity }} {{ ingredient.unit }} · {{ ingredient.group }}{{ ingredient.optional ? ' · optionnel' : '' }}</p>
               </div>
               <div class="flex gap-1">
-                <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveIngredient(index, -1)">↑</button>
-                <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveIngredient(index, 1)">↓</button>
+                <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-primary" @click="moveIngredient(index, -1)">↑</button>
+                <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-primary" @click="moveIngredient(index, 1)">↓</button>
                 <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-danger hover:bg-coursia-danger/10" @click="removeIngredient(index)">Retirer</button>
               </div>
             </div>
@@ -970,8 +970,8 @@ onMounted(() => {
                   <p class="text-sm leading-6 text-coursia-foreground">{{ step.instruction }}</p>
                 </div>
                 <div class="flex shrink-0 gap-1">
-                  <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveStep(index, -1)">↑</button>
-                  <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-surface-muted" @click="moveStep(index, 1)">↓</button>
+                  <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-primary" @click="moveStep(index, -1)">↑</button>
+                  <button type="button" class="cursor-pointer rounded-lg px-2 py-1 text-xs font-black text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-primary" @click="moveStep(index, 1)">↓</button>
                   <button type="button" class="rounded-lg px-2 py-1 text-xs font-black text-coursia-danger hover:bg-coursia-danger/10" @click="removeStep(index)">Retirer</button>
                 </div>
               </div>

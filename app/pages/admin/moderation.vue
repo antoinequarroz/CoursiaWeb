@@ -464,8 +464,8 @@ onMounted(() => {
               <tr
                 v-for="submission in submissions"
                 :key="String(submission.id)"
-                class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
-                :class="selectedSubmissionId === String(submission.id) ? 'bg-coursia-primary/10' : ''"
+                class="admin-row border-t border-coursia-border"
+                :class="selectedSubmissionId === String(submission.id) ? 'admin-row-selected' : ''"
                 @click="selectSubmission(submission)"
               >
                 <td>
@@ -653,7 +653,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="decision in decisions" :key="String(decision.id)" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
+            <tr v-for="decision in decisions" :key="String(decision.id)" class="admin-row border-t border-coursia-border">
               <td class="font-semibold text-coursia-text">{{ decision.decision }}</td>
               <td class="text-sm text-coursia-muted">{{ decision.submission_id || decision.submissionId }}</td>
               <td class="max-w-xl truncate text-sm text-coursia-muted">{{ decision.reason || '—' }}</td>

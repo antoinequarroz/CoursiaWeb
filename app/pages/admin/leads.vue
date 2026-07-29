@@ -355,8 +355,8 @@ onBeforeUnmount(() => {
               <tr
                 v-for="lead in contacts"
                 :key="lead.id"
-                class="cursor-pointer transition hover:bg-coursia-surface-muted"
-                :class="selectedContact?.id === lead.id ? 'bg-coursia-primary/10' : ''"
+                class="admin-row"
+                :class="selectedContact?.id === lead.id ? 'admin-row-selected' : ''"
                 @click="selectedContactId = lead.id"
               >
                 <td>
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status !== 'archived'"
                       type="button"
-                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10 hover:text-coursia-primary disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="archiveLead(lead)"
                     >
@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status === 'archived'"
                       type="button"
-                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-semibold text-coursia-muted transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10 hover:text-coursia-primary disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="reopenLead(lead)"
                     >
@@ -527,7 +527,7 @@ onBeforeUnmount(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="lead in waitlist" :key="lead.id" class="transition hover:bg-coursia-surface-muted">
+              <tr v-for="lead in waitlist" :key="lead.id" class="admin-row">
                 <td class="font-semibold text-coursia-text">{{ lead.email }}</td>
                 <td class="text-coursia-muted">{{ sourceLabel(lead.source) }}</td>
                 <td class="text-coursia-muted">{{ lead.household_size ?? '—' }}</td>

@@ -280,7 +280,7 @@ const logout = async () => {
 
 <template>
   <!-- Test contract: COURSIA ADMIN / Profil admin / Déconnexion -->
-  <div class="admin-console min-h-screen bg-[#f7f4ed] text-[#101828]">
+  <div class="admin-console min-h-screen bg-coursia-background text-coursia-text">
     <a
       href="#admin-main-content"
       class="ds-focus-ring sr-only z-50 rounded-md bg-coursia-primary px-4 py-2 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
@@ -288,13 +288,13 @@ const logout = async () => {
       Aller au contenu admin
     </a>
 
-    <aside class="fixed inset-y-0 left-0 z-40 hidden w-[17.25rem] overflow-hidden border-r border-[#e6e1d8] bg-white/92 p-3 backdrop-blur-xl md:block">
+    <aside class="fixed inset-y-0 left-0 z-40 hidden w-[17.25rem] overflow-hidden border-r border-coursia-border bg-coursia-surface/92 p-3 backdrop-blur-xl md:block">
       <div class="flex h-full min-h-0 flex-col">
         <div class="shrink-0 flex items-center justify-between rounded-2xl px-2 py-2">
           <NuxtLink to="/admin" aria-label="Coursia admin">
             <BaseBrandLogo icon-class="h-10 w-10" text-class="text-lg" />
           </NuxtLink>
-          <span class="rounded-lg border border-[#e6e1d8] px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-[#667085]">
+          <span class="rounded-lg border border-coursia-border px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-coursia-muted">
             admin
           </span>
         </div>
@@ -304,17 +304,17 @@ const logout = async () => {
             to="/admin"
             class="admin-nav-link group flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition"
             :class="isActiveNavigationItem('/admin')
-              ? 'is-active text-[#0f5a3d]'
-              : 'text-[#344054] hover:bg-[#f7f4ed]'"
+              ? 'is-active text-coursia-primary'
+              : 'text-coursia-text hover:bg-coursia-primary/10'"
           >
-            <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">
+            <span class="grid h-7 w-7 place-items-center rounded-lg border border-coursia-border bg-coursia-surface text-coursia-muted group-[.is-active]:border-coursia-primary/35 group-[.is-active]:bg-coursia-primary/15 group-[.is-active]:text-coursia-primary">
               <AdminNavIcon :name="navigationIcon('/admin')" />
             </span>
             <span>Tableau de bord</span>
           </NuxtLink>
 
           <section v-for="section in visibleNavigation" :key="section.title" class="mt-5 first:mt-5">
-            <h2 class="px-3 text-[0.66rem] font-black uppercase tracking-[0.16em] text-[#98a2b3]">
+            <h2 class="px-3 text-[0.66rem] font-black uppercase tracking-[0.16em] text-coursia-muted">
               {{ section.title }}
             </h2>
             <div class="mt-2 grid gap-0.5">
@@ -324,10 +324,10 @@ const logout = async () => {
                 :to="item.path"
                 class="admin-nav-link group flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition"
                 :class="isActiveNavigationItem(item.path)
-                  ? 'is-active text-[#0f5a3d]'
-                  : 'text-[#344054] hover:bg-[#f7f4ed]'"
+                  ? 'is-active text-coursia-primary'
+                  : 'text-coursia-text hover:bg-coursia-primary/10'"
               >
-                <span class="grid h-7 w-7 place-items-center rounded-lg border border-[#e4ded2] bg-white text-[#667085] group-[.is-active]:border-[#b8d6c4] group-[.is-active]:bg-[#eaf5ee] group-[.is-active]:text-[#0f5a3d]">
+                <span class="grid h-7 w-7 place-items-center rounded-lg border border-coursia-border bg-coursia-surface text-coursia-muted group-[.is-active]:border-coursia-primary/35 group-[.is-active]:bg-coursia-primary/15 group-[.is-active]:text-coursia-primary">
                   <AdminNavIcon :name="navigationIcon(item.path)" />
                 </span>
                 <span>{{ item.label }}</span>
@@ -336,16 +336,16 @@ const logout = async () => {
           </section>
         </nav>
 
-        <div class="mt-3 shrink-0 rounded-2xl border border-[#e6e1d8] bg-white p-3 shadow-sm">
+        <div class="mt-3 shrink-0 rounded-2xl border border-coursia-border bg-coursia-surface p-3 shadow-sm">
           <div class="flex items-center gap-3">
-            <span class="grid h-11 w-11 place-items-center rounded-full bg-[#e8f3ea] text-sm font-black text-[#0f5a3d]">AQ</span>
+            <span class="grid h-11 w-11 place-items-center rounded-full bg-coursia-primary/15 text-sm font-black text-coursia-primary">AQ</span>
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-bold text-[#101828]">Antoine Quarroz</p>
-              <p class="truncate text-xs text-[#667085]">Profil admin</p>
+              <p class="truncate text-sm font-bold text-coursia-text">Antoine Quarroz</p>
+              <p class="truncate text-xs text-coursia-muted">Profil admin</p>
             </div>
             <button
               type="button"
-              class="grid h-8 w-8 place-items-center rounded-lg text-[#667085] transition hover:bg-[#f7f4ed] hover:text-[#101828]"
+              class="grid h-8 w-8 place-items-center rounded-lg text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-text"
               aria-label="Déconnexion"
               title="Déconnexion"
               @click="logout"
@@ -355,7 +355,7 @@ const logout = async () => {
           </div>
           <button
             type="button"
-            class="mt-3 w-full rounded-xl border border-[#e6e1d8] px-3 py-2 text-sm font-semibold text-[#667085] transition hover:bg-[#f7f4ed] hover:text-[#101828]"
+            class="mt-3 w-full rounded-xl border border-coursia-border px-3 py-2 text-sm font-semibold text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-text"
             @click="logout"
           >
             Déconnexion
@@ -365,16 +365,16 @@ const logout = async () => {
     </aside>
 
     <div class="relative z-10 md:pl-[17.25rem]">
-      <header class="sticky top-0 z-30 border-b border-[#e6e1d8] bg-white/86 px-4 py-3 backdrop-blur-xl lg:px-7">
+      <header class="sticky top-0 z-30 border-b border-coursia-border bg-coursia-surface/86 px-4 py-3 backdrop-blur-xl lg:px-7">
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <p class="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#98a2b3]">Coursia admin</p>
-            <p class="truncate text-lg font-black tracking-[-0.03em] text-[#101828]">{{ pageTitle }}</p>
+            <p class="text-[0.68rem] font-black uppercase tracking-[0.18em] text-coursia-muted">Coursia admin</p>
+            <p class="truncate text-lg font-black tracking-[-0.03em] text-coursia-text">{{ pageTitle }}</p>
           </div>
 
           <div class="relative hidden min-w-[20rem] flex-1 md:block md:max-w-xl">
             <label for="admin-global-search" class="sr-only">Recherche admin</label>
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]">
+            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coursia-muted">
               <AdminNavIcon name="search" />
             </span>
             <input
@@ -385,7 +385,7 @@ const logout = async () => {
               role="combobox"
               autocomplete="off"
               placeholder="Rechercher recette, ingrédient, produit, utilisateur..."
-              class="ds-focus-ring h-10 w-full rounded-xl border border-[#e6e1d8] bg-white px-10 pr-20 text-sm shadow-sm placeholder:text-[#98a2b3]"
+              class="ds-focus-ring h-10 w-full rounded-xl border border-coursia-border bg-coursia-surface px-10 pr-20 text-sm shadow-sm placeholder:text-coursia-muted"
               :aria-expanded="searchPanelOpen"
               aria-controls="admin-search-results"
               @focus="focusAdminSearch"
@@ -393,26 +393,26 @@ const logout = async () => {
             <button
               v-if="search"
               type="button"
-              class="absolute right-16 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-black text-[#667085] hover:bg-[#f7f4ed]"
+              class="absolute right-16 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-black text-coursia-muted hover:bg-coursia-primary/10"
               aria-label="Effacer la recherche"
               @click="clearAdminSearch"
             >
               ×
             </button>
-            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#98a2b3]">Ctrl K</span>
+            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-coursia-muted">Ctrl K</span>
 
             <div
               v-if="searchPanelOpen"
               id="admin-search-results"
-              class="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white text-sm shadow-[0_22px_70px_rgba(15,26,20,0.16)]"
+              class="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface text-sm shadow-[0_22px_70px_rgba(15,26,20,0.16)]"
             >
-              <div v-if="searchPending" class="p-4 text-[#667085]">
+              <div v-if="searchPending" class="p-4 text-coursia-muted">
                 Recherche en cours...
               </div>
-              <div v-else-if="searchError" class="p-4 text-[#b42318]">
+              <div v-else-if="searchError" class="p-4 text-coursia-danger">
                 {{ searchError }}
               </div>
-              <div v-else-if="searchResults.length <= 0" class="p-4 text-[#667085]">
+              <div v-else-if="searchResults.length <= 0" class="p-4 text-coursia-muted">
                 Aucun résultat pour “{{ search.trim() }}”.
               </div>
               <div v-else class="max-h-[24rem] overflow-y-auto p-2">
@@ -420,17 +420,17 @@ const logout = async () => {
                   v-for="result in searchResults"
                   :key="`${result.type}-${result.id}`"
                   :to="result.href"
-                  class="group flex items-start gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#f7f4ed]"
+                  class="group flex items-start gap-3 rounded-xl px-3 py-2.5 transition hover:bg-coursia-primary/10"
                   @click="clearAdminSearch"
                 >
-                  <span class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#e4ded2] bg-[#fbfaf7] text-[#0f5a3d]">
+                  <span class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-coursia-border bg-coursia-surface-muted text-coursia-primary">
                     <AdminNavIcon :name="searchResultIcon(result.type)" />
                   </span>
                   <span class="min-w-0">
-                    <span class="block truncate font-black text-[#101828]">{{ result.label }}</span>
-                    <span class="mt-0.5 block truncate text-xs text-[#667085]">{{ result.description }}</span>
+                    <span class="block truncate font-black text-coursia-text">{{ result.label }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-coursia-muted">{{ result.description }}</span>
                   </span>
-                  <span class="ml-auto shrink-0 rounded-full bg-[#eef1ee] px-2 py-1 text-[0.62rem] font-black uppercase tracking-[0.12em] text-[#667085]">
+                  <span class="ml-auto shrink-0 rounded-full bg-coursia-surface-muted px-2 py-1 text-[0.62rem] font-black uppercase tracking-[0.12em] text-coursia-muted">
                     {{ searchTypeLabel[result.type] }}
                   </span>
                 </NuxtLink>
@@ -442,7 +442,7 @@ const logout = async () => {
             <div class="relative">
               <button
                 type="button"
-                class="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e6e1d8] bg-white text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] hover:text-[#0f5a3d]"
+                class="relative grid h-10 w-10 place-items-center rounded-xl border border-coursia-border bg-coursia-surface text-coursia-text shadow-sm transition hover:bg-coursia-primary/10 hover:text-coursia-primary"
                 :aria-label="notificationLabel"
                 :aria-expanded="notificationPanelOpen"
                 aria-controls="admin-notifications-panel"
@@ -452,7 +452,7 @@ const logout = async () => {
                 <AdminNavIcon name="notifications" />
                 <span
                   v-if="unreadNotifications > 0"
-                  class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#ff4d3d] px-1 text-[0.58rem] font-black text-white"
+                  class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-coursia-danger px-1 text-[0.58rem] font-black text-white"
                 >
                   {{ unreadNotifications > 9 ? '9+' : unreadNotifications }}
                 </span>
@@ -461,16 +461,16 @@ const logout = async () => {
               <div
                 v-if="notificationPanelOpen"
                 id="admin-notifications-panel"
-                class="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-[#e6e1d8] bg-white p-3 text-sm shadow-[0_22px_70px_rgba(15,26,20,0.16)]"
+                class="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-coursia-border bg-coursia-surface p-3 text-sm shadow-[0_22px_70px_rgba(15,26,20,0.16)]"
               >
-                <div class="flex items-start justify-between gap-3 border-b border-[#eee8dd] pb-3">
+                <div class="flex items-start justify-between gap-3 border-b border-coursia-border pb-3">
                   <div>
-                    <p class="font-black text-[#101828]">Notifications</p>
-                    <p class="mt-1 text-xs text-[#667085]">{{ notificationLabel }}</p>
+                    <p class="font-black text-coursia-text">Notifications</p>
+                    <p class="mt-1 text-xs text-coursia-muted">{{ notificationLabel }}</p>
                   </div>
                   <button
                     type="button"
-                    class="rounded-lg px-2 py-1 text-xs font-bold text-[#667085] hover:bg-[#f7f4ed]"
+                    class="rounded-lg px-2 py-1 text-xs font-bold text-coursia-muted hover:bg-coursia-primary/10"
                     aria-label="Fermer les notifications"
                     @click="notificationPanelOpen = false"
                   >
@@ -481,18 +481,18 @@ const logout = async () => {
                 <div class="py-4">
                   <div
                     v-if="notificationPending"
-                    class="rounded-xl bg-[#f7f4ed] p-4 text-[#667085]"
+                    class="rounded-xl bg-coursia-surface-muted p-4 text-coursia-muted"
                   >
                     Chargement des notifications...
                   </div>
                   <div
                     v-else-if="notificationError"
-                    class="rounded-xl bg-[#fff0ed] p-4 text-[#b42318]"
+                    class="rounded-xl bg-coursia-danger/10 p-4 text-coursia-danger"
                   >
                     <p>{{ notificationError }}</p>
                     <button
                       type="button"
-                      class="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold text-[#344054] shadow-sm hover:bg-[#f7f4ed]"
+                      class="mt-3 rounded-lg bg-coursia-surface px-3 py-2 text-xs font-bold text-coursia-text shadow-sm hover:bg-coursia-primary/10"
                       @click="loadNotifications"
                     >
                       Réessayer
@@ -500,7 +500,7 @@ const logout = async () => {
                   </div>
                   <div
                     v-else-if="notifications.length <= 0"
-                    class="rounded-xl bg-[#f7f4ed] p-4 text-[#667085]"
+                    class="rounded-xl bg-coursia-surface-muted p-4 text-coursia-muted"
                   >
                     Rien à traiter pour le moment.
                   </div>
@@ -511,21 +511,21 @@ const logout = async () => {
                     <article
                       v-for="notification in notifications"
                       :key="notification.id"
-                      class="rounded-xl border border-[#eee8dd] bg-[#fbfaf7] p-3"
-                      :class="notification.lue ? 'opacity-70' : 'border-[#f0c7bd] bg-[#fff7ed]'"
+                      class="rounded-xl border border-coursia-border bg-coursia-surface-muted p-3"
+                      :class="notification.lue ? 'opacity-70' : 'border-coursia-warning/35 bg-coursia-warning/10'"
                     >
                       <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                          <p class="truncate font-black text-[#101828]">{{ notification.titre }}</p>
-                          <p class="mt-1 line-clamp-2 text-xs leading-5 text-[#667085]">{{ notification.message }}</p>
-                          <p class="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#98a2b3]">
+                          <p class="truncate font-black text-coursia-text">{{ notification.titre }}</p>
+                          <p class="mt-1 line-clamp-2 text-xs leading-5 text-coursia-muted">{{ notification.message }}</p>
+                          <p class="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-coursia-muted">
                             {{ notification.type }} · {{ formatNotificationDate(notification.created_at) }}
                           </p>
                         </div>
                         <button
                           v-if="!notification.lue"
                           type="button"
-                          class="shrink-0 rounded-lg border border-[#e6e1d8] bg-white px-2 py-1 text-[0.68rem] font-black text-[#0f5a3d] shadow-sm hover:bg-[#eaf5ee]"
+                          class="shrink-0 rounded-lg border border-coursia-border bg-coursia-surface px-2 py-1 text-[0.68rem] font-black text-coursia-primary shadow-sm hover:bg-coursia-primary/10"
                           @click="markNotificationAsRead(notification)"
                         >
                           Lu
@@ -539,7 +539,7 @@ const logout = async () => {
             <BaseThemeToggle />
             <NuxtLink
               to="/"
-              class="hidden rounded-xl border border-[#e6e1d8] bg-white px-3 py-2 text-sm font-semibold text-[#344054] shadow-sm transition hover:bg-[#f7f4ed] lg:inline-flex"
+              class="hidden rounded-xl border border-coursia-border bg-coursia-surface px-3 py-2 text-sm font-semibold text-coursia-text shadow-sm transition hover:bg-coursia-primary/10 lg:inline-flex"
             >
               Site public
             </NuxtLink>

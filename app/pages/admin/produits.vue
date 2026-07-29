@@ -368,11 +368,11 @@ onMounted(async () => {
     </div>
 
     <form class="admin-toolbar grid gap-3 xl:grid-cols-[1.2fr_0.8fr_auto]" @submit.prevent="loadProducts">
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Recherche
         <input v-model="filters.search" type="search" placeholder="Nom produit ou rayon..." autocomplete="off">
       </label>
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Enseigne
         <select v-model="filters.retailerId">
           <option value="">Toutes les enseignes</option>
@@ -400,7 +400,7 @@ onMounted(async () => {
           <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Données réelles' }}</BaseBadge>
         </template>
 
-        <div v-if="loading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">
+        <div v-if="loading" class="p-5 text-sm text-coursia-muted">
           Chargement des produits...
         </div>
 
@@ -423,17 +423,17 @@ onMounted(async () => {
             v-for="product in products"
             :key="product.id"
             type="button"
-            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 dark:hover:bg-white/10"
-            :class="selectedProduct?.id === product.id ? 'border-coursia-primary bg-[#eef7f1] dark:bg-coursia-primary/15' : 'border-[#e6e1d8] bg-[#fbf8f1] dark:border-white/10 dark:bg-white/5'"
+            class="admin-card-action rounded-2xl border p-3 text-left"
+            :class="selectedProduct?.id === product.id ? 'admin-card-selected' : ''"
             @click="selectProduct(product)"
           >
             <span class="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(14rem,0.9fr)_10rem] md:items-center">
               <span class="min-w-0">
                 <span class="flex items-center gap-2">
-                  <span class="truncate text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ product.name }}</span>
+                  <span class="truncate text-sm font-semibold text-coursia-text">{{ product.name }}</span>
                   <BaseBadge v-if="product.status === 'archived'" tone="neutral">Archivé</BaseBadge>
                 </span>
-                <span class="mt-1 block truncate font-mono text-xs text-[#667085] dark:text-[#a8b8ad]">
+                <span class="mt-1 block truncate font-mono text-xs text-coursia-muted">
                   {{ product.slug }}
                 </span>
               </span>
@@ -446,16 +446,16 @@ onMounted(async () => {
                 >
                   {{ offer.retailer_name }} · {{ offer.format }}
                 </BaseBadge>
-                <span v-if="!product.offers?.length" class="text-xs font-medium text-[#667085] dark:text-[#a8b8ad]">
+                <span v-if="!product.offers?.length" class="text-xs font-medium text-coursia-muted">
                   Aucune offre
                 </span>
               </span>
 
               <span class="text-right">
-                <span class="block text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
+                <span class="block text-sm font-semibold text-coursia-text">
                   {{ formatPrice(product.offers?.find((offer) => offer.latest_price_chf)?.latest_price_chf) }}
                 </span>
-                <span class="mt-1 block text-xs text-[#667085] dark:text-[#a8b8ad]">
+                <span class="mt-1 block text-xs text-coursia-muted">
                   {{ product.mobile?.aisle || 'Rayon non classé' }}
                 </span>
               </span>
@@ -471,11 +471,11 @@ onMounted(async () => {
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">
                 {{ editingProductId ? 'Modification' : 'Création' }}
               </p>
-              <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Produit + offre</h2>
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">Produit + offre</h2>
             </div>
             <button
               type="button"
-              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold text-[#667085] transition hover:bg-[#f7f4ed] dark:text-[#a8b8ad] dark:hover:bg-white/10"
+              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold text-coursia-muted transition hover:bg-coursia-primary/10"
               @click="closeEditor"
             >
               Fermer
@@ -483,7 +483,7 @@ onMounted(async () => {
           </div>
 
           <form class="mt-4 grid gap-4" @submit.prevent="saveProduct">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Enseigne
               <select v-model="form.retailerId" required>
                 <option value="" disabled>Choisir une enseigne</option>
@@ -492,25 +492,25 @@ onMounted(async () => {
                 </option>
               </select>
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Nom produit
               <input v-model="form.name" required placeholder="Ex. Penne rigate">
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Slug
               <input v-model="form.slug" required placeholder="penne-rigate-500g">
             </label>
 
             <div class="grid grid-cols-[1fr_0.65fr_0.55fr] gap-2">
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Format
                 <input v-model="form.format.label" required placeholder="500 g">
               </label>
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Quantité
                 <input v-model.number="form.format.quantity" required type="number" min="0.01" step="0.01">
               </label>
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Unité
                 <select v-model="form.format.unit">
                   <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
@@ -518,17 +518,17 @@ onMounted(async () => {
               </label>
             </div>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Source
               <input v-model="form.source" required placeholder="saisie_admin, coop.ch...">
             </label>
 
-            <div v-if="!editingProductId" class="rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 dark:border-white/10 dark:bg-white/5">
-              <label class="flex cursor-pointer items-start gap-3 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
+            <div v-if="!editingProductId" class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <label class="flex cursor-pointer items-start gap-3 text-sm font-semibold text-coursia-text">
                 <input v-model="firstPrice.enabled" type="checkbox" class="mt-1 h-4 w-4 cursor-pointer accent-coursia-primary">
                 <span>
                   Ajouter directement le premier prix
-                  <span class="mt-1 block text-xs font-medium leading-5 text-[#667085] dark:text-[#a8b8ad]">
+                  <span class="mt-1 block text-xs font-medium leading-5 text-coursia-muted">
                     Utile pour rendre l’offre immédiatement exploitable par le comparateur mobile.
                   </span>
                 </span>
@@ -536,25 +536,25 @@ onMounted(async () => {
 
               <div v-if="firstPrice.enabled" class="mt-3 grid gap-3">
                 <div class="grid grid-cols-2 gap-2">
-                  <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+                  <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                     Prix CHF
                     <input v-model.number="firstPrice.amountChf" type="number" min="0" step="0.01" placeholder="2.40">
                   </label>
-                  <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+                  <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                     Prix unitaire
                     <input v-model.number="firstPrice.unitPriceChf" type="number" min="0" step="0.01" placeholder="Optionnel">
                   </label>
                 </div>
-                <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+                <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                   Promotion
                   <input v-model="firstPrice.promotionLabel" placeholder="Action 20%, 2 pour 1...">
                 </label>
                 <div class="grid grid-cols-[1fr_1.1fr] gap-2">
-                  <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+                  <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                     Source prix
                     <input v-model="firstPrice.source" required>
                   </label>
-                  <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+                  <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                     Collecte
                     <input v-model="firstPrice.collectedAt" required>
                   </label>
@@ -562,14 +562,14 @@ onMounted(async () => {
               </div>
             </div>
 
-            <div class="rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 dark:border-white/10 dark:bg-white/5">
-              <p class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Impact mobile</p>
-              <p class="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a8b8ad]">
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-semibold text-coursia-text">Impact mobile</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">
                 La sauvegarde crée ou met à jour le produit canonique et son offre magasin. Si un prix est renseigné, il est historisé côté mobile.
               </p>
             </div>
 
-            <div class="flex flex-wrap gap-2 border-t border-[#ece6dc] pt-4 dark:border-white/10">
+            <div class="flex flex-wrap gap-2 border-t border-coursia-border pt-4">
               <BaseButton type="submit" :disabled="saving || !form.retailerId">
                 {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
               </BaseButton>
@@ -589,8 +589,8 @@ onMounted(async () => {
           <template v-else>
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <h2 class="truncate text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedProduct.name }}</h2>
-                <p class="mt-1 truncate font-mono text-sm text-[#667085] dark:text-[#a8b8ad]">{{ selectedProduct.slug }}</p>
+                <h2 class="truncate text-lg font-semibold text-coursia-text">{{ selectedProduct.name }}</h2>
+                <p class="mt-1 truncate font-mono text-sm text-coursia-muted">{{ selectedProduct.slug }}</p>
               </div>
               <BaseBadge :tone="selectedHealthLabel === 'Exploitable' ? 'success' : selectedHealthLabel === 'Prix manquant' ? 'warning' : 'neutral'">
                 {{ selectedHealthLabel }}
@@ -598,21 +598,21 @@ onMounted(async () => {
             </div>
 
             <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
-              <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">
-                <dt class="text-xs font-semibold text-[#667085] dark:text-[#a8b8ad]">Offres</dt>
-                <dd class="mt-1 font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedOffers.length }}</dd>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-semibold text-coursia-muted">Offres</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ selectedOffers.length }}</dd>
               </div>
-              <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">
-                <dt class="text-xs font-semibold text-[#667085] dark:text-[#a8b8ad]">Actives</dt>
-                <dd class="mt-1 font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedProduct.active_offer_count ?? 0 }}</dd>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-semibold text-coursia-muted">Actives</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ selectedProduct.active_offer_count ?? 0 }}</dd>
               </div>
-              <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">
-                <dt class="text-xs font-semibold text-[#667085] dark:text-[#a8b8ad]">Dernier prix</dt>
-                <dd class="mt-1 font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ formatPrice(selectedLatestPrice?.latest_price_chf) }}</dd>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-semibold text-coursia-muted">Dernier prix</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ formatPrice(selectedLatestPrice?.latest_price_chf) }}</dd>
               </div>
-              <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">
-                <dt class="text-xs font-semibold text-[#667085] dark:text-[#a8b8ad]">Rayon</dt>
-                <dd class="mt-1 truncate font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedProduct.mobile?.aisle || 'Non classé' }}</dd>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-semibold text-coursia-muted">Rayon</dt>
+                <dd class="mt-1 truncate font-semibold text-coursia-text">{{ selectedProduct.mobile?.aisle || 'Non classé' }}</dd>
               </div>
             </dl>
 
@@ -620,21 +620,21 @@ onMounted(async () => {
               <article
                 v-for="offer in selectedOffers"
                 :key="offer.id"
-                class="rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 dark:border-white/10 dark:bg-white/5"
+                class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3"
               >
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ offer.retailer_name }}</p>
-                    <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">{{ offer.format }} · {{ offer.quantity }} {{ offer.unit }}</p>
+                    <p class="font-semibold text-coursia-text">{{ offer.retailer_name }}</p>
+                    <p class="mt-1 text-xs text-coursia-muted">{{ offer.format }} · {{ offer.quantity }} {{ offer.unit }}</p>
                   </div>
                   <BaseBadge :tone="offer.active ? 'success' : 'neutral'">
                     {{ offer.active ? 'Active' : 'Inactive' }}
                   </BaseBadge>
                 </div>
-                <p class="mt-3 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ formatPrice(offer.latest_price_chf) }}</p>
-                <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">Collecte : {{ formatDate(offer.latest_price_collected_at) }}</p>
+                <p class="mt-3 text-sm font-semibold text-coursia-text">{{ formatPrice(offer.latest_price_chf) }}</p>
+                <p class="mt-1 text-xs text-coursia-muted">Collecte : {{ formatDate(offer.latest_price_collected_at) }}</p>
               </article>
-              <p v-if="selectedOffers.length === 0" class="rounded-2xl bg-[#fbf8f1] p-4 text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+              <p v-if="selectedOffers.length === 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
                 Aucune offre liée. Modifie ce produit pour créer une offre magasin.
               </p>
             </div>
@@ -642,7 +642,7 @@ onMounted(async () => {
             <div class="mt-4 grid gap-2">
               <BaseButton type="button" @click="startEdit()">Modifier produit/offre</BaseButton>
               <NuxtLink
-                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-[#e6e1d8] bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-[#344054] transition hover:bg-[#f7f4ed] dark:border-white/10 dark:bg-white/5 dark:text-[#dbe7df] dark:hover:bg-white/10"
+                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-primary/10"
                 :to="`/admin/prix${selectedOffers[0] ? `?productOfferId=${selectedOffers[0].id}&retailerId=${selectedOffers[0].retailer_id}` : ''}`"
               >
                 Ajouter un prix

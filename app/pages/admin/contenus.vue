@@ -475,8 +475,8 @@ onBeforeUnmount(() => {
               <tr
                 v-for="content in contents"
                 :key="content.id"
-                class="cursor-pointer border-t border-coursia-border transition hover:bg-coursia-surface-muted"
-                :class="selectedContentId === content.id ? 'bg-coursia-primary/10' : ''"
+                class="admin-row border-t border-coursia-border"
+                :class="selectedContentId === content.id ? 'admin-row-selected' : ''"
                 @click="selectContent(content)"
               >
                 <td>
@@ -671,7 +671,7 @@ onBeforeUnmount(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="revision in history" :key="revision.id" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
+            <tr v-for="revision in history" :key="revision.id" class="admin-row border-t border-coursia-border">
               <td class="text-sm text-coursia-muted">{{ formatDate(revision.created_at ?? revision.createdAt) }}</td>
               <td class="text-sm text-coursia-muted">{{ revision.author_user_id ?? revision.authorUserId ?? '—' }}</td>
               <td class="font-semibold text-coursia-text">

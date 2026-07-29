@@ -299,8 +299,8 @@ onMounted(loadRetailers)
             v-for="retailer in retailers"
             :key="retailer.id"
             type="button"
-            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
-            :class="selectedRetailer?.id === retailer.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
+            class="admin-card-action rounded-2xl border p-3 text-left"
+            :class="selectedRetailer?.id === retailer.id ? 'admin-card-selected' : ''"
             @click="selectRetailer(retailer)"
           >
             <span class="flex items-start justify-between gap-3">
@@ -334,7 +334,7 @@ onMounted(loadRetailers)
             </div>
             <button
               type="button"
-              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted"
+              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-primary"
               @click="closeEditor"
             >
               Fermer
@@ -421,13 +421,13 @@ onMounted(loadRetailers)
             <div class="mt-4 grid gap-2">
               <BaseButton type="button" @click="startEdit()">Modifier l’enseigne</BaseButton>
               <NuxtLink
-                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
+                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10"
                 :to="`/admin/produits?retailerId=${selectedRetailer.id}`"
               >
                 Gérer les produits liés
               </NuxtLink>
               <NuxtLink
-                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
+                class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10"
                 :to="`/admin/prix?retailerId=${selectedRetailer.id}`"
               >
                 Gérer les prix

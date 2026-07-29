@@ -446,7 +446,7 @@ onMounted(() => {
                 v-for="ingredient in visibleIngredients"
                 :key="ingredient.id"
                 class="cursor-pointer transition"
-                :class="selectedIngredient?.id === ingredient.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
+                :class="selectedIngredient?.id === ingredient.id ? 'admin-row-selected' : ''"
                 @click="selectIngredient(ingredient)"
               >
                 <td>
@@ -511,7 +511,7 @@ onMounted(() => {
               </p>
               <h2 class="mt-1 text-lg font-black text-coursia-foreground">Fiche ingrédient</h2>
             </div>
-            <button type="button" class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted" @click="closeEditor">
+            <button type="button" class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-primary/10 hover:text-coursia-primary" @click="closeEditor">
               Fermer
             </button>
           </div>

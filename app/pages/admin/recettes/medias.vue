@@ -422,7 +422,7 @@ onBeforeUnmount(() => {
 
         <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <label
-            class="group grid cursor-pointer content-center gap-2 rounded-2xl border border-dashed border-coursia-border bg-coursia-surface-muted p-5 text-sm text-coursia-muted transition hover:border-coursia-primary hover:bg-coursia-primary/5"
+            class="group grid cursor-pointer content-center gap-2 rounded-2xl border border-dashed border-coursia-border bg-coursia-surface-muted p-5 text-sm text-coursia-muted transition hover:border-coursia-primary hover:bg-coursia-primary/10"
           >
             <span class="font-semibold text-coursia-text">Déposer une image</span>
             <span>JPEG, PNG ou WebP · maximum {{ readableMaxSize }} · dimensions lues automatiquement.</span>

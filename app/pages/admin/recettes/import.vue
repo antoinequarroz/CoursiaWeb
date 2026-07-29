@@ -169,7 +169,7 @@ async function runImport(forceDryRun = dryRun.value) {
       <template #actions>
         <a
           :href="templateHref"
-          class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
+          class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10"
         >
           Télécharger le modèle
         </a>
@@ -224,7 +224,7 @@ async function runImport(forceDryRun = dryRun.value) {
 
         <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <label
-            class="group grid cursor-pointer content-center gap-2 rounded-2xl border border-dashed border-coursia-border bg-coursia-surface-muted p-5 text-sm text-coursia-muted transition hover:border-coursia-primary hover:bg-coursia-primary/5"
+            class="group grid cursor-pointer content-center gap-2 rounded-2xl border border-dashed border-coursia-border bg-coursia-surface-muted p-5 text-sm text-coursia-muted transition hover:border-coursia-primary hover:bg-coursia-primary/10"
           >
             <span class="font-semibold text-coursia-text">Importer un fichier CSV</span>
             <span>Le contenu reste modifiable avant l’appel API.</span>

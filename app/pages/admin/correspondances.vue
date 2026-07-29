@@ -522,7 +522,7 @@ onMounted(async () => {
         >
           <template #actions>
             <NuxtLink
-              class="inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
+              class="inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10"
               to="/admin/produits"
             >
               Aller aux produits
@@ -535,8 +535,8 @@ onMounted(async () => {
             v-for="match in matches"
             :key="`${match.product_id}:${match.retailer_id ?? 'none'}`"
             type="button"
-            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
-            :class="selectedMatch?.product_id === match.product_id && selectedMatch?.retailer_id === match.retailer_id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
+            class="admin-card-action rounded-2xl border p-3 text-left"
+            :class="selectedMatch?.product_id === match.product_id && selectedMatch?.retailer_id === match.retailer_id ? 'admin-card-selected' : ''"
             @click="useMatchAsForm(match)"
           >
             <span class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_8rem_8rem] xl:items-center">
@@ -717,7 +717,7 @@ onMounted(async () => {
           v-for="ingredient in unmatched"
           :key="ingredient.id"
           type="button"
-          class="cursor-pointer rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4 text-left transition hover:border-coursia-primary/40 hover:bg-coursia-surface"
+          class="admin-card-action rounded-2xl border p-4 text-left"
           @click="useUnmatchedIngredient(ingredient)"
         >
           <span class="block text-sm font-semibold text-coursia-text">{{ ingredient.name }}</span>

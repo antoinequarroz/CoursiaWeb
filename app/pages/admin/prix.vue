@@ -461,7 +461,7 @@ onMounted(refreshAll)
         >
           <template #actions>
             <NuxtLink
-              class="inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
+              class="inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:border-coursia-primary/45 hover:bg-coursia-primary/10"
               to="/admin/produits"
             >
               Aller aux produits
@@ -474,8 +474,8 @@ onMounted(refreshAll)
             v-for="offer in offerOptions"
             :key="offer.id"
             type="button"
-            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
-            :class="selectedOfferId === offer.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
+            class="admin-card-action rounded-2xl border p-3 text-left"
+            :class="selectedOfferId === offer.id ? 'admin-card-selected' : ''"
             @click="selectOffer(offer)"
           >
             <span class="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_12rem_9rem] md:items-center">
@@ -557,7 +557,7 @@ onMounted(refreshAll)
               v-for="entry in selectedOfferHistory"
               :key="entry.id"
               type="button"
-              class="cursor-pointer rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 text-left transition hover:bg-coursia-surface"
+              class="admin-card-action rounded-2xl border p-3 text-left"
               @click="selectPrice(entry)"
             >
               <span class="flex items-center justify-between gap-3">
@@ -589,8 +589,8 @@ onMounted(refreshAll)
           v-for="price in prices"
           :key="price.id"
           type="button"
-          class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
-          :class="selectedPrice?.id === price.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
+          class="admin-card-action rounded-2xl border p-3 text-left"
+          :class="selectedPrice?.id === price.id ? 'admin-card-selected' : ''"
           @click="selectPrice(price)"
         >
           <span class="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_10rem_8rem_9rem] md:items-center">

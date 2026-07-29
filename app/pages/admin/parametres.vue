@@ -235,8 +235,8 @@ onMounted(loadFlags)
               <tr
                 v-for="flag in flags"
                 :key="String(flag.id ?? flag.key)"
-                class="cursor-pointer transition hover:bg-coursia-surface-muted"
-                :class="selectedKey === String(flag.key) ? 'bg-coursia-primary/10' : ''"
+                class="admin-row"
+                :class="selectedKey === String(flag.key) ? 'admin-row-selected' : ''"
                 @click="selectFlag(flag)"
               >
                 <td>

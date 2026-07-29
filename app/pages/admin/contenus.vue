@@ -444,14 +444,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_410px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
-          <div>
-            <h2 class="text-sm font-semibold text-coursia-text">Bibliothèque de contenus</h2>
-            <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour éditer, prévisualiser ou consulter l’historique.</p>
-          </div>
+      <AdminPanel
+        title="Bibliothèque de contenus"
+        description="Sélectionne une ligne pour éditer, prévisualiser ou consulter l’historique."
+        :padded="false"
+      >
+        <template #actions>
           <BaseBadge tone="neutral">Sans redéploiement</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contenus...</div>
         <AdminEmptyState
@@ -461,8 +461,7 @@ onBeforeUnmount(() => {
           description="Crée un premier contenu administrable pour alimenter le site ou l’application."
         />
 
-        <div v-else class="overflow-x-auto">
-          <table>
+        <AdminTableShell v-else>
             <thead>
               <tr>
                 <th class="text-left">Contenu</th>
@@ -495,9 +494,8 @@ onBeforeUnmount(() => {
                 <td class="text-sm text-coursia-muted">{{ formatDate(content.updated_at) }}</td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-5" @submit.prevent="saveContent">
         <div class="flex items-start justify-between gap-3">
@@ -648,19 +646,23 @@ onBeforeUnmount(() => {
       </aside>
     </section>
 
-    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
-        <div>
-          <h2 class="text-sm font-semibold text-coursia-text">Historique auteur</h2>
-          <p class="mt-1 text-xs text-coursia-muted">Traçabilité des modifications du contenu sélectionné.</p>
-        </div>
+    <AdminPanel
+      title="Historique auteur"
+      description="Traçabilité des modifications du contenu sélectionné."
+      :padded="false"
+    >
+      <template #actions>
         <BaseBadge tone="neutral">{{ history.length }}</BaseBadge>
-      </div>
+      </template>
 
-      <div v-if="history.length === 0" class="p-5 text-sm text-coursia-muted">Aucun historique chargé.</div>
+      <AdminEmptyState
+        v-if="history.length === 0"
+        icon="content"
+        title="Aucun historique chargé"
+        description="Sélectionne un contenu pour afficher ses révisions."
+      />
 
-      <div v-else class="overflow-x-auto">
-        <table>
+      <AdminTableShell v-else>
           <thead>
             <tr>
               <th class="text-left">Date</th>
@@ -677,8 +679,7 @@ onBeforeUnmount(() => {
               </td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    </section>
+      </AdminTableShell>
+    </AdminPanel>
   </section>
 </template>

@@ -324,16 +324,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4 ">
-          <div>
-            <h2 class="text-sm font-semibold text-coursia-text">Messages de contact</h2>
-            <p class="mt-1 text-xs text-coursia-muted">
-              Sélectionne une ligne pour gérer le suivi sans exposer plus de données que nécessaire.
-            </p>
-          </div>
+      <AdminPanel
+        title="Messages de contact"
+        description="Sélectionne une ligne pour gérer le suivi sans exposer plus de données que nécessaire."
+        :padded="false"
+      >
+        <template #actions>
           <BaseBadge tone="neutral">{{ contactCount }}</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contacts...</div>
         <AdminEmptyState
@@ -343,18 +341,17 @@ onBeforeUnmount(() => {
           description="Les messages validés depuis le site public apparaîtront ici."
         />
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-coursia-surface-muted text-left text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">
+        <AdminTableShell v-else>
+            <thead>
               <tr>
-                <th class="px-5 py-3">Contact</th>
-                <th class="px-5 py-3">Sujet</th>
-                <th class="px-5 py-3">Message</th>
-                <th class="px-5 py-3">Statut</th>
-                <th class="px-5 py-3">Actions</th>
+                <th>Contact</th>
+                <th>Sujet</th>
+                <th>Message</th>
+                <th>Statut</th>
+                <th>Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-coursia-border">
+            <tbody>
               <tr
                 v-for="lead in contacts"
                 :key="lead.id"
@@ -362,24 +359,24 @@ onBeforeUnmount(() => {
                 :class="selectedContact?.id === lead.id ? 'bg-coursia-primary/10' : ''"
                 @click="selectedContactId = lead.id"
               >
-                <td class="px-5 py-4">
+                <td>
                   <p class="font-semibold text-coursia-text">{{ lead.name }}</p>
                   <p class="mt-1 text-xs text-coursia-muted">{{ lead.email }}</p>
                   <p class="mt-1 text-[11px] uppercase tracking-[0.12em] text-coursia-muted">
                     {{ sourceLabel(lead.source) }}
                   </p>
                 </td>
-                <td class="px-5 py-4 text-coursia-muted">{{ lead.reason }}</td>
-                <td class="max-w-xl px-5 py-4">
+                <td class="text-coursia-muted">{{ lead.reason }}</td>
+                <td class="max-w-xl">
                   <p class="line-clamp-2 leading-6 text-coursia-muted">{{ lead.message }}</p>
                   <BaseBadge v-if="lead.internal_note" class="mt-2" tone="primary">Note interne</BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <BaseBadge :tone="statusTone(lead.status)">
                     {{ statusLabel[lead.status] }}
                   </BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <div class="flex flex-wrap gap-2" @click.stop>
                     <button
                       v-if="lead.status !== 'reviewed'"
@@ -412,9 +409,8 @@ onBeforeUnmount(() => {
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  ">
         <div v-if="selectedContact">
@@ -503,16 +499,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4 ">
-          <div>
-            <h2 class="text-sm font-semibold text-coursia-text">Liste d’attente</h2>
-            <p class="mt-1 text-xs text-coursia-muted">
-              Source, foyer et intérêts déclarés. Pas de modification directe depuis cette page.
-            </p>
-          </div>
+      <AdminPanel
+        title="Liste d’attente"
+        description="Source, foyer et intérêts déclarés. Pas de modification directe depuis cette page."
+        :padded="false"
+      >
+        <template #actions>
           <BaseBadge tone="neutral">{{ waitlistCount }}</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la liste d’attente...</div>
         <AdminEmptyState
@@ -522,23 +516,22 @@ onBeforeUnmount(() => {
           description="Les inscriptions à la liste d’attente apparaîtront ici."
         />
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-coursia-surface-muted text-left text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">
+        <AdminTableShell v-else>
+            <thead>
               <tr>
-                <th class="px-5 py-3">Email</th>
-                <th class="px-5 py-3">Source</th>
-                <th class="px-5 py-3">Foyer</th>
-                <th class="px-5 py-3">Intérêts</th>
-                <th class="px-5 py-3">Inscription</th>
+                <th>Email</th>
+                <th>Source</th>
+                <th>Foyer</th>
+                <th>Intérêts</th>
+                <th>Inscription</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-coursia-border">
+            <tbody>
               <tr v-for="lead in waitlist" :key="lead.id" class="transition hover:bg-coursia-surface-muted">
-                <td class="px-5 py-4 font-semibold text-coursia-text">{{ lead.email }}</td>
-                <td class="px-5 py-4 text-coursia-muted">{{ sourceLabel(lead.source) }}</td>
-                <td class="px-5 py-4 text-coursia-muted">{{ lead.household_size ?? '—' }}</td>
-                <td class="px-5 py-4">
+                <td class="font-semibold text-coursia-text">{{ lead.email }}</td>
+                <td class="text-coursia-muted">{{ sourceLabel(lead.source) }}</td>
+                <td class="text-coursia-muted">{{ lead.household_size ?? '—' }}</td>
+                <td>
                   <div class="flex max-w-md flex-wrap gap-1.5">
                     <BaseBadge v-for="interest in lead.interests" :key="interest" tone="neutral">
                       {{ interest }}
@@ -546,12 +539,11 @@ onBeforeUnmount(() => {
                     <span v-if="lead.interests.length <= 0" class="text-coursia-muted">—</span>
                   </div>
                 </td>
-                <td class="px-5 py-4 text-coursia-muted">{{ formatDate(lead.created_at) }}</td>
+                <td class="text-coursia-muted">{{ formatDate(lead.created_at) }}</td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <aside class="rounded-3xl border border-coursia-border bg-coursia-surface p-5  ">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Acquisition</p>

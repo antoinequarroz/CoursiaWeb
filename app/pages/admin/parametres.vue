@@ -149,29 +149,20 @@ onMounted(loadFlags)
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">
-          COUR-106 · paramètres
-        </p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Paramètres non techniques
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Pilotage des feature flags administrables sans redéploiement. Les secrets, clés serveur et réglages
-          techniques restent exclus de cette interface.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-106 · paramètres"
+      title="Paramètres non techniques"
+      description="Pilotage des feature flags administrables sans redéploiement. Les secrets, clés serveur et réglages techniques restent exclus de cette interface."
+    >
+      <template #actions>
         <BaseButton type="button" variant="secondary" @click="resetForm">
           Nouveau flag
         </BaseButton>
         <BaseButton type="button" :disabled="isLoading" @click="loadFlags">
           {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-4 md:grid-cols-4">
       <article class="admin-stat-card">
@@ -212,37 +203,35 @@ onMounted(loadFlags)
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4 ">
-          <div>
-            <h2 class="text-sm font-semibold text-coursia-text">
-              Feature flags
-            </h2>
-            <p class="mt-1 text-xs text-coursia-muted">
-              Clique sur une ligne pour modifier le flag et documenter son changement.
-            </p>
-          </div>
+      <AdminPanel
+        title="Feature flags"
+        description="Clique sur une ligne pour modifier le flag et documenter son changement."
+        :padded="false"
+      >
+        <template #actions>
           <BaseBadge tone="neutral">Sans secrets</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">
           Chargement des flags...
         </div>
-        <div v-else-if="flags.length === 0" class="p-5 text-sm text-coursia-muted">
-          Aucun flag trouvé.
-        </div>
+        <AdminEmptyState
+          v-else-if="flags.length === 0"
+          icon="settings"
+          title="Aucun flag trouvé"
+          description="Crée un flag administrable pour piloter un comportement non technique."
+        />
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-coursia-surface-muted text-left text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">
+        <AdminTableShell v-else>
+            <thead>
               <tr>
-                <th class="px-5 py-3">Flag</th>
-                <th class="px-5 py-3">Statut</th>
-                <th class="px-5 py-3">Rollout</th>
-                <th class="px-5 py-3">Mise à jour</th>
+                <th>Flag</th>
+                <th>Statut</th>
+                <th>Rollout</th>
+                <th>Mise à jour</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-coursia-border">
+            <tbody>
               <tr
                 v-for="flag in flags"
                 :key="String(flag.id ?? flag.key)"
@@ -250,17 +239,17 @@ onMounted(loadFlags)
                 :class="selectedKey === String(flag.key) ? 'bg-coursia-primary/10' : ''"
                 @click="selectFlag(flag)"
               >
-                <td class="px-5 py-4">
+                <td>
                   <span class="block font-semibold text-coursia-text">{{ flag.name }}</span>
                   <span class="mt-1 block font-mono text-xs text-coursia-muted">{{ flag.key }}</span>
                   <span class="mt-2 line-clamp-2 block max-w-xl text-xs leading-5 text-coursia-muted">
                     {{ flag.description || 'Aucune description.' }}
                   </span>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <BaseBadge :tone="flagTone(flag)">{{ statusLabel(flag) }}</BaseBadge>
                 </td>
-                <td class="px-5 py-4">
+                <td>
                   <div class="flex min-w-[8rem] items-center gap-3">
                     <div class="h-2 flex-1 overflow-hidden rounded-full bg-coursia-border ">
                       <div
@@ -273,14 +262,13 @@ onMounted(loadFlags)
                     </span>
                   </div>
                 </td>
-                <td class="px-5 py-4 text-coursia-muted">
+                <td class="text-coursia-muted">
                   {{ formatDate(flag.updated_at ?? flag.created_at) }}
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <aside class="grid gap-4">
         <form

@@ -406,7 +406,7 @@ onMounted(refreshAll)
     </div>
 
     <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_0.75fr_auto]" @submit.prevent="applyFilters">
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Enseigne
         <select v-model="filters.retailerId">
           <option value="">Toutes les enseignes</option>
@@ -415,7 +415,7 @@ onMounted(refreshAll)
           </option>
         </select>
       </label>
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Qualité
         <select v-model="filters.quality">
           <option value="">Tous les états</option>
@@ -440,16 +440,16 @@ onMounted(refreshAll)
     </p>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_28rem]">
-      <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-        <div class="flex items-center justify-between gap-4 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10">
+      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
+        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-5 py-4">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Offres magasin</h2>
-            <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">Sélectionne une offre pour saisir son prix.</p>
+            <h2 class="text-sm font-semibold text-coursia-text">Offres magasin</h2>
+            <p class="mt-1 text-xs text-coursia-muted">Sélectionne une offre pour saisir son prix.</p>
           </div>
           <BaseBadge tone="neutral">{{ loading ? 'Chargement' : `${offerOptions.length} offres` }}</BaseBadge>
         </div>
 
-        <div v-if="loading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">
+        <div v-if="loading" class="p-5 text-sm text-coursia-muted">
           Chargement des offres...
         </div>
 
@@ -461,7 +461,7 @@ onMounted(refreshAll)
         >
           <template #actions>
             <NuxtLink
-              class="inline-flex cursor-pointer rounded-coursia-md border border-[#e6e1d8] bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-[#344054] transition hover:bg-[#f7f4ed] dark:border-white/10 dark:bg-white/5 dark:text-[#dbe7df] dark:hover:bg-white/10"
+              class="inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
               to="/admin/produits"
             >
               Aller aux produits
@@ -474,70 +474,70 @@ onMounted(refreshAll)
             v-for="offer in offerOptions"
             :key="offer.id"
             type="button"
-            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 dark:hover:bg-white/10"
-            :class="selectedOfferId === offer.id ? 'border-coursia-primary bg-[#eef7f1] dark:bg-coursia-primary/15' : 'border-[#e6e1d8] bg-[#fbf8f1] dark:border-white/10 dark:bg-white/5'"
+            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
+            :class="selectedOfferId === offer.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
             @click="selectOffer(offer)"
           >
             <span class="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_12rem_9rem] md:items-center">
               <span class="min-w-0">
-                <span class="block truncate text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ offer.product_name }}</span>
-                <span class="mt-1 block truncate text-xs text-[#667085] dark:text-[#a8b8ad]">
+                <span class="block truncate text-sm font-semibold text-coursia-text">{{ offer.product_name }}</span>
+                <span class="mt-1 block truncate text-xs text-coursia-muted">
                   {{ offer.retailer_name }} · {{ offer.format }} · {{ offer.quantity }} {{ offer.unit }}
                 </span>
               </span>
-              <span class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ formatPrice(offer.latest_price_chf) }}</span>
-              <span class="text-xs text-[#667085] dark:text-[#a8b8ad]">{{ formatDate(offer.latest_price_collected_at) }}</span>
+              <span class="text-sm font-semibold text-coursia-text">{{ formatPrice(offer.latest_price_chf) }}</span>
+              <span class="text-xs text-coursia-muted">{{ formatDate(offer.latest_price_collected_at) }}</span>
             </span>
           </button>
         </div>
       </section>
 
       <aside class="grid gap-4">
-        <section class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">Saisie rapide</p>
-              <h2 class="mt-2 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Nouveau prix</h2>
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">Nouveau prix</h2>
             </div>
             <BaseBadge :tone="selectedOffer ? 'primary' : 'warning'">
               {{ selectedOffer ? 'Offre choisie' : 'À choisir' }}
             </BaseBadge>
           </div>
 
-          <div v-if="selectedOffer" class="mt-4 rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 dark:border-white/10 dark:bg-white/5">
-            <p class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedOffer.product_name }}</p>
-            <p class="mt-1 text-xs leading-5 text-[#667085] dark:text-[#a8b8ad]">
+          <div v-if="selectedOffer" class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+            <p class="text-sm font-semibold text-coursia-text">{{ selectedOffer.product_name }}</p>
+            <p class="mt-1 text-xs leading-5 text-coursia-muted">
               {{ selectedOffer.retailer_name }} · {{ selectedOffer.format }} · dernier prix : {{ formatPrice(selectedOffer.latest_price_chf) }}
             </p>
           </div>
 
           <form class="mt-4 grid gap-4" @submit.prevent="savePrice">
             <div class="grid grid-cols-2 gap-2">
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Prix CHF
                 <input v-model.number="form.amountChf" required type="number" min="0.01" step="0.01" placeholder="2.40">
               </label>
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Prix unitaire
                 <input v-model.number="form.unitPriceChf" type="number" min="0.01" step="0.01" placeholder="Auto">
               </label>
             </div>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Promotion
               <input v-model="form.promotionLabel" placeholder="Action 20%, 2 pour 1...">
             </label>
             <div class="grid grid-cols-[1fr_1.1fr] gap-2">
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Source
                 <input v-model="form.source" required placeholder="coop.ch, saisie_admin...">
               </label>
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Collecte
                 <input v-model="form.collectedAt" required>
               </label>
             </div>
 
-            <div class="rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 text-xs leading-5 text-[#667085] dark:border-white/10 dark:bg-white/5 dark:text-[#a8b8ad]">
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 text-xs leading-5 text-coursia-muted">
               Le prix est ajouté à l’historique. L’application mobile utilisera ensuite le prix le plus récent de l’offre.
             </div>
 
@@ -547,9 +547,9 @@ onMounted(refreshAll)
           </form>
         </section>
 
-        <section class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Historique de l’offre</h2>
-          <div v-if="selectedOfferHistory.length === 0" class="mt-4 rounded-2xl bg-[#fbf8f1] p-4 text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
+          <h2 class="text-sm font-semibold text-coursia-text">Historique de l’offre</h2>
+          <div v-if="selectedOfferHistory.length === 0" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
             Aucun historique pour cette offre.
           </div>
           <div v-else class="mt-4 grid gap-2">
@@ -557,15 +557,15 @@ onMounted(refreshAll)
               v-for="entry in selectedOfferHistory"
               :key="entry.id"
               type="button"
-              class="cursor-pointer rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 text-left transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+              class="cursor-pointer rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3 text-left transition hover:bg-coursia-surface"
               @click="selectPrice(entry)"
             >
               <span class="flex items-center justify-between gap-3">
                 <span>
-                  <span class="block text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ formatPrice(entry.amount_chf) }}</span>
-                  <span class="mt-1 block text-xs text-[#667085] dark:text-[#a8b8ad]">{{ entry.promotion_label || entry.source || 'Saisie' }}</span>
+                  <span class="block text-sm font-semibold text-coursia-text">{{ formatPrice(entry.amount_chf) }}</span>
+                  <span class="mt-1 block text-xs text-coursia-muted">{{ entry.promotion_label || entry.source || 'Saisie' }}</span>
                 </span>
-                <span class="text-right text-xs text-[#667085] dark:text-[#a8b8ad]">{{ formatDate(entry.collected_at) }}</span>
+                <span class="text-right text-xs text-coursia-muted">{{ formatDate(entry.collected_at) }}</span>
               </span>
             </button>
           </div>
@@ -573,11 +573,11 @@ onMounted(refreshAll)
       </aside>
     </div>
 
-    <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-      <div class="flex flex-col justify-between gap-3 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10 md:flex-row md:items-center">
+    <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
+      <div class="flex flex-col justify-between gap-3 border-b border-coursia-border px-5 py-4 md:flex-row md:items-center">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Prix récents</h2>
-          <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">{{ prices.length }} ligne(s) affichée(s)</p>
+          <h2 class="text-sm font-semibold text-coursia-text">Prix récents</h2>
+          <p class="mt-1 text-xs text-coursia-muted">{{ prices.length }} ligne(s) affichée(s)</p>
         </div>
         <BaseButton type="button" variant="secondary" @click="csvPanelOpen = !csvPanelOpen">
           {{ csvPanelOpen ? 'Masquer CSV' : 'Prévisualiser CSV' }}
@@ -589,34 +589,34 @@ onMounted(refreshAll)
           v-for="price in prices"
           :key="price.id"
           type="button"
-          class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 dark:hover:bg-white/10"
-          :class="selectedPrice?.id === price.id ? 'border-coursia-primary bg-[#eef7f1] dark:bg-coursia-primary/15' : 'border-[#e6e1d8] bg-[#fbf8f1] dark:border-white/10 dark:bg-white/5'"
+          class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
+          :class="selectedPrice?.id === price.id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
           @click="selectPrice(price)"
         >
           <span class="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_10rem_8rem_9rem] md:items-center">
             <span class="min-w-0">
-              <span class="block truncate text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ price.product_name }}</span>
-              <span class="mt-1 block truncate text-xs text-[#667085] dark:text-[#a8b8ad]">{{ price.retailer_name }} · {{ price.offer?.format || price.product_id }}</span>
+              <span class="block truncate text-sm font-semibold text-coursia-text">{{ price.product_name }}</span>
+              <span class="mt-1 block truncate text-xs text-coursia-muted">{{ price.retailer_name }} · {{ price.offer?.format || price.product_id }}</span>
             </span>
-            <span class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ formatPrice(price.amount_chf) }}</span>
+            <span class="font-semibold text-coursia-text">{{ formatPrice(price.amount_chf) }}</span>
             <BaseBadge :tone="qualityTone(price.quality_status)">
               {{ qualityLabel[String(price.quality_status)] ?? 'Non qualifié' }}
             </BaseBadge>
-            <span class="text-xs text-[#667085] dark:text-[#a8b8ad]">{{ formatDate(price.collected_at) }}</span>
+            <span class="text-xs text-coursia-muted">{{ formatDate(price.collected_at) }}</span>
           </span>
         </button>
 
-        <div v-if="!loading && prices.length === 0" class="rounded-2xl bg-[#fbf8f1] p-6 text-center text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+        <div v-if="!loading && prices.length === 0" class="rounded-2xl bg-coursia-surface-muted p-6 text-center text-sm text-coursia-muted">
           Aucun prix pour le moment.
         </div>
       </div>
     </section>
 
-    <section v-if="csvPanelOpen" class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+    <section v-if="csvPanelOpen" class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
       <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Prévisualisation CSV</h2>
-          <p class="mt-2 text-xs leading-5 text-[#667085] dark:text-[#a8b8ad]">
+          <h2 class="text-sm font-semibold text-coursia-text">Prévisualisation CSV</h2>
+          <p class="mt-2 text-xs leading-5 text-coursia-muted">
             Colonnes attendues : {{ retailCsvColumns.join(', ') }}.
           </p>
         </div>
@@ -626,10 +626,10 @@ onMounted(refreshAll)
       </div>
       <textarea v-model="csvContent" aria-label="Contenu CSV prix" rows="8" class="mt-4 font-mono text-sm" />
       <div v-if="importPreview" class="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-        <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">Créations : <strong>{{ importPreview.creates }}</strong></div>
-        <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">Mises à jour : <strong>{{ importPreview.updates }}</strong></div>
-        <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">Erreurs : <strong>{{ importPreview.errors }}</strong></div>
-        <div class="rounded-xl bg-[#fbf8f1] p-3 dark:bg-white/5">Anomalies : <strong>{{ importPreview.anomalies }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Créations : <strong>{{ importPreview.creates }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Mises à jour : <strong>{{ importPreview.updates }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Erreurs : <strong>{{ importPreview.errors }}</strong></div>
+        <div class="rounded-xl bg-coursia-surface-muted p-3">Anomalies : <strong>{{ importPreview.anomalies }}</strong></div>
       </div>
     </section>
   </section>

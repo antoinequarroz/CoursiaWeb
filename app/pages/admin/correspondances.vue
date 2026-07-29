@@ -458,7 +458,7 @@ onMounted(async () => {
     </div>
 
     <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_1fr_0.8fr_auto]" @submit.prevent="applyFilters">
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Ingrédient
         <select v-model="filters.ingredientId">
           <option value="">Tous les ingrédients</option>
@@ -467,7 +467,7 @@ onMounted(async () => {
           </option>
         </select>
       </label>
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Enseigne
         <select v-model="filters.retailerId">
           <option value="">Toutes les enseignes</option>
@@ -476,7 +476,7 @@ onMounted(async () => {
           </option>
         </select>
       </label>
-      <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Statut
         <select v-model="filters.status">
           <option value="">Tous statuts</option>
@@ -501,16 +501,16 @@ onMounted(async () => {
     </p>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_28rem]">
-      <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-        <div class="flex items-center justify-between gap-4 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10">
+      <section class="overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
+        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-5 py-4">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Matrice de correspondance</h2>
-            <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">{{ matches.length }} ligne(s) affichée(s)</p>
+            <h2 class="text-sm font-semibold text-coursia-text">Matrice de correspondance</h2>
+            <p class="mt-1 text-xs text-coursia-muted">{{ matches.length }} ligne(s) affichée(s)</p>
           </div>
           <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Données réelles' }}</BaseBadge>
         </div>
 
-        <div v-if="loading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">
+        <div v-if="loading" class="p-5 text-sm text-coursia-muted">
           Chargement des correspondances...
         </div>
 
@@ -522,7 +522,7 @@ onMounted(async () => {
         >
           <template #actions>
             <NuxtLink
-              class="inline-flex cursor-pointer rounded-coursia-md border border-[#e6e1d8] bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-[#344054] transition hover:bg-[#f7f4ed] dark:border-white/10 dark:bg-white/5 dark:text-[#dbe7df] dark:hover:bg-white/10"
+              class="inline-flex cursor-pointer rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-text transition hover:bg-coursia-surface-muted"
               to="/admin/produits"
             >
               Aller aux produits
@@ -535,23 +535,23 @@ onMounted(async () => {
             v-for="match in matches"
             :key="`${match.product_id}:${match.retailer_id ?? 'none'}`"
             type="button"
-            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 dark:hover:bg-white/10"
-            :class="selectedMatch?.product_id === match.product_id && selectedMatch?.retailer_id === match.retailer_id ? 'border-coursia-primary bg-[#eef7f1] dark:bg-coursia-primary/15' : 'border-[#e6e1d8] bg-[#fbf8f1] dark:border-white/10 dark:bg-white/5'"
+            class="cursor-pointer rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-coursia-primary/35 hover:bg-coursia-surface"
+            :class="selectedMatch?.product_id === match.product_id && selectedMatch?.retailer_id === match.retailer_id ? 'border-coursia-primary bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
             @click="useMatchAsForm(match)"
           >
             <span class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_8rem_8rem] xl:items-center">
               <span class="min-w-0">
-                <span class="block truncate text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
+                <span class="block truncate text-sm font-semibold text-coursia-text">
                   {{ match.ingredient_name || 'Non relié' }}
                 </span>
-                <span class="mt-1 block truncate text-xs text-[#667085] dark:text-[#a8b8ad]">
+                <span class="mt-1 block truncate text-xs text-coursia-muted">
                   {{ match.ingredient_id || 'Choisir un ingrédient' }}
                 </span>
               </span>
 
               <span class="min-w-0">
-                <span class="block truncate text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ match.product_name }}</span>
-                <span class="mt-1 block truncate text-xs text-[#667085] dark:text-[#a8b8ad]">
+                <span class="block truncate text-sm font-semibold text-coursia-text">{{ match.product_name }}</span>
+                <span class="mt-1 block truncate text-xs text-coursia-muted">
                   {{ match.retailer_name || 'Aucune enseigne' }} · {{ match.offer_format || 'Format non renseigné' }}
                 </span>
               </span>
@@ -565,7 +565,7 @@ onMounted(async () => {
               </BaseBadge>
             </span>
 
-            <span class="mt-3 flex flex-wrap gap-2 border-t border-[#ece6dc] pt-3 dark:border-white/10" @click.stop>
+            <span class="mt-3 flex flex-wrap gap-2 border-t border-coursia-border pt-3" @click.stop>
               <BaseButton
                 size="sm"
                 type="button"
@@ -586,11 +586,11 @@ onMounted(async () => {
       </section>
 
       <aside class="grid gap-4">
-        <section class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Liaison</p>
-              <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Associer une offre</h2>
+              <h2 class="mt-1 text-lg font-semibold text-coursia-text">Associer une offre</h2>
             </div>
             <BaseBadge :tone="form.unitComparison.comparable ? 'success' : 'warning'">
               {{ form.unitComparison.comparable ? 'Comparable' : 'À vérifier' }}
@@ -598,7 +598,7 @@ onMounted(async () => {
           </div>
 
           <form class="mt-4 grid gap-4" @submit.prevent="saveMatch">
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Ingrédient
               <select v-model="form.ingredientId" required>
                 <option value="" disabled>Choisir un ingrédient</option>
@@ -607,7 +607,7 @@ onMounted(async () => {
                 </option>
               </select>
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Offre magasin
               <select v-model="selectedOfferKey" required>
                 <option value="" disabled>Choisir une offre</option>
@@ -620,7 +620,7 @@ onMounted(async () => {
                 </option>
               </select>
             </label>
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Enseigne
               <select v-model="form.retailerId" required>
                 <option value="" disabled>Choisir une enseigne</option>
@@ -631,13 +631,13 @@ onMounted(async () => {
             </label>
 
             <div class="grid grid-cols-[1fr_1fr] gap-2">
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Unité ingrédient
                 <select v-model="form.unitComparison.ingredientUnit" @change="refreshUnitComparison">
                   <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
                 </select>
               </label>
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Unité produit
                 <select v-model="form.unitComparison.productUnit" @change="refreshUnitComparison">
                   <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
@@ -646,11 +646,11 @@ onMounted(async () => {
             </div>
 
             <div class="grid grid-cols-[0.8fr_1fr] gap-2">
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Confiance
                 <input v-model.number="form.confidence" required type="number" min="0" max="1" step="0.01">
               </label>
-              <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+              <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
                 Statut
                 <select v-model="form.status">
                   <option v-for="status in statusOptions" :key="status.value" :value="status.value">
@@ -660,16 +660,16 @@ onMounted(async () => {
               </label>
             </div>
 
-            <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Notes
               <textarea v-model="form.notes" rows="3" placeholder="Pourquoi ce lien est validé ou ambigu ?" />
             </label>
 
-            <div v-if="selectedOffer || selectedIngredient" class="rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-3 dark:border-white/10 dark:bg-white/5">
-              <p class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
+            <div v-if="selectedOffer || selectedIngredient" class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-semibold text-coursia-text">
                 {{ selectedIngredient?.name || 'Ingrédient' }} → {{ selectedOffer?.product_name || 'offre magasin' }}
               </p>
-              <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">
+              <p class="mt-1 text-xs text-coursia-muted">
                 Prix : {{ formatPrice(selectedOffer?.latest_price_chf) }} · format : {{ selectedOffer?.format || 'non renseigné' }}
               </p>
             </div>
@@ -680,36 +680,36 @@ onMounted(async () => {
           </form>
         </section>
 
-        <section class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+        <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Impact</h2>
-              <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">Recettes touchées par l’ingrédient sélectionné.</p>
+              <h2 class="text-sm font-semibold text-coursia-text">Impact</h2>
+              <p class="mt-1 text-xs text-coursia-muted">Recettes touchées par l’ingrédient sélectionné.</p>
             </div>
             <BaseButton type="button" size="sm" variant="secondary" @click="loadImpact()">
               Calculer
             </BaseButton>
           </div>
-          <pre v-if="impact" class="mt-4 max-h-64 overflow-auto rounded-2xl bg-[#fbf8f1] p-4 text-xs text-[#101828] dark:bg-white/5 dark:text-[#f7fbf8]">{{ impact }}</pre>
-          <p v-else class="mt-4 rounded-2xl bg-[#fbf8f1] p-4 text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+          <pre v-if="impact" class="mt-4 max-h-64 overflow-auto rounded-2xl bg-coursia-surface-muted p-4 text-xs text-coursia-text">{{ impact }}</pre>
+          <p v-else class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
             Aucun impact calculé pour le moment.
           </p>
         </section>
       </aside>
     </div>
 
-    <section class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+    <section class="rounded-3xl border border-coursia-border bg-coursia-surface p-5">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Ingrédients sans produit</h2>
-          <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">
+          <h2 class="text-sm font-semibold text-coursia-text">Ingrédients sans produit</h2>
+          <p class="mt-1 text-xs text-coursia-muted">
             Priorité de saisie pour éviter des paniers incomplets.
           </p>
         </div>
         <BaseBadge tone="warning">{{ unmatched.length }} à traiter</BaseBadge>
       </div>
 
-      <div v-if="unmatched.length === 0" class="mt-4 rounded-2xl bg-[#fbf8f1] p-4 text-sm text-[#667085] dark:bg-white/5 dark:text-[#a8b8ad]">
+      <div v-if="unmatched.length === 0" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
         Aucun ingrédient sans correspondance.
       </div>
       <div v-else class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -717,11 +717,11 @@ onMounted(async () => {
           v-for="ingredient in unmatched"
           :key="ingredient.id"
           type="button"
-          class="cursor-pointer rounded-2xl border border-[#e6e1d8] bg-[#fbf8f1] p-4 text-left transition hover:border-coursia-primary/40 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+          class="cursor-pointer rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4 text-left transition hover:border-coursia-primary/40 hover:bg-coursia-surface"
           @click="useUnmatchedIngredient(ingredient)"
         >
-          <span class="block text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ ingredient.name }}</span>
-          <span class="mt-1 block text-xs text-[#667085] dark:text-[#a8b8ad]">{{ ingredient.categories[0] || ingredient.mobile?.aisle || 'Non classé' }}</span>
+          <span class="block text-sm font-semibold text-coursia-text">{{ ingredient.name }}</span>
+          <span class="mt-1 block text-xs text-coursia-muted">{{ ingredient.categories[0] || ingredient.mobile?.aisle || 'Non classé' }}</span>
         </button>
       </div>
     </section>

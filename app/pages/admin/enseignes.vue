@@ -26,6 +26,9 @@ const filters = reactive({
   search: '',
 })
 
+const route = useRoute()
+const router = useRouter()
+
 const form = reactive<RetailerForm>({
   name: '',
   slug: '',
@@ -80,6 +83,12 @@ const selectRetailer = (retailer: RetailerRow) => {
   selectedRetailer.value = retailer
   editorOpen.value = false
   editingRetailerId.value = null
+  void router.replace({
+    query: {
+      ...route.query,
+      selected: retailer.id,
+    },
+  })
 }
 
 const startCreate = () => {
@@ -122,7 +131,15 @@ const loadRetailers = async () => {
 
     retailers.value = response.data
 
-    if (selectedRetailer.value) {
+    const requestedId = typeof route.query.selected === 'string'
+      ? route.query.selected
+      : typeof route.query.retailerId === 'string'
+        ? route.query.retailerId
+        : null
+
+    if (requestedId) {
+      selectedRetailer.value = retailers.value.find((retailer) => retailer.id === requestedId) ?? null
+    } else if (selectedRetailer.value) {
       selectedRetailer.value = retailers.value.find((retailer) => retailer.id === selectedRetailer.value?.id) ?? null
     }
 
@@ -185,11 +202,11 @@ onMounted(loadRetailers)
   <section class="admin-page">
     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Comparateur</p>
-        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">Comparateur</p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Enseignes
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
           Référentiel des magasins utilisés par les offres, les prix et les paniers de l’application mobile.
         </p>
       </div>
@@ -228,7 +245,7 @@ onMounted(loadRetailers)
     </div>
 
     <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_auto]" @submit.prevent="loadRetailers">
-      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
         Recherche
         <input v-model="filters.search" type="search" placeholder="Coop, Migros, Aldi..." />
       </label>
@@ -249,10 +266,10 @@ onMounted(loadRetailers)
       <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
         <div class="flex items-center justify-between gap-4">
           <div>
-            <h2 class="text-base font-black text-coursia-foreground">Catalogue magasins</h2>
+            <h2 class="text-base font-semibold text-coursia-text">Catalogue magasins</h2>
             <p class="mt-1 text-xs text-coursia-muted">{{ retailers.length }} enseigne(s) affichée(s)</p>
           </div>
-          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
+          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Données réelles' }}</BaseBadge>
         </div>
 
         <div v-if="loading" class="mt-4 rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
@@ -261,7 +278,7 @@ onMounted(loadRetailers)
 
         <div v-else-if="retailers.length === 0" class="mt-4 grid place-items-center rounded-2xl bg-coursia-surface-muted p-10 text-center">
           <div class="max-w-sm">
-            <p class="font-black text-coursia-foreground">Aucune enseigne trouvée</p>
+            <p class="font-semibold text-coursia-text">Aucune enseigne trouvée</p>
             <p class="mt-2 text-sm text-coursia-muted">
               Crée la première enseigne avant d’ajouter des produits et des prix.
             </p>
@@ -280,7 +297,7 @@ onMounted(loadRetailers)
           >
             <span class="flex items-start justify-between gap-3">
               <span class="min-w-0">
-                <span class="block truncate text-sm font-black text-coursia-foreground">{{ retailer.name }}</span>
+                <span class="block truncate text-sm font-semibold text-coursia-text">{{ retailer.name }}</span>
                 <span class="mt-1 block truncate text-xs text-coursia-muted">
                   Code mobile : {{ retailer.slug }}
                 </span>
@@ -302,14 +319,14 @@ onMounted(loadRetailers)
         <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">
                 {{ editingRetailerId ? 'Modification' : 'Création' }}
               </p>
-              <h2 class="mt-1 text-lg font-black text-coursia-foreground">Fiche enseigne</h2>
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">Fiche enseigne</h2>
             </div>
             <button
               type="button"
-              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted"
+              class="cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold text-coursia-muted transition hover:bg-coursia-surface-muted"
               @click="closeEditor"
             >
               Fermer
@@ -317,17 +334,17 @@ onMounted(loadRetailers)
           </div>
 
           <form class="mt-4 grid gap-4" @submit.prevent="saveRetailer">
-            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Nom public
               <input v-model="form.name" required placeholder="Ex. Coop" />
             </label>
-            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+            <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
               Code technique
               <input v-model="form.slug" required placeholder="coop" />
             </label>
 
             <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-              <p class="text-sm font-black text-coursia-foreground">Impact comparateur</p>
+              <p class="text-sm font-semibold text-coursia-text">Impact comparateur</p>
               <p class="mt-1 text-xs leading-5 text-coursia-muted">
                 Le code est utilisé pour relier offres, prix et imports CSV. Évite de le modifier si des produits
                 existent déjà pour cette enseigne.
@@ -346,7 +363,7 @@ onMounted(loadRetailers)
         <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div v-if="!selectedRetailer" class="grid place-items-center rounded-2xl bg-coursia-surface-muted p-8 text-center">
             <div>
-              <p class="font-black text-coursia-foreground">Sélectionne une enseigne</p>
+              <p class="font-semibold text-coursia-text">Sélectionne une enseigne</p>
               <p class="mt-2 text-sm text-coursia-muted">Le détail et les liens de travail apparaîtront ici.</p>
             </div>
           </div>
@@ -354,7 +371,7 @@ onMounted(loadRetailers)
           <template v-else>
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <h2 class="truncate text-lg font-black text-coursia-foreground">{{ selectedRetailer.name }}</h2>
+                <h2 class="truncate text-lg font-semibold text-coursia-text">{{ selectedRetailer.name }}</h2>
                 <p class="mt-1 truncate text-sm text-coursia-muted">Code : {{ selectedRetailer.slug }}</p>
               </div>
               <BaseBadge tone="success">Active</BaseBadge>
@@ -362,25 +379,25 @@ onMounted(loadRetailers)
 
             <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
               <div class="rounded-xl bg-coursia-surface-muted p-3">
-                <dt class="text-xs font-bold text-coursia-muted">Offres totales</dt>
-                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.offer_count ?? 0 }}</dd>
+                <dt class="text-xs font-semibold text-coursia-muted">Offres totales</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ selectedRetailer.offer_count ?? 0 }}</dd>
               </div>
               <div class="rounded-xl bg-coursia-surface-muted p-3">
-                <dt class="text-xs font-bold text-coursia-muted">Prix historisés</dt>
-                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.price_count ?? 0 }}</dd>
+                <dt class="text-xs font-semibold text-coursia-muted">Prix historisés</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ selectedRetailer.price_count ?? 0 }}</dd>
               </div>
               <div class="rounded-xl bg-coursia-surface-muted p-3">
-                <dt class="text-xs font-bold text-coursia-muted">Offres actives</dt>
-                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.active_offer_count ?? 0 }}</dd>
+                <dt class="text-xs font-semibold text-coursia-muted">Offres actives</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ selectedRetailer.active_offer_count ?? 0 }}</dd>
               </div>
               <div class="rounded-xl bg-coursia-surface-muted p-3">
-                <dt class="text-xs font-bold text-coursia-muted">Couverture</dt>
-                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedCoverage }}%</dd>
+                <dt class="text-xs font-semibold text-coursia-muted">Couverture</dt>
+                <dd class="mt-1 font-semibold text-coursia-text">{{ selectedCoverage }}%</dd>
               </div>
             </dl>
 
             <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
-              <p class="text-sm font-black text-coursia-foreground">Prochaine action utile</p>
+              <p class="text-sm font-semibold text-coursia-text">Prochaine action utile</p>
               <p v-if="(selectedRetailer.offer_count ?? 0) === 0" class="mt-1 text-xs leading-5 text-coursia-muted">
                 Ajoute au moins une offre produit pour que cette enseigne soit exploitable dans le comparateur.
               </p>

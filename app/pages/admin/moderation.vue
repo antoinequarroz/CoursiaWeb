@@ -105,9 +105,9 @@ const decisionLabels: Record<Decision, string> = {
 }
 
 const decisionHelp: Record<Decision, string> = {
-  accept: 'Publie la contribution dans le flux de validation accepté.',
+  accept: 'Accepte la contribution et ferme la décision de modération.',
   reject: 'Refuse la soumission avec une raison obligatoire.',
-  request_correction: 'Renvoie une demande claire à l’auteur.',
+  request_correction: 'Demande une correction claire à l’auteur.',
   archive: 'Retire la soumission de la file active.',
 }
 
@@ -162,6 +162,13 @@ const canAccept = computed(() =>
 const canReject = computed(() =>
   Boolean(selectedSubmissionId.value) && (decisionForm.reason ?? '').trim().length > 0 && !isSaving.value,
 )
+
+const moderationStats = computed(() => [
+  { label: 'File filtrée', value: String(submissions.value.length), detail: 'soumissions visibles', tone: 'neutral' as BadgeTone },
+  { label: 'En attente', value: String(pendingCount.value), detail: 'à traiter', tone: 'primary' as BadgeTone },
+  { label: 'Prioritaires', value: String(urgentCount.value), detail: 'haute ou urgente', tone: urgentCount.value ? 'warning' as BadgeTone : 'success' as BadgeTone },
+  { label: 'Corrections', value: String(correctionCount.value), detail: 'retours demandés', tone: correctionCount.value ? 'warning' as BadgeTone : 'neutral' as BadgeTone },
+])
 
 function priorityTone(priority: unknown): BadgeTone {
   if (priority === 'urgent') return 'danger'
@@ -355,14 +362,16 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-104 · communauté</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-coursia-primary">
+          COUR-104 · Modération
+        </p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Modération communautaire
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Contrôle éditorial des recettes proposées par la communauté, avec raison de décision et audit côté serveur.
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
+          Contrôler les recettes proposées par la communauté, appliquer une décision motivée et conserver l’audit serveur.
         </p>
       </div>
 
@@ -374,84 +383,75 @@ onMounted(() => {
           {{ isCreateOpen ? 'Fermer ajout' : 'Nouvelle soumission' }}
         </BaseButton>
         <BaseButton type="button" :disabled="isLoading" @click="loadQueue">
-          {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
+          {{ isLoading ? 'Chargement…' : 'Rafraîchir' }}
         </BaseButton>
       </div>
     </div>
 
     <div v-if="feedback || errorMessage" class="grid gap-2">
-      <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
+      <p
+        v-if="feedback"
+        class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success"
+      >
         {{ feedback }}
       </p>
-      <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
+      <p
+        v-if="errorMessage"
+        class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger"
+      >
         {{ errorMessage }}
       </p>
     </div>
 
     <div class="grid gap-3 md:grid-cols-4">
-      <article class="admin-stat-card">
-        <span>File filtrée</span>
-        <strong>{{ submissions.length }}</strong>
-        <small>soumissions visibles</small>
-      </article>
-      <article class="admin-stat-card">
-        <span>En attente</span>
-        <strong class="text-coursia-primary">{{ pendingCount }}</strong>
-        <small>à traiter</small>
-      </article>
-      <article class="admin-stat-card">
-        <span>Prioritaires</span>
-        <strong class="text-coursia-warning">{{ urgentCount }}</strong>
-        <small>haute ou urgente</small>
-      </article>
-      <article class="admin-stat-card">
-        <span>Corrections</span>
-        <strong>{{ correctionCount }}</strong>
-        <small>retours demandés</small>
+      <article v-for="stat in moderationStats" :key="stat.label" class="admin-stat-card">
+        <span>{{ stat.label }}</span>
+        <strong>
+          <BaseBadge :tone="stat.tone">{{ stat.value }}</BaseBadge>
+        </strong>
+        <small>{{ stat.detail }}</small>
       </article>
     </div>
 
-    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
-      <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <label class="grid gap-1 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
-          Statut
-          <select v-model="filters.status">
-            <option value="">Tous statuts</option>
-            <option value="pending">En attente</option>
-            <option value="correction_requested">Correction demandée</option>
-            <option value="accepted">Acceptée</option>
-            <option value="rejected">Refusée</option>
-            <option value="archived">Archivée</option>
-          </select>
-        </label>
-        <label class="grid gap-1 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
-          Priorité
-          <select v-model="filters.priority">
-            <option value="">Toutes priorités</option>
-            <option value="urgent">Urgente</option>
-            <option value="high">Haute</option>
-            <option value="normal">Normale</option>
-            <option value="low">Basse</option>
-          </select>
-        </label>
-        <label class="flex cursor-pointer items-end gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-4 py-2.5 text-sm font-semibold text-coursia-muted">
-          <input v-model="filters.oldestFirst" type="checkbox" class="h-4 w-4 accent-coursia-primary">
-          Ancienneté d’abord
-        </label>
-      </div>
+    <section class="admin-toolbar grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Statut
+        <select v-model="filters.status">
+          <option value="">Tous statuts</option>
+          <option value="pending">En attente</option>
+          <option value="correction_requested">Correction demandée</option>
+          <option value="accepted">Acceptée</option>
+          <option value="rejected">Refusée</option>
+          <option value="archived">Archivée</option>
+        </select>
+      </label>
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Priorité
+        <select v-model="filters.priority">
+          <option value="">Toutes priorités</option>
+          <option value="urgent">Urgente</option>
+          <option value="high">Haute</option>
+          <option value="normal">Normale</option>
+          <option value="low">Basse</option>
+        </select>
+      </label>
+      <label class="flex cursor-pointer items-end gap-3 rounded-2xl border border-coursia-border bg-coursia-surface-muted px-4 py-2.5 text-sm font-semibold text-coursia-text">
+        <input v-model="filters.oldestFirst" type="checkbox" class="h-4 w-4 cursor-pointer accent-coursia-primary">
+        Ancienneté d’abord
+      </label>
     </section>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
+      <section class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
           <div>
-            <h2 class="text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">File de soumissions</h2>
+            <h2 class="text-base font-semibold text-coursia-text">File de soumissions</h2>
             <p class="mt-1 text-xs text-coursia-muted">Sélectionne une ligne pour ouvrir le contrôle détaillé.</p>
           </div>
           <BaseBadge tone="neutral">Audit serveur</BaseBadge>
         </div>
 
-        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la file...</div>
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la file…</div>
         <div v-else-if="submissions.length === 0" class="p-5 text-sm text-coursia-muted">
           Aucune soumission pour ces filtres.
         </div>
@@ -475,7 +475,7 @@ onMounted(() => {
                 @click="selectSubmission(submission)"
               >
                 <td>
-                  <p class="max-w-[320px] truncate font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ submission.title }}</p>
+                  <p class="max-w-[320px] truncate font-semibold text-coursia-text">{{ submission.title }}</p>
                   <p class="mt-1 truncate text-xs text-coursia-muted">Source {{ submission.source || '—' }}</p>
                 </td>
                 <td>
@@ -499,11 +499,11 @@ onMounted(() => {
       </section>
 
       <aside class="grid content-start gap-4">
-        <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4">
+        <article class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Décision</p>
-              <h2 class="mt-1 text-xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
+              <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">Décision</p>
+              <h2 class="mt-1 text-xl font-semibold tracking-[-0.03em] text-coursia-text">
                 {{ selectedSubmission?.title ?? 'Aucune soumission' }}
               </h2>
               <p class="mt-1 text-xs text-coursia-muted">{{ selectedSubmissionId || 'Sélection requise' }}</p>
@@ -516,33 +516,33 @@ onMounted(() => {
           <div v-if="selectedSubmission" class="mt-4 grid grid-cols-2 gap-3">
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
               <span class="text-xs font-semibold text-coursia-muted">Priorité</span>
-              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedPriorityLabel }}</p>
+              <p class="mt-1 text-base font-semibold text-coursia-text">{{ selectedPriorityLabel }}</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
               <span class="text-xs font-semibold text-coursia-muted">Complétion</span>
-              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ completionRatio }}%</p>
+              <p class="mt-1 text-base font-semibold text-coursia-text">{{ completionRatio }}%</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
               <span class="text-xs font-semibold text-coursia-muted">Ingrédients</span>
-              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedRecipePreview.ingredients }}</p>
+              <p class="mt-1 text-base font-semibold text-coursia-text">{{ selectedRecipePreview.ingredients }}</p>
             </div>
             <div class="rounded-2xl bg-coursia-surface-muted p-3">
               <span class="text-xs font-semibold text-coursia-muted">Étapes</span>
-              <p class="mt-1 text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ selectedRecipePreview.steps }}</p>
+              <p class="mt-1 text-base font-semibold text-coursia-text">{{ selectedRecipePreview.steps }}</p>
             </div>
           </div>
 
           <fieldset class="mt-5">
-            <legend class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Checklist de validation</legend>
+            <legend class="text-sm font-semibold text-coursia-text">Checklist de validation</legend>
             <div class="mt-2 grid gap-2">
               <label
                 v-for="key in checklistKeys"
                 :key="key"
                 class="flex cursor-pointer items-start gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-xs text-coursia-muted transition hover:border-coursia-primary/40"
               >
-                <input v-model="decisionForm.checklist[key]" type="checkbox" class="mt-0.5 h-4 w-4 accent-coursia-primary">
+                <input v-model="decisionForm.checklist[key]" type="checkbox" class="mt-0.5 h-4 w-4 cursor-pointer accent-coursia-primary">
                 <span>
-                  <span class="block font-semibold text-[#344054] dark:text-[#dbe7df]">{{ checklistLabels[key] }}</span>
+                  <span class="block font-semibold text-coursia-text">{{ checklistLabels[key] }}</span>
                   <span>{{ checklistDescriptions[key] }}</span>
                 </span>
               </label>
@@ -561,9 +561,9 @@ onMounted(() => {
             <BaseBadge v-for="allergen in selectedAllergens" :key="allergen" tone="warning">{{ allergen }}</BaseBadge>
           </div>
 
-          <label class="mt-4 grid gap-1 text-sm font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-coursia-text">
             Raison ou note interne
-            <textarea v-model="decisionForm.reason" rows="4" placeholder="Motif du refus, correction attendue ou note de modération..." />
+            <textarea v-model="decisionForm.reason" rows="4" placeholder="Motif du refus, correction attendue ou note de modération…" />
           </label>
 
           <div class="mt-4 grid gap-2">
@@ -588,9 +588,13 @@ onMounted(() => {
           </p>
         </article>
 
-        <form v-if="isCreateOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="createSubmission">
-          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Ajout manuel</p>
-          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Soumission de test</h2>
+        <form
+          v-if="isCreateOpen"
+          class="rounded-3xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm"
+          @submit.prevent="createSubmission"
+        >
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-coursia-primary">Ajout manuel</p>
+          <h2 class="mt-1 text-lg font-semibold text-coursia-text">Soumission de test</h2>
           <p class="mt-1 text-xs text-coursia-muted">Pour tester le workflow sans attendre une contribution mobile.</p>
 
           <div class="mt-4 grid gap-3">
@@ -624,16 +628,16 @@ onMounted(() => {
           </div>
 
           <BaseButton class="mt-5 w-full" type="submit" :disabled="isSaving">
-            {{ isSaving ? 'Ajout...' : 'Ajouter à la file' }}
+            {{ isSaving ? 'Ajout…' : 'Ajouter à la file' }}
           </BaseButton>
         </form>
       </aside>
     </div>
 
-    <section v-if="isHistoryOpen" class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+    <section v-if="isHistoryOpen" class="admin-table overflow-hidden rounded-3xl border border-coursia-border bg-coursia-surface">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
         <div>
-          <h2 class="text-base font-semibold text-[#101828] dark:text-[#f7fbf8]">Décisions auditées</h2>
+          <h2 class="text-base font-semibold text-coursia-text">Décisions auditées</h2>
           <p class="mt-1 text-xs text-coursia-muted">Historique récent des arbitrages de modération.</p>
         </div>
         <BaseBadge tone="neutral">{{ decisions.length }}</BaseBadge>
@@ -652,7 +656,7 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-for="decision in decisions" :key="String(decision.id)" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
-              <td class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ decision.decision }}</td>
+              <td class="font-semibold text-coursia-text">{{ decision.decision }}</td>
               <td class="text-sm text-coursia-muted">{{ decision.submission_id || decision.submissionId }}</td>
               <td class="max-w-xl truncate text-sm text-coursia-muted">{{ decision.reason || '—' }}</td>
               <td class="text-sm text-coursia-muted">{{ formatDate(decision.decided_at ?? decision.created_at ?? decision.createdAt) }}</td>

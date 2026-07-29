@@ -4,6 +4,7 @@ definePageMeta({
 })
 
 type ContactStatus = 'new' | 'reviewed' | 'archived'
+type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 
 type ContactLead = {
   id: string
@@ -54,24 +55,37 @@ const contactCount = computed(() => contacts.value.length)
 const waitlistCount = computed(() => waitlist.value.length)
 const totalLeads = computed(() => contactCount.value + waitlistCount.value)
 const newContactsCount = computed(() => contacts.value.filter((lead) => lead.status === 'new').length)
+const reviewedContactsCount = computed(() => contacts.value.filter((lead) => lead.status === 'reviewed').length)
 const archivedContactsCount = computed(() => contacts.value.filter((lead) => lead.status === 'archived').length)
+const consentedWaitlistCount = computed(() => waitlist.value.filter((lead) => Boolean(lead.consented_at)).length)
+
+const waitlistSources = computed(() => {
+  const sources = waitlist.value.reduce<Record<string, number>>((acc, lead) => {
+    const source = lead.source || 'inconnue'
+    acc[source] = (acc[source] ?? 0) + 1
+    return acc
+  }, {})
+
+  return Object.entries(sources)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4)
+})
 
 const latestLeadDate = computed(() => {
   const dates = [
     ...contacts.value.map((lead) => lead.created_at),
     ...waitlist.value.map((lead) => lead.created_at),
-  ].filter(Boolean) as string[]
+  ].filter((value): value is string => Boolean(value))
 
-  if (dates.length <= 0) {
-    return '—'
-  }
+  if (dates.length <= 0) return '—'
 
   return formatDate(dates.sort().at(-1) ?? null)
 })
 
-watch(selectedContact, (contact) => {
-  noteDraft.value = contact?.internal_note ?? ''
-}, { immediate: true })
+const selectedContactAge = computed(() => {
+  if (!selectedContact.value) return '—'
+  return formatRelativeDate(selectedContact.value.created_at)
+})
 
 const statusLabel: Record<ContactStatus, string> = {
   new: 'Nouveau',
@@ -79,22 +93,45 @@ const statusLabel: Record<ContactStatus, string> = {
   archived: 'Archivé',
 }
 
-const statusTone = (status: ContactStatus) => {
+const statusTone = (status: ContactStatus): BadgeTone => {
   if (status === 'new') return 'warning'
   if (status === 'reviewed') return 'success'
   return 'neutral'
 }
 
-const formatDate = (value: string | null) => {
-  if (!value) {
-    return '—'
-  }
+const sourceLabel = (value: string | null) => value || 'inconnue'
 
-  return new Date(value).toLocaleString('fr-CH', {
-    dateStyle: 'short',
+function formatDate(value: string | null) {
+  if (!value) return '—'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  return new Intl.DateTimeFormat('fr-CH', {
+    dateStyle: 'medium',
     timeStyle: 'short',
-  })
+  }).format(date)
 }
+
+function formatRelativeDate(value: string | null) {
+  if (!value) return '—'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  const diffMs = Date.now() - date.getTime()
+  const diffMinutes = Math.max(0, Math.round(diffMs / 60000))
+  if (diffMinutes < 60) return `${diffMinutes} min`
+
+  const diffHours = Math.round(diffMinutes / 60)
+  if (diffHours < 48) return `${diffHours} h`
+
+  return `${Math.round(diffHours / 24)} j`
+}
+
+watch(selectedContact, (contact) => {
+  noteDraft.value = contact?.internal_note ?? ''
+}, { immediate: true })
 
 const loadLeads = async () => {
   isLoading.value = true
@@ -108,8 +145,8 @@ const loadLeads = async () => {
       }
     }>('/api/admin/leads', {
       query: {
-        search: filters.search,
-        status: filters.status,
+        search: filters.search.trim() || undefined,
+        status: filters.status || undefined,
         limit: filters.limit,
       },
     })
@@ -157,34 +194,25 @@ const archiveLead = (lead: ContactLead) => patchContact(lead, { status: 'archive
 const reopenLead = (lead: ContactLead) => patchContact(lead, { status: 'new' })
 
 const saveNote = async () => {
-  if (!selectedContact.value) {
-    return
-  }
-
+  if (!selectedContact.value) return
   await patchContact(selectedContact.value, { internalNote: noteDraft.value })
 }
 
-watch(
-  () => [filters.search, filters.status, filters.limit],
-  () => {
-    if (searchDebounce) {
-      clearTimeout(searchDebounce)
-    }
+const scheduleReload = () => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    void loadLeads()
+  }, 220)
+}
 
-    searchDebounce = setTimeout(() => {
-      void loadLeads()
-    }, 220)
-  },
-)
+watch(() => [filters.search, filters.status, filters.limit], scheduleReload)
 
 onMounted(() => {
   void loadLeads()
 })
 
 onBeforeUnmount(() => {
-  if (searchDebounce) {
-    clearTimeout(searchDebounce)
-  }
+  if (searchDebounce) clearTimeout(searchDebounce)
 })
 </script>
 
@@ -192,92 +220,124 @@ onBeforeUnmount(() => {
   <section class="admin-page">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">Leads publics</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#101828]">
-          Contacts et liste d’attente
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-92</p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
+          Leads publics
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-[#667085]">
-          Les contacts deviennent un vrai flux de travail support : statut, note interne et audit.
-          La liste d’attente reste en lecture seule pour préserver le consentement.
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Suivi des messages de contact et des inscriptions à la liste d’attente.
+          Les contacts peuvent être qualifiés, annotés puis archivés. La liste d’attente reste en lecture contrôlée.
         </p>
       </div>
 
-      <BaseButton type="button" :disabled="isLoading" @click="loadLeads">
-        {{ isLoading ? 'Chargement…' : 'Rafraîchir' }}
+      <div class="flex flex-wrap items-center gap-2">
+        <BaseBadge tone="neutral">{{ latestLeadDate }}</BaseBadge>
+        <BaseButton type="button" :disabled="isLoading" @click="loadLeads">
+          {{ isLoading ? 'Chargement...' : 'Rafraîchir' }}
+        </BaseButton>
+      </div>
+    </div>
+
+    <form class="admin-toolbar grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_10rem_auto]" @submit.prevent="loadLeads">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Recherche
+        <input
+          v-model="filters.search"
+          type="search"
+          placeholder="Email, nom, source ou sujet"
+          autocomplete="off"
+        >
+      </label>
+
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Statut contact
+        <select v-model="filters.status">
+          <option value="">Tous</option>
+          <option value="new">Nouveaux</option>
+          <option value="reviewed">Traités</option>
+          <option value="archived">Archivés</option>
+        </select>
+      </label>
+
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Limite
+        <select v-model.number="filters.limit">
+          <option :value="25">25 lignes</option>
+          <option :value="50">50 lignes</option>
+          <option :value="100">100 lignes</option>
+        </select>
+      </label>
+
+      <BaseButton class="self-end" type="submit" :disabled="isLoading">
+        Appliquer
       </BaseButton>
-    </div>
+    </form>
 
-    <div class="mt-6 grid gap-4 md:grid-cols-4">
-      <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.04)]">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Total</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ totalLeads }}</p>
-        <p class="mt-1 text-xs text-[#667085]">leads chargés</p>
-      </article>
-      <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.04)]">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">À traiter</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ newContactsCount }}</p>
-        <p class="mt-1 text-xs text-[#667085]">contacts nouveaux</p>
-      </article>
-      <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.04)]">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Archivés</p>
-        <p class="mt-3 text-3xl font-semibold text-[#101828]">{{ archivedContactsCount }}</p>
-        <p class="mt-1 text-xs text-[#667085]">hors flux actif</p>
-      </article>
-      <article class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.04)]">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#667085]">Dernier lead</p>
-        <p class="mt-3 text-lg font-semibold text-[#101828]">{{ latestLeadDate }}</p>
-        <p class="mt-1 text-xs text-[#667085]">contact ou inscription</p>
-      </article>
-    </div>
-
-    <div class="mt-6 grid gap-3 md:grid-cols-[1fr_12rem_12rem]">
-      <input
-        v-model="filters.search"
-        type="search"
-        placeholder="Rechercher par email, nom, source ou sujet"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
-      />
-      <select
-        v-model="filters.status"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+    <div v-if="feedback || errorMessage" class="grid gap-3">
+      <p
+        v-if="feedback"
+        class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-medium text-coursia-success"
       >
-        <option value="">Tous statuts</option>
-        <option value="new">Nouveaux</option>
-        <option value="reviewed">Traités</option>
-        <option value="archived">Archivés</option>
-      </select>
-      <select
-        v-model.number="filters.limit"
-        class="rounded-xl border border-[#e6e1d8] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+        {{ feedback }}
+      </p>
+      <p
+        v-if="errorMessage"
+        class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-medium text-coursia-danger"
       >
-        <option :value="25">25 lignes</option>
-        <option :value="50">50 lignes</option>
-        <option :value="100">100 lignes</option>
-      </select>
+        {{ errorMessage }}
+      </p>
     </div>
 
-    <p v-if="feedback" class="mt-4 rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm text-coursia-success">
-      {{ feedback }}
-    </p>
-    <p v-if="errorMessage" class="mt-4 rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm text-coursia-danger">
-      {{ errorMessage }}
-    </p>
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Total</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ totalLeads }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">contacts + waitlist</p>
+      </article>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <section class="overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-        <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">À traiter</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ newContactsCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">contacts nouveaux</p>
+      </article>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Traités</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ reviewedContactsCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">suivi effectué</p>
+      </article>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Waitlist</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ waitlistCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">{{ consentedWaitlistCount }} consentements</p>
+      </article>
+
+      <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-muted">Archivés</p>
+        <p class="mt-3 text-2xl font-semibold text-coursia-text">{{ archivedContactsCount }}</p>
+        <p class="mt-1 text-xs text-coursia-muted">hors flux actif</p>
+      </article>
+    </div>
+
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
           <div>
-            <h2 class="text-sm font-semibold text-[#101828]">Messages de contact</h2>
-            <p class="mt-1 text-xs text-[#667085]">Clique une ligne pour gérer le suivi.</p>
+            <h2 class="text-sm font-semibold text-coursia-text">Messages de contact</h2>
+            <p class="mt-1 text-xs text-coursia-muted">
+              Sélectionne une ligne pour gérer le suivi sans exposer plus de données que nécessaire.
+            </p>
           </div>
           <BaseBadge tone="neutral">{{ contactCount }}</BaseBadge>
         </div>
 
-        <div v-if="isLoading" class="p-5 text-sm text-[#667085]">Chargement des contacts…</div>
-        <div v-else-if="contacts.length <= 0" class="p-5 text-sm text-[#667085]">Aucun contact trouvé.</div>
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement des contacts...</div>
+        <div v-else-if="contacts.length <= 0" class="p-5 text-sm text-coursia-muted">Aucun contact trouvé.</div>
+
         <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-            <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
+          <table class="min-w-full divide-y divide-coursia-border text-sm">
+            <thead>
               <tr>
                 <th class="px-5 py-3">Contact</th>
                 <th class="px-5 py-3">Sujet</th>
@@ -286,24 +346,25 @@ onBeforeUnmount(() => {
                 <th class="px-5 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#eee8df]">
+            <tbody class="divide-y divide-coursia-border">
               <tr
                 v-for="lead in contacts"
                 :key="lead.id"
-                class="cursor-pointer transition hover:bg-[#fbfaf7]"
-                :class="selectedContact?.id === lead.id ? 'bg-[#f1f7f4]' : ''"
+                class="cursor-pointer transition hover:bg-coursia-background"
+                :class="selectedContact?.id === lead.id ? 'bg-coursia-background' : ''"
                 @click="selectedContactId = lead.id"
               >
                 <td class="px-5 py-4">
-                  <span class="block font-semibold text-[#101828]">{{ lead.name }}</span>
-                  <span class="mt-1 block text-xs text-[#667085]">{{ lead.email }}</span>
+                  <p class="font-semibold text-coursia-text">{{ lead.name }}</p>
+                  <p class="mt-1 text-xs text-coursia-muted">{{ lead.email }}</p>
+                  <p class="mt-1 text-[11px] uppercase tracking-[0.12em] text-coursia-muted">
+                    {{ sourceLabel(lead.source) }}
+                  </p>
                 </td>
-                <td class="px-5 py-4 text-[#344054]">{{ lead.reason }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ lead.reason }}</td>
                 <td class="max-w-xl px-5 py-4">
-                  <span class="line-clamp-2 text-[#667085]">{{ lead.message }}</span>
-                  <span v-if="lead.internal_note" class="mt-1 block text-xs font-semibold text-coursia-primary">
-                    Note interne présente
-                  </span>
+                  <p class="line-clamp-2 leading-6 text-coursia-muted">{{ lead.message }}</p>
+                  <BaseBadge v-if="lead.internal_note" class="mt-2" tone="primary">Note interne</BaseBadge>
                 </td>
                 <td class="px-5 py-4">
                   <BaseBadge :tone="statusTone(lead.status)">
@@ -315,16 +376,16 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status !== 'reviewed'"
                       type="button"
-                      class="rounded-lg border border-[#d7eadc] bg-[#f1f8f3] px-2.5 py-1.5 text-xs font-bold text-[#0f5a3d] transition hover:bg-[#e4f2e8]"
+                      class="cursor-pointer rounded-lg border border-coursia-success/25 bg-coursia-success/10 px-2.5 py-1.5 text-xs font-bold text-coursia-success transition hover:bg-coursia-success/15 disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="markAsReviewed(lead)"
                     >
-                      Traité
+                      Traiter
                     </button>
                     <button
                       v-if="lead.status !== 'archived'"
                       type="button"
-                      class="rounded-lg border border-[#eee8df] bg-white px-2.5 py-1.5 text-xs font-bold text-[#667085] transition hover:bg-[#fbfaf7]"
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-bold text-coursia-muted transition hover:bg-coursia-background disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="archiveLead(lead)"
                     >
@@ -333,7 +394,7 @@ onBeforeUnmount(() => {
                     <button
                       v-if="lead.status === 'archived'"
                       type="button"
-                      class="rounded-lg border border-[#eee8df] bg-white px-2.5 py-1.5 text-xs font-bold text-[#667085] transition hover:bg-[#fbfaf7]"
+                      class="cursor-pointer rounded-lg border border-coursia-border bg-coursia-surface px-2.5 py-1.5 text-xs font-bold text-coursia-muted transition hover:bg-coursia-background disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isSaving"
                       @click="reopenLead(lead)"
                     >
@@ -347,13 +408,13 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <aside class="rounded-2xl border border-[#e6e1d8] bg-white p-5 shadow-[0_16px_40px_rgba(15,45,39,0.04)]">
+      <aside class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
         <div v-if="selectedContact">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Suivi contact</p>
-              <h2 class="mt-2 text-lg font-semibold text-[#101828]">{{ selectedContact.name }}</h2>
-              <p class="mt-1 text-sm text-[#667085]">{{ selectedContact.email }}</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Suivi</p>
+              <h2 class="mt-2 text-lg font-semibold text-coursia-text">{{ selectedContact.name }}</h2>
+              <p class="mt-1 text-sm text-coursia-muted">{{ selectedContact.email }}</p>
             </div>
             <BaseBadge :tone="statusTone(selectedContact.status)">
               {{ statusLabel[selectedContact.status] }}
@@ -361,40 +422,41 @@ onBeforeUnmount(() => {
           </div>
 
           <dl class="mt-5 grid gap-3 text-sm">
-            <div class="rounded-xl bg-[#fbfaf7] p-3">
-              <dt class="text-xs font-bold uppercase tracking-[0.12em] text-[#98a2b3]">Sujet</dt>
-              <dd class="mt-1 font-semibold text-[#101828]">{{ selectedContact.reason }}</dd>
+            <div class="rounded-2xl bg-coursia-background p-4">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Sujet</dt>
+              <dd class="mt-1 font-semibold text-coursia-text">{{ selectedContact.reason }}</dd>
             </div>
-            <div class="rounded-xl bg-[#fbfaf7] p-3">
-              <dt class="text-xs font-bold uppercase tracking-[0.12em] text-[#98a2b3]">Message</dt>
-              <dd class="mt-1 whitespace-pre-wrap leading-6 text-[#667085]">{{ selectedContact.message }}</dd>
+
+            <div class="rounded-2xl bg-coursia-background p-4">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Message</dt>
+              <dd class="mt-2 whitespace-pre-wrap leading-6 text-coursia-muted">{{ selectedContact.message }}</dd>
             </div>
+
             <div class="grid gap-3 sm:grid-cols-2">
-              <div class="rounded-xl bg-[#fbfaf7] p-3">
-                <dt class="text-xs font-bold uppercase tracking-[0.12em] text-[#98a2b3]">Reçu</dt>
-                <dd class="mt-1 text-[#667085]">{{ formatDate(selectedContact.created_at) }}</dd>
+              <div class="rounded-2xl bg-coursia-background p-4">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Reçu</dt>
+                <dd class="mt-1 text-coursia-text">{{ selectedContactAge }}</dd>
               </div>
-              <div class="rounded-xl bg-[#fbfaf7] p-3">
-                <dt class="text-xs font-bold uppercase tracking-[0.12em] text-[#98a2b3]">Source</dt>
-                <dd class="mt-1 text-[#667085]">{{ selectedContact.source }}</dd>
+              <div class="rounded-2xl bg-coursia-background p-4">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Consentement</dt>
+                <dd class="mt-1 text-coursia-text">{{ selectedContact.consented_at ? 'Oui' : 'Non' }}</dd>
               </div>
             </div>
           </dl>
 
-          <label class="mt-5 grid gap-2 text-sm font-bold text-[#344054]">
+          <label class="mt-5 grid gap-2 text-sm font-semibold text-coursia-text">
             Note interne
             <textarea
               v-model="noteDraft"
               maxlength="2000"
               rows="6"
-              placeholder="Contexte de suivi, prochaine action, réponse déjà envoyée…"
-              class="rounded-xl border border-[#e6e1d8] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-coursia-primary"
+              placeholder="Contexte, prochaine action, réponse envoyée..."
             />
           </label>
 
           <div class="mt-4 flex flex-wrap gap-2">
             <BaseButton type="button" :disabled="isSaving" @click="saveNote">
-              {{ isSaving ? 'Enregistrement…' : 'Sauver la note' }}
+              {{ isSaving ? 'Enregistrement...' : 'Sauver la note' }}
             </BaseButton>
             <BaseButton
               v-if="selectedContact.status !== 'reviewed'"
@@ -414,55 +476,92 @@ onBeforeUnmount(() => {
             >
               Archiver
             </BaseButton>
+            <BaseButton
+              v-if="selectedContact.status === 'archived'"
+              type="button"
+              variant="ghost"
+              :disabled="isSaving"
+              @click="reopenLead(selectedContact)"
+            >
+              Réouvrir
+            </BaseButton>
           </div>
         </div>
 
-        <p v-else class="rounded-2xl bg-[#fbfaf7] p-4 text-sm text-[#667085]">
+        <div v-else class="rounded-2xl bg-coursia-background p-5 text-sm text-coursia-muted">
           Aucun contact sélectionné.
-        </p>
+        </div>
       </aside>
     </div>
 
-    <section class="mt-6 overflow-hidden rounded-2xl border border-[#e6e1d8] bg-white">
-      <div class="flex items-center justify-between border-b border-[#eee8df] px-5 py-4">
-        <div>
-          <h2 class="text-sm font-semibold text-[#101828]">Liste d’attente</h2>
-          <p class="mt-1 text-xs text-[#667085]">Emails consentis avec source, foyer et intérêts déclarés.</p>
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
+          <div>
+            <h2 class="text-sm font-semibold text-coursia-text">Liste d’attente</h2>
+            <p class="mt-1 text-xs text-coursia-muted">
+              Source, foyer et intérêts déclarés. Pas de modification directe depuis cette page.
+            </p>
+          </div>
+          <BaseBadge tone="neutral">{{ waitlistCount }}</BaseBadge>
         </div>
-        <BaseBadge tone="neutral">{{ waitlistCount }}</BaseBadge>
-      </div>
 
-      <div v-if="isLoading" class="p-5 text-sm text-[#667085]">Chargement de la liste d’attente…</div>
-      <div v-else-if="waitlist.length <= 0" class="p-5 text-sm text-[#667085]">Aucune inscription trouvée.</div>
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#eee8df] text-sm">
-          <thead class="bg-[#fbfaf7] text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#667085]">
-            <tr>
-              <th class="px-5 py-3">Email</th>
-              <th class="px-5 py-3">Source</th>
-              <th class="px-5 py-3">Foyer</th>
-              <th class="px-5 py-3">Intérêts</th>
-              <th class="px-5 py-3">Inscription</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[#eee8df]">
-            <tr v-for="lead in waitlist" :key="lead.id" class="transition hover:bg-[#fbfaf7]">
-              <td class="px-5 py-4 font-semibold text-[#101828]">{{ lead.email }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ lead.source ?? '—' }}</td>
-              <td class="px-5 py-4 text-[#667085]">{{ lead.household_size ?? '—' }}</td>
-              <td class="px-5 py-4">
-                <div class="flex max-w-md flex-wrap gap-1.5">
-                  <BaseBadge v-for="interest in lead.interests" :key="interest" tone="neutral">
-                    {{ interest }}
-                  </BaseBadge>
-                  <span v-if="lead.interests.length <= 0" class="text-[#98a2b3]">—</span>
-                </div>
-              </td>
-              <td class="px-5 py-4 text-[#667085]">{{ formatDate(lead.created_at) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+        <div v-if="isLoading" class="p-5 text-sm text-coursia-muted">Chargement de la liste d’attente...</div>
+        <div v-else-if="waitlist.length <= 0" class="p-5 text-sm text-coursia-muted">Aucune inscription trouvée.</div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-coursia-border text-sm">
+            <thead>
+              <tr>
+                <th class="px-5 py-3">Email</th>
+                <th class="px-5 py-3">Source</th>
+                <th class="px-5 py-3">Foyer</th>
+                <th class="px-5 py-3">Intérêts</th>
+                <th class="px-5 py-3">Inscription</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-coursia-border">
+              <tr v-for="lead in waitlist" :key="lead.id" class="transition hover:bg-coursia-background">
+                <td class="px-5 py-4 font-semibold text-coursia-text">{{ lead.email }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ sourceLabel(lead.source) }}</td>
+                <td class="px-5 py-4 text-coursia-muted">{{ lead.household_size ?? '—' }}</td>
+                <td class="px-5 py-4">
+                  <div class="flex max-w-md flex-wrap gap-1.5">
+                    <BaseBadge v-for="interest in lead.interests" :key="interest" tone="neutral">
+                      {{ interest }}
+                    </BaseBadge>
+                    <span v-if="lead.interests.length <= 0" class="text-coursia-muted">—</span>
+                  </div>
+                </td>
+                <td class="px-5 py-4 text-coursia-muted">{{ formatDate(lead.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-coursia-primary">Acquisition</p>
+        <h2 class="mt-2 text-lg font-semibold text-coursia-text">Sources waitlist</h2>
+        <p class="mt-2 text-sm text-coursia-muted">
+          Vue rapide pour comprendre quels CTA publics créent le plus d’inscriptions.
+        </p>
+
+        <div class="mt-5 grid gap-3">
+          <div
+            v-for="[source, count] in waitlistSources"
+            :key="source"
+            class="flex items-center justify-between rounded-2xl bg-coursia-background px-4 py-3"
+          >
+            <span class="text-sm font-semibold text-coursia-text">{{ source }}</span>
+            <BaseBadge tone="neutral">{{ count }}</BaseBadge>
+          </div>
+
+          <div v-if="waitlistSources.length <= 0" class="rounded-2xl bg-coursia-background p-4 text-sm text-coursia-muted">
+            Aucune source chargée.
+          </div>
+        </div>
+      </aside>
+    </div>
   </section>
 </template>

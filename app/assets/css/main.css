@@ -28,6 +28,13 @@
 }
 
 @layer base {
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none !important;
+  }
+
   :root,
   [data-theme='light'] {
     color-scheme: light;
@@ -1386,6 +1393,29 @@ textarea {
 
   [data-theme='dark'] .admin-console :where(.ring-\[\#0f2d27\]\/10, .ring-\[\#0f5a3d\]\/10) {
     --tw-ring-color: color-mix(in srgb, var(--admin-primary) 18%, transparent);
+  }
+
+  .admin-console .base-button:disabled,
+  .admin-console .base-button:disabled:hover,
+  .admin-console button.base-button:disabled,
+  .admin-console button.base-button:disabled:hover {
+    cursor: not-allowed !important;
+    border-color: color-mix(in srgb, var(--admin-border) 78%, transparent) !important;
+    background: color-mix(in srgb, var(--admin-muted-panel) 86%, var(--admin-card-strong)) !important;
+    color: color-mix(in srgb, var(--admin-muted) 82%, transparent) !important;
+    opacity: 1 !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  [data-theme='dark'] .admin-console .base-button:disabled,
+  [data-theme='dark'] .admin-console .base-button:disabled:hover,
+  [data-theme='dark'] .admin-console button.base-button:disabled,
+  [data-theme='dark'] .admin-console button.base-button:disabled:hover {
+    border-color: color-mix(in srgb, var(--admin-border) 70%, transparent) !important;
+    background: color-mix(in srgb, var(--admin-card-strong) 42%, var(--admin-muted-panel)) !important;
+    color: color-mix(in srgb, var(--admin-muted) 76%, transparent) !important;
+    opacity: 1 !important;
   }
 }
 

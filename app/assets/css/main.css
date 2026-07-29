@@ -7,6 +7,7 @@
   --color-coursia-surface: var(--ds-color-surface);
   --color-coursia-surface-muted: var(--ds-color-surface-muted);
   --color-coursia-foreground: var(--ds-color-foreground);
+  --color-coursia-text: var(--ds-color-foreground);
   --color-coursia-muted: var(--ds-color-muted);
   --color-coursia-border: var(--ds-color-border);
   --color-coursia-primary: var(--ds-color-primary);

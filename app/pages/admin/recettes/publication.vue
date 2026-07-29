@@ -5,6 +5,7 @@ definePageMeta({
 
 type RecipeStatus = 'draft' | 'review' | 'published' | 'archived'
 type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+type WorkflowAction = 'submit-review' | 'publish' | 'unpublish' | 'archive'
 
 type RecipeOption = {
   id: string
@@ -45,7 +46,10 @@ type RecipePreviewResponse = {
   }
 }
 
-const recipeId = ref('')
+const route = useRoute()
+const router = useRouter()
+
+const recipeId = ref(typeof route.query.recipeId === 'string' ? route.query.recipeId : '')
 const reason = ref('')
 const feedback = ref('')
 const errorMessage = ref('')
@@ -54,7 +58,7 @@ const loadingRecipes = ref(true)
 const preview = ref<RecipePreviewResponse['preview'] | null>(null)
 const recipe = ref<RecipePreviewResponse['data'] | null>(null)
 const recipes = ref<RecipeOption[]>([])
-const actionPending = ref<'submit-review' | 'publish' | 'unpublish' | 'archive' | ''>('')
+const actionPending = ref<WorkflowAction | ''>('')
 
 const statusLabels: Record<RecipeStatus, string> = {
   draft: 'Brouillon',
@@ -64,9 +68,9 @@ const statusLabels: Record<RecipeStatus, string> = {
 }
 
 const statusDescriptions: Record<RecipeStatus, string> = {
-  draft: 'Modifiable librement, invisible côté app.',
-  review: 'En contrôle éditorial avant publication.',
-  published: 'Disponible pour les surfaces mobiles et web.',
+  draft: 'Modifiable, invisible côté application.',
+  review: 'Contrôle éditorial avant publication.',
+  published: 'Visible sur les surfaces mobiles et web.',
   archived: 'Retirée du catalogue actif, conservée pour historique.',
 }
 
@@ -81,52 +85,69 @@ const blockingLabels: Record<string, string> = {
   source: 'Source ou origine manquante',
 }
 
-const workflowSteps: Array<{ value: RecipeStatus; label: string }> = [
+const workflowSteps: Array<{ value: RecipeStatus, label: string }> = [
   { value: 'draft', label: 'Brouillon' },
   { value: 'review', label: 'Validation' },
   { value: 'published', label: 'Publication' },
   { value: 'archived', label: 'Archive' },
 ]
+
 const unpublishBehaviorMessage =
-  'La recette dépubliée disparaît des listes publiques et reste disponible dans l’administration en brouillon.'
-
-const statusTone = (status?: string | null): BadgeTone => {
-  if (status === 'published') return 'success'
-  if (status === 'review') return 'warning'
-  if (status === 'archived') return 'neutral'
-
-  return 'primary'
-}
+  'Une recette dépubliée disparaît des listes publiques et reste disponible dans l’administration en brouillon.'
 
 const selectedRecipeOption = computed(() =>
   recipes.value.find((item) => item.id === recipeId.value) ?? null,
 )
+const loadedStatus = computed(() => recipe.value?.status ?? selectedRecipeOption.value?.status ?? null)
 const blockingFields = computed(() => preview.value?.blockingFields ?? [])
 const blockingCount = computed(() => blockingFields.value.length)
-const canPublish = computed(() => Boolean(recipe.value) && blockingCount.value === 0 && recipe.value?.status !== 'archived')
 const ingredientCount = computed(() => preview.value?.mobile.ingredients.length ?? 0)
 const stepCount = computed(() => preview.value?.mobile.steps.length ?? 0)
+const canPublish = computed(() => Boolean(recipe.value) && blockingCount.value === 0 && recipe.value?.status !== 'archived')
 const activeStepIndex = computed(() =>
-  workflowSteps.findIndex((step) => step.value === (recipe.value?.status ?? selectedRecipeOption.value?.status)),
+  Math.max(0, workflowSteps.findIndex((step) => step.value === loadedStatus.value)),
 )
 const selectedRecipeLabel = computed(() => {
   const selected = selectedRecipeOption.value
-
   return selected ? `${selected.title || 'Recette sans titre'} · ${statusLabels[selected.status]}` : 'Aucune recette sélectionnée'
 })
-const formattedUpdatedAt = computed(() => {
-  const value = recipe.value?.updated_at ?? selectedRecipeOption.value?.updated_at
+const formattedUpdatedAt = computed(() => formatDateTime(recipe.value?.updated_at ?? selectedRecipeOption.value?.updated_at))
+const currentStatusLabel = computed(() => loadedStatus.value ? statusLabels[loadedStatus.value] : '—')
+const isPreviewLoaded = computed(() => Boolean(preview.value))
+const readinessLabel = computed(() => {
+  if (!isPreviewLoaded.value) return 'Aperçu requis'
+  if (blockingCount.value > 0) return `${blockingCount.value} correction(s)`
+  return 'Prête'
+})
+
+function statusTone(status?: string | null): BadgeTone {
+  if (status === 'published') return 'success'
+  if (status === 'review') return 'warning'
+  if (status === 'archived') return 'neutral'
+  if (status === 'draft') return 'primary'
+
+  return 'neutral'
+}
+
+function blockingLabel(field: string) {
+  return blockingLabels[field] ?? field
+}
+
+function formatDateTime(value: string | null | undefined) {
   if (!value) return 'Non disponible'
 
   return new Intl.DateTimeFormat('fr-CH', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
-})
+}
 
-const blockingLabel = (field: string) => blockingLabels[field] ?? field
+function clearMessages() {
+  feedback.value = ''
+  errorMessage.value = ''
+}
 
-const loadRecipes = async () => {
+async function loadRecipes() {
   loadingRecipes.value = true
   errorMessage.value = ''
 
@@ -139,6 +160,8 @@ const loadRecipes = async () => {
     if (!recipeId.value && recipes.value.length > 0) {
       recipeId.value = recipes.value[0]?.id ?? ''
     }
+
+    recipe.value = selectedRecipeOption.value ? { ...selectedRecipeOption.value } : null
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Impossible de charger les recettes.'
   } finally {
@@ -146,15 +169,14 @@ const loadRecipes = async () => {
   }
 }
 
-const loadPreview = async () => {
+async function loadPreview() {
   if (!recipeId.value.trim()) {
     errorMessage.value = 'Sélectionne une recette.'
     return
   }
 
   loading.value = true
-  feedback.value = ''
-  errorMessage.value = ''
+  clearMessages()
 
   try {
     const response = await $fetch<RecipePreviewResponse>(`/api/admin/recipes/${recipeId.value.trim()}/preview`)
@@ -168,13 +190,13 @@ const loadPreview = async () => {
   }
 }
 
-const refreshAfterMutation = async (response: RecipePreviewResponse) => {
+async function refreshAfterMutation(response: RecipePreviewResponse) {
   recipe.value = response.data ?? recipe.value
   preview.value = response.preview ?? preview.value
   await loadRecipes()
 }
 
-const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
+async function runAction(action: Exclude<WorkflowAction, 'archive'>) {
   if (!recipeId.value.trim()) {
     errorMessage.value = 'Sélectionne une recette.'
     return
@@ -182,8 +204,7 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
 
   loading.value = true
   actionPending.value = action
-  feedback.value = ''
-  errorMessage.value = ''
+  clearMessages()
 
   try {
     const response = await $fetch<RecipePreviewResponse>(
@@ -206,7 +227,7 @@ const runAction = async (action: 'submit-review' | 'publish' | 'unpublish') => {
   }
 }
 
-const archiveRecipe = async () => {
+async function archiveRecipe() {
   if (!recipeId.value.trim()) {
     errorMessage.value = 'Sélectionne une recette.'
     return
@@ -214,8 +235,7 @@ const archiveRecipe = async () => {
 
   loading.value = true
   actionPending.value = 'archive'
-  feedback.value = ''
-  errorMessage.value = ''
+  clearMessages()
 
   try {
     const response = await $fetch<RecipePreviewResponse>(
@@ -234,39 +254,45 @@ const archiveRecipe = async () => {
   }
 }
 
-watch(recipeId, () => {
+watch(recipeId, (nextRecipeId) => {
   preview.value = null
-  feedback.value = ''
-  errorMessage.value = ''
-  recipe.value = selectedRecipeOption.value
-    ? { ...selectedRecipeOption.value }
-    : null
+  clearMessages()
+  recipe.value = selectedRecipeOption.value ? { ...selectedRecipeOption.value } : null
+  void router.replace({
+    query: {
+      ...route.query,
+      ...(nextRecipeId ? { recipeId: nextRecipeId } : {}),
+    },
+  })
 })
 
-onMounted(() => {
-  void loadRecipes()
+onMounted(async () => {
+  await loadRecipes()
+  if (recipeId.value) {
+    await loadPreview()
+  }
 })
 </script>
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-101</p>
-        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-101 · Workflow</p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
           Publication des recettes
         </h1>
-        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Contrôle les champs bloquants, l’aperçu mobile/web et les transitions avant de rendre une recette disponible.
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
+          Contrôle des champs bloquants, aperçu mobile/web et transitions de statut avant exposition dans l’application.
         </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <BaseBadge :tone="statusTone(recipe?.status)">
-          {{ recipe ? statusLabels[recipe.status] : 'Aucune recette' }}
+        <BaseBadge :tone="statusTone(loadedStatus)">
+          {{ currentStatusLabel }}
         </BaseBadge>
         <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId" @click="loadPreview">
-          Actualiser l’aperçu
+          {{ loading ? 'Chargement...' : 'Actualiser l’aperçu' }}
         </BaseButton>
       </div>
     </div>
@@ -278,27 +304,27 @@ onMounted(() => {
       {{ errorMessage }}
     </p>
 
-    <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm" @submit.prevent="loadPreview">
-      <div class="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]">
-        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-          Recette
-          <select v-model="recipeId" :disabled="loadingRecipes">
-            <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
-            <option v-for="item in recipes" :key="item.id" :value="item.id">
-              {{ item.title || 'Recette sans titre' }} · {{ statusLabels[item.status] }}
-            </option>
-          </select>
-          <span class="truncate text-xs font-medium text-coursia-muted">{{ selectedRecipeLabel }}</span>
-        </label>
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]" @submit.prevent="loadPreview">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Recette
+        <select v-model="recipeId" :disabled="loadingRecipes">
+          <option value="">{{ loadingRecipes ? 'Chargement...' : 'Sélectionner une recette' }}</option>
+          <option v-for="item in recipes" :key="item.id" :value="item.id">
+            {{ item.title || 'Recette sans titre' }} · {{ statusLabels[item.status] }}
+          </option>
+        </select>
+        <span class="truncate text-xs font-medium text-coursia-muted">{{ selectedRecipeLabel }}</span>
+      </label>
 
-        <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
-          Note d’historique
-          <input v-model="reason" placeholder="Validation finale, correction, dépublication...">
-          <span class="text-xs font-medium text-coursia-muted">Optionnel, enregistré dans l’historique de publication.</span>
-        </label>
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Note d’historique
+        <input v-model="reason" placeholder="Validation finale, correction, dépublication...">
+        <span class="text-xs font-medium text-coursia-muted">Optionnel, stocké dans l’historique de publication.</span>
+      </label>
 
-        <BaseButton class="self-start lg:self-end" type="submit" :disabled="loading || !recipeId">
-          {{ loading ? 'Chargement...' : 'Charger' }}
+      <div class="flex items-end">
+        <BaseButton type="submit" :disabled="loading || !recipeId">
+          Charger
         </BaseButton>
       </div>
     </form>
@@ -306,57 +332,53 @@ onMounted(() => {
     <div class="grid gap-3 md:grid-cols-4">
       <article class="admin-stat-card">
         <span>Statut actuel</span>
-        <strong>{{ recipe ? statusLabels[recipe.status] : '—' }}</strong>
-        <small>{{ recipe?.slug || 'Aucune recette chargée' }}</small>
+        <strong>{{ currentStatusLabel }}</strong>
+        <small>{{ recipe?.slug || selectedRecipeOption?.slug || 'Aucune recette chargée' }}</small>
       </article>
       <article class="admin-stat-card">
-        <span>Bloquants</span>
-        <strong :class="blockingCount ? 'text-coursia-danger' : 'text-coursia-success'">{{ blockingCount }}</strong>
-        <small>{{ blockingCount ? 'à corriger' : 'prête côté checklist' }}</small>
+        <span>Préparation</span>
+        <strong :class="blockingCount ? 'text-coursia-danger' : 'text-coursia-success'">{{ readinessLabel }}</strong>
+        <small>{{ isPreviewLoaded ? 'aperçu chargé' : 'charge l’aperçu pour vérifier' }}</small>
       </article>
       <article class="admin-stat-card">
-        <span>Structure mobile</span>
+        <span>Structure app</span>
         <strong>{{ ingredientCount }} / {{ stepCount }}</strong>
         <small>ingrédients / étapes</small>
       </article>
       <article class="admin-stat-card">
         <span>Dernière mise à jour</span>
         <strong class="text-base">{{ formattedUpdatedAt }}</strong>
-        <small>source : table recettes</small>
+        <small>source : recettes officielles</small>
       </article>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <div class="grid gap-4 xl:grid-cols-[23rem_minmax(0,1fr)]">
       <aside class="grid gap-4">
         <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="text-base font-black text-coursia-foreground">Cycle de publication</h2>
-              <p class="mt-1 text-xs text-coursia-muted">Le statut écrit dans Supabase est celui que l’app doit consommer.</p>
+              <h2 class="text-base font-semibold text-coursia-text">Cycle de publication</h2>
+              <p class="mt-1 text-xs text-coursia-muted">Le statut Supabase est la source consommée par l’app.</p>
             </div>
-            <BaseBadge tone="neutral">recettes.statut_publication</BaseBadge>
+            <BaseBadge tone="neutral">statut_publication</BaseBadge>
           </div>
 
-          <div class="mt-4 grid gap-3">
+          <div class="mt-4 grid gap-2">
             <div
               v-for="(step, index) in workflowSteps"
               :key="step.value"
-              class="relative rounded-2xl border p-3 transition"
-              :class="[
-                recipe?.status === step.value
-                  ? 'border-coursia-primary/30 bg-coursia-primary/10'
-                  : 'border-coursia-border bg-coursia-surface-muted',
-              ]"
+              class="rounded-2xl border p-3 transition"
+              :class="loadedStatus === step.value ? 'border-coursia-primary/30 bg-coursia-primary/10' : 'border-coursia-border bg-coursia-surface-muted'"
             >
               <div class="flex items-start gap-3">
                 <span
-                  class="grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-black"
+                  class="grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-semibold"
                   :class="index <= activeStepIndex ? 'border-coursia-primary bg-coursia-primary text-white' : 'border-coursia-border bg-coursia-surface text-coursia-muted'"
                 >
                   {{ index + 1 }}
                 </span>
                 <div>
-                  <p class="font-black text-coursia-foreground">{{ step.label }}</p>
+                  <p class="font-semibold text-coursia-text">{{ step.label }}</p>
                   <p class="mt-1 text-xs leading-5 text-coursia-muted">{{ statusDescriptions[step.value] }}</p>
                 </div>
               </div>
@@ -365,7 +387,7 @@ onMounted(() => {
         </section>
 
         <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <h2 class="text-base font-black text-coursia-foreground">Actions</h2>
+          <h2 class="text-base font-semibold text-coursia-text">Actions</h2>
           <div class="mt-4 grid gap-2">
             <BaseButton type="button" variant="secondary" :disabled="loading || !recipeId || recipe?.status === 'review'" @click="runAction('submit-review')">
               {{ actionPending === 'submit-review' ? 'Envoi...' : 'Envoyer en validation' }}
@@ -390,15 +412,18 @@ onMounted(() => {
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 class="text-base font-black text-coursia-foreground">Checklist bloquante</h2>
+              <h2 class="text-base font-semibold text-coursia-text">Checklist bloquante</h2>
               <p class="mt-1 text-xs text-coursia-muted">La publication reste désactivée tant que cette liste n’est pas vide.</p>
             </div>
-            <BaseBadge :tone="blockingCount === 0 ? 'success' : 'danger'">
-              {{ blockingCount === 0 ? 'Prête' : `${blockingCount} corrections` }}
+            <BaseBadge :tone="!isPreviewLoaded ? 'neutral' : blockingCount === 0 ? 'success' : 'danger'">
+              {{ readinessLabel }}
             </BaseBadge>
           </div>
 
-          <div v-if="blockingFields.length" class="mt-4 grid gap-2 sm:grid-cols-2">
+          <div v-if="!isPreviewLoaded" class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
+            Charge l’aperçu pour calculer les champs bloquants à partir des données réelles.
+          </div>
+          <div v-else-if="blockingFields.length" class="mt-4 grid gap-2 sm:grid-cols-2">
             <div
               v-for="field in blockingFields"
               :key="field"
@@ -412,27 +437,29 @@ onMounted(() => {
           </div>
         </article>
 
-        <div class="grid gap-4 lg:grid-cols-[330px_minmax(0,1fr)]">
+        <div class="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
           <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
             <div class="flex items-center justify-between gap-3">
               <div>
-                <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Mobile</p>
-                <h2 class="mt-1 text-base font-black text-coursia-foreground">Fiche app</h2>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">Mobile</p>
+                <h2 class="mt-1 text-base font-semibold text-coursia-text">Fiche app</h2>
               </div>
               <BaseBadge :tone="statusTone(preview?.mobile.status ?? recipe?.status)">
                 {{ preview?.mobile.status ?? recipe?.status ?? 'draft' }}
               </BaseBadge>
             </div>
 
-            <div class="mx-auto mt-4 max-w-[260px] rounded-[2rem] border border-coursia-foreground bg-coursia-foreground p-2 shadow-coursia-md">
-              <div class="overflow-hidden rounded-[1.55rem] bg-coursia-surface">
-                <div class="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,89,0.35),transparent_30%),linear-gradient(135deg,#fdf2e7,#eaf5ee)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,89,0.25),transparent_30%),linear-gradient(135deg,#18251f,#0f172a)]" />
+            <div class="mx-auto mt-4 max-w-[250px] rounded-[1.8rem] border border-coursia-primary bg-coursia-primary p-2 shadow-coursia-md">
+              <div class="overflow-hidden rounded-[1.35rem] bg-coursia-surface">
+                <div class="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,89,0.35),transparent_30%),linear-gradient(135deg,#fdf2e7,#eaf5ee)]" />
                 <div class="p-4">
-                  <h3 class="text-lg font-black leading-tight text-coursia-foreground">
+                  <h3 class="text-lg font-semibold leading-tight text-coursia-text">
                     {{ preview?.mobile.title ?? recipe?.title ?? 'Titre recette' }}
                   </h3>
-                  <p class="mt-2 min-h-5 text-xs text-coursia-muted">{{ preview?.mobile.subtitle || 'Catégories à compléter' }}</p>
-                  <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-coursia-foreground">
+                  <p class="mt-2 min-h-5 text-xs text-coursia-muted">
+                    {{ preview?.mobile.subtitle || 'Catégories à compléter' }}
+                  </p>
+                  <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold text-coursia-text">
                     <span class="rounded-xl bg-coursia-surface-muted px-2 py-2">{{ preview?.mobile.meta.portions ?? '-' }} pers.</span>
                     <span class="rounded-xl bg-coursia-surface-muted px-2 py-2">{{ preview?.mobile.meta.durationMinutes ?? '-' }} min</span>
                     <span class="rounded-xl bg-coursia-surface-muted px-2 py-2">{{ preview?.mobile.meta.difficulty ?? '-' }}</span>
@@ -445,8 +472,8 @@ onMounted(() => {
           <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Web</p>
-                <h2 class="mt-1 text-base font-black text-coursia-foreground">Aperçu public</h2>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">Web</p>
+                <h2 class="mt-1 text-base font-semibold text-coursia-text">Aperçu public</h2>
               </div>
               <BaseBadge :tone="statusTone(preview?.web.status ?? recipe?.status)">
                 {{ preview?.web.status ?? recipe?.status ?? 'draft' }}
@@ -454,23 +481,23 @@ onMounted(() => {
             </div>
 
             <div class="mt-4 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
-              <h3 class="text-2xl font-black tracking-tight text-coursia-foreground">
+              <h3 class="text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
                 {{ preview?.web.title ?? recipe?.title ?? 'Titre recette' }}
               </h3>
               <p class="mt-2 text-sm text-coursia-muted">/{{ preview?.web.slug ?? recipe?.slug ?? 'slug-recette' }}</p>
 
               <dl class="mt-5 grid gap-3 sm:grid-cols-3">
                 <div class="rounded-2xl bg-coursia-surface p-3">
-                  <dt class="text-xs font-bold text-coursia-muted">Source</dt>
-                  <dd class="mt-1 truncate text-sm font-black text-coursia-foreground">{{ preview?.web.source ?? recipe?.source ?? 'À compléter' }}</dd>
+                  <dt class="text-xs font-semibold text-coursia-muted">Source</dt>
+                  <dd class="mt-1 truncate text-sm font-semibold text-coursia-text">{{ preview?.web.source ?? recipe?.source ?? 'À compléter' }}</dd>
                 </div>
                 <div class="rounded-2xl bg-coursia-surface p-3">
-                  <dt class="text-xs font-bold text-coursia-muted">Ingrédients</dt>
-                  <dd class="mt-1 text-sm font-black text-coursia-foreground">{{ ingredientCount }}</dd>
+                  <dt class="text-xs font-semibold text-coursia-muted">Ingrédients</dt>
+                  <dd class="mt-1 text-sm font-semibold text-coursia-text">{{ ingredientCount }}</dd>
                 </div>
                 <div class="rounded-2xl bg-coursia-surface p-3">
-                  <dt class="text-xs font-bold text-coursia-muted">Étapes</dt>
-                  <dd class="mt-1 text-sm font-black text-coursia-foreground">{{ stepCount }}</dd>
+                  <dt class="text-xs font-semibold text-coursia-muted">Étapes</dt>
+                  <dd class="mt-1 text-sm font-semibold text-coursia-text">{{ stepCount }}</dd>
                 </div>
               </dl>
 

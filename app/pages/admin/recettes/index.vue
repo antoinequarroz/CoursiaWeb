@@ -618,7 +618,7 @@ onMounted(() => {
       </button>
     </div>
 
-    <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+    <AdminPanel>
       <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
         <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
           Recherche
@@ -652,20 +652,20 @@ onMounted(() => {
           </BaseButton>
         </div>
       </div>
-    </section>
+    </AdminPanel>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-4 py-3">
-          <div>
-            <h2 class="text-base font-black text-coursia-foreground">Catalogue</h2>
-            <p class="mt-1 text-xs text-coursia-muted">{{ loading ? 'Chargement...' : `${recipes.length} recette(s)` }}</p>
-          </div>
+      <AdminPanel title="Catalogue" :description="loading ? 'Chargement...' : `${recipes.length} recette(s)`" :padded="false">
+        <template #actions>
           <BaseBadge tone="neutral">Table mobile : recettes</BaseBadge>
+        </template>
+
+        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
+          Chargement des recettes...
         </div>
 
         <AdminEmptyState
-          v-if="recipes.length === 0"
+          v-else-if="recipes.length === 0"
           icon="recipes"
           title="Aucune recette pour ces filtres"
           description="Change les filtres ou crée une nouvelle recette officielle."
@@ -675,8 +675,7 @@ onMounted(() => {
             <BaseButton type="button" @click="startCreate">Créer une recette</BaseButton>
           </template>
         </AdminEmptyState>
-        <div v-else class="overflow-x-auto">
-          <table>
+        <AdminTableShell v-else>
             <thead>
               <tr>
                 <th class="text-left">Recette</th>
@@ -722,12 +721,11 @@ onMounted(() => {
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <aside class="grid gap-4 content-start">
-        <section v-if="selectedRecipe" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+        <AdminPanel v-if="selectedRecipe">
           <div class="flex items-start justify-between gap-3">
             <div>
               <BaseBadge :tone="statusTone[selectedRecipe.status]">{{ statusLabel[selectedRecipe.status] }}</BaseBadge>
@@ -795,15 +793,19 @@ onMounted(() => {
               Supprimer définitivement
             </BaseButton>
           </div>
-        </section>
+        </AdminPanel>
 
-        <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 text-sm text-coursia-muted shadow-coursia-sm">
-          Sélectionne une recette ou crée un nouveau brouillon.
-        </section>
+        <AdminPanel v-else>
+          <AdminEmptyState
+            icon="recipes"
+            title="Sélectionne une recette"
+            description="Le détail, les blocages de publication et les actions apparaîtront ici."
+          />
+        </AdminPanel>
       </aside>
     </div>
 
-    <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+    <AdminPanel v-if="editorOpen">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">Éditeur structuré</p>
@@ -1014,6 +1016,6 @@ onMounted(() => {
           </section>
         </div>
       </form>
-    </section>
+    </AdminPanel>
   </section>
 </template>

@@ -395,14 +395,10 @@ onMounted(async () => {
     </p>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_27rem]">
-      <section class="overflow-hidden rounded-3xl border border-[#e6e1d8] bg-coursia-surface dark:border-white/10 dark:bg-[#111827]">
-        <div class="flex items-center justify-between gap-4 border-b border-[#ece6dc] px-5 py-4 dark:border-white/10">
-          <div>
-            <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Catalogue produits</h2>
-            <p class="mt-1 text-xs text-[#667085] dark:text-[#a8b8ad]">{{ selectedRetailerName }} · {{ products.length }} produit(s)</p>
-          </div>
+      <AdminPanel title="Catalogue produits" :description="`${selectedRetailerName} · ${products.length} produit(s)`" :padded="false">
+        <template #actions>
           <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Données réelles' }}</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="loading" class="p-5 text-sm text-[#667085] dark:text-[#a8b8ad]">
           Chargement des produits...
@@ -466,10 +462,10 @@ onMounted(async () => {
             </span>
           </button>
         </div>
-      </section>
+      </AdminPanel>
 
       <aside class="grid gap-4">
-        <section v-if="editorOpen" class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
+        <AdminPanel v-if="editorOpen">
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">
@@ -580,15 +576,15 @@ onMounted(async () => {
               <BaseButton type="button" variant="secondary" @click="closeEditor">Annuler</BaseButton>
             </div>
           </form>
-        </section>
+        </AdminPanel>
 
-        <section v-else class="rounded-3xl border border-[#e6e1d8] bg-coursia-surface p-5 dark:border-white/10 dark:bg-[#111827]">
-          <div v-if="!selectedProduct" class="grid place-items-center rounded-2xl bg-[#fbf8f1] p-8 text-center dark:bg-white/5">
-            <div>
-              <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">Sélectionne un produit</p>
-              <p class="mt-2 text-sm text-[#667085] dark:text-[#a8b8ad]">Ses offres magasin et son dernier prix apparaîtront ici.</p>
-            </div>
-          </div>
+        <AdminPanel v-else>
+          <AdminEmptyState
+            v-if="!selectedProduct"
+            icon="products"
+            title="Sélectionne un produit"
+            description="Ses offres magasin et son dernier prix apparaîtront ici."
+          />
 
           <template v-else>
             <div class="flex items-start justify-between gap-3">
@@ -653,7 +649,7 @@ onMounted(async () => {
               </NuxtLink>
             </div>
           </template>
-        </section>
+        </AdminPanel>
       </aside>
     </div>
   </section>

@@ -406,34 +406,30 @@ onMounted(() => {
     </p>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
-          <div>
-            <h2 class="text-base font-black text-coursia-foreground">Catalogue</h2>
-            <p class="mt-1 text-xs text-coursia-muted">{{ visibleIngredients.length }} ingrédient(s) affiché(s)</p>
-          </div>
+      <AdminPanel title="Catalogue" :description="`${visibleIngredients.length} ingrédient(s) affiché(s)`" :padded="false">
+        <template #actions>
           <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
-        </div>
+        </template>
 
         <div v-if="loading" class="p-4 text-sm text-coursia-muted">
           Chargement du catalogue...
         </div>
 
-        <div v-else-if="visibleIngredients.length === 0" class="grid place-items-center p-10 text-center">
-          <div class="max-w-sm">
-            <p class="font-black text-coursia-foreground">Aucun ingrédient trouvé</p>
-            <p class="mt-2 text-sm text-coursia-muted">Aucun résultat ne correspond aux filtres actuels.</p>
-            <div class="mt-4 flex justify-center gap-2">
+        <AdminEmptyState
+          v-else-if="visibleIngredients.length === 0"
+          icon="ingredients"
+          title="Aucun ingrédient trouvé"
+          description="Aucun résultat ne correspond aux filtres actuels."
+        >
+          <template #actions>
               <BaseButton v-if="activeFilterCount" type="button" variant="secondary" @click="clearFilters">
                 Réinitialiser
               </BaseButton>
               <BaseButton type="button" @click="startCreate">Créer</BaseButton>
-            </div>
-          </div>
-        </div>
+          </template>
+        </AdminEmptyState>
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-[52rem]">
+        <AdminTableShell v-else>
             <thead>
               <tr>
                 <th>Ingrédient</th>
@@ -503,9 +499,8 @@ onMounted(() => {
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
-      </section>
+        </AdminTableShell>
+      </AdminPanel>
 
       <aside class="grid gap-4">
         <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
@@ -567,12 +562,12 @@ onMounted(() => {
         </section>
 
         <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
-          <div v-if="!selectedIngredient" class="grid place-items-center rounded-2xl bg-coursia-surface-muted p-8 text-center">
-            <div>
-              <p class="font-black text-coursia-foreground">Sélectionne un ingrédient</p>
-              <p class="mt-2 text-sm text-coursia-muted">Le détail et les actions apparaîtront ici.</p>
-            </div>
-          </div>
+          <AdminEmptyState
+            v-if="!selectedIngredient"
+            icon="ingredients"
+            title="Sélectionne un ingrédient"
+            description="Le détail et les actions apparaîtront ici."
+          />
 
           <template v-else>
             <div class="flex items-start justify-between gap-3">

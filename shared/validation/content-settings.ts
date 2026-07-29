@@ -19,7 +19,7 @@ export const contentEntrySchema = z
   .refine(
     (value) => !value.archiveAt || !value.publishAt || new Date(value.publishAt) < new Date(value.archiveAt),
     {
-      message: 'La date d archivage doit etre apres la publication.',
+      message: 'La date d’archivage doit être après la publication.',
       path: ['archiveAt'],
     },
   )
@@ -64,7 +64,7 @@ const forbiddenSettingKeyPattern = /(secret|token|password|private|service[_-]?r
 
 export const assertNonTechnicalSettingKey = (key: string) => {
   if (forbiddenSettingKeyPattern.test(key)) {
-    throw new Error('Les parametres techniques et secrets restent hors de ce module.')
+    throw new Error('Les paramètres techniques et secrets restent hors de ce module.')
   }
 }
 

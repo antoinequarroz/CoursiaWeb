@@ -37,19 +37,12 @@ const simulateLoading = () => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-114 · Design system</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Catalogue composants
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Référence interne des tokens, composants, états et comportements responsive réellement utilisés
-          par Coursia.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-114 · Design system"
+      title="Catalogue composants"
+      description="Référence interne des tokens, composants, états et comportements responsive réellement utilisés par Coursia."
+    >
+      <template #actions>
         <BaseButton
           v-for="theme in ['light', 'dark']"
           :key="theme"
@@ -60,8 +53,8 @@ const simulateLoading = () => {
         >
           {{ theme === 'light' ? 'Clair' : 'Sombre' }}
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="admin-stat-grid">
       <article class="admin-stat-card">
@@ -259,19 +252,16 @@ const simulateLoading = () => {
           </article>
         </section>
 
-        <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
-            <div>
-              <h2 class="text-sm font-semibold text-coursia-text">Inventaire composants</h2>
-              <p class="mt-1 text-xs text-coursia-muted">
-                Les exemples doivent rendre les composants de production quand ils existent.
-              </p>
-            </div>
+        <AdminPanel
+          title="Inventaire composants"
+          description="Les exemples doivent rendre les composants de production quand ils existent."
+          :padded="false"
+        >
+          <template #actions>
             <BaseBadge tone="neutral">{{ componentCatalogItems.length }}</BaseBadge>
-          </div>
+          </template>
 
-          <div class="overflow-x-auto">
-            <table class="min-w-[46rem]">
+          <AdminTableShell>
               <caption class="sr-only">Exemple de tableau de composants</caption>
               <thead>
                 <tr>
@@ -294,9 +284,8 @@ const simulateLoading = () => {
                   <td><BaseBadge :tone="item.productionComponent ? 'success' : 'warning'">{{ item.productionComponent ? 'Production' : 'À formaliser' }}</BaseBadge></td>
                 </tr>
               </tbody>
-            </table>
-          </div>
-        </section>
+          </AdminTableShell>
+        </AdminPanel>
 
         <section class="grid gap-4 lg:grid-cols-2">
           <article

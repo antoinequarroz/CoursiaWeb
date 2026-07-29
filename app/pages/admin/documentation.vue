@@ -47,23 +47,16 @@ const markReloaded = () => {
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-coursia-primary">COUR-113</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-coursia-text">
-          Documentation interne
-        </h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-coursia-muted">
-          Centre protégé pour les procédures produit, exploitation, sécurité et publication.
-          Les contenus restent séparés du site public et ne doivent contenir aucun secret.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="COUR-113"
+      title="Documentation interne"
+      description="Centre protégé pour les procédures produit, exploitation, sécurité et publication. Les contenus restent séparés du site public et ne doivent contenir aucun secret."
+    >
+      <template #actions>
         <BaseBadge tone="neutral">{{ articleCountLabel }}</BaseBadge>
         <BaseButton type="button" variant="secondary" @click="markReloaded">Recharger</BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid gap-4 md:grid-cols-4">
       <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 shadow-coursia-sm">
@@ -131,9 +124,12 @@ const markReloaded = () => {
     <div v-else-if="loadState === 'error'" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-5 text-sm font-medium text-coursia-danger">
       Impossible de charger la documentation. Réessaie plus tard.
     </div>
-    <div v-else-if="loadState === 'empty' || visibleArticles.length === 0" class="rounded-2xl border border-coursia-border bg-coursia-surface p-5 text-sm text-coursia-muted">
-      Aucune procédure ne correspond à cette recherche.
-    </div>
+    <AdminEmptyState
+      v-else-if="loadState === 'empty' || visibleArticles.length === 0"
+      icon="content"
+      title="Aucune procédure trouvée"
+      description="Aucune procédure ne correspond à cette recherche."
+    />
 
     <div v-else class="grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)]">
       <aside class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm xl:sticky xl:top-6 xl:self-start">

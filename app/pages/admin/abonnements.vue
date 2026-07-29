@@ -58,7 +58,7 @@ const accountLabels: Record<AccountStatus, string> = {
 
 const readOnlyRules = [
   'Cette page ne modifie aucun abonnement.',
-  'Les changements restent gérés par RevenueCat ou procédure support.',
+  'Les changements restent gérés par RevenueCat ou par une procédure support.',
   'Les payloads bruts et données sensibles ne sont pas exposés.',
 ]
 
@@ -106,6 +106,33 @@ const eventStats = computed(() => {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
 })
+
+const subscriptionSummary = computed(() => [
+  {
+    label: 'Utilisateur',
+    value: user.value?.emailMasked ?? '—',
+    detail: 'email masqué',
+    tone: 'neutral' as BadgeTone,
+  },
+  {
+    label: 'Palier',
+    value: user.value ? tierLabels[user.value.subscriptionTier] : '—',
+    detail: 'abonnement courant',
+    tone: tierTone.value,
+  },
+  {
+    label: 'Compte',
+    value: user.value ? accountLabels[user.value.accountStatus] : '—',
+    detail: 'statut support',
+    tone: accountTone.value,
+  },
+  {
+    label: 'Événements',
+    value: String(revenueCatEvents.value.length),
+    detail: 'RevenueCat chargés',
+    tone: revenueCatEvents.value.length > 0 ? 'primary' as BadgeTone : 'neutral' as BadgeTone,
+  },
+])
 
 function getEventValue(event: RevenueCatEvent, camelKey: keyof RevenueCatEvent, snakeKey: keyof RevenueCatEvent) {
   return event[camelKey] ?? event[snakeKey] ?? '—'
@@ -176,7 +203,7 @@ onMounted(() => {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-105 · RevenueCat</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-coursia-text">
           Abonnements
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
@@ -186,77 +213,39 @@ onMounted(() => {
       <BaseBadge tone="neutral">Lecture seule</BaseBadge>
     </div>
 
-    <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="lookupSubscription">
-      <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
-          Identifiant utilisateur
-          <input
-            v-model="search.userId"
-            placeholder="UUID Supabase"
-            autocomplete="off"
-          >
-        </label>
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
-          Email
-          <input
-            v-model="search.email"
-            type="email"
-            placeholder="email exact"
-            autocomplete="email"
-          >
-        </label>
-        <BaseButton class="self-end" type="submit" :disabled="isLoading || !hasSearchInput">
-          {{ isLoading ? 'Recherche...' : 'Rechercher' }}
-        </BaseButton>
-      </div>
+    <form class="admin-toolbar" @submit.prevent="lookupSubscription">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        UUID utilisateur
+        <input v-model="search.userId" placeholder="UUID Supabase" autocomplete="off">
+      </label>
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Email exact
+        <input v-model="search.email" type="email" placeholder="info@antoinequarroz.ch" autocomplete="email">
+      </label>
+      <BaseButton class="self-end" type="submit" :disabled="isLoading || !hasSearchInput">
+        {{ isLoading ? 'Recherche...' : 'Rechercher' }}
+      </BaseButton>
     </form>
 
     <div v-if="feedback || errorMessage" class="grid gap-2">
-      <p
-        v-if="feedback"
-        class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success"
-      >
+      <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
         {{ feedback }}
       </p>
-      <p
-        v-if="errorMessage"
-        class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger"
-      >
+      <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
         {{ errorMessage }}
       </p>
     </div>
 
     <div class="grid gap-3 md:grid-cols-4">
-      <article class="admin-stat-card">
-        <span>Utilisateur</span>
-        <strong class="truncate text-base">{{ user?.emailMasked ?? '—' }}</strong>
-        <small>Email masqué</small>
-      </article>
-
-      <article class="admin-stat-card">
-        <span>Palier</span>
-        <strong class="text-base">
-          <BaseBadge :tone="tierTone">
-            {{ user ? tierLabels[user.subscriptionTier] : '—' }}
+      <article v-for="item in subscriptionSummary" :key="item.label" class="admin-stat-card">
+        <span>{{ item.label }}</span>
+        <strong class="truncate text-base">
+          <BaseBadge v-if="item.label === 'Palier' || item.label === 'Compte'" :tone="item.tone">
+            {{ item.value }}
           </BaseBadge>
+          <template v-else>{{ item.value }}</template>
         </strong>
-        <small>abonnement courant</small>
-      </article>
-
-      <article class="admin-stat-card">
-        <span>Compte</span>
-        <strong class="text-base">
-          <BaseBadge :tone="accountTone">
-            {{ user ? accountLabels[user.accountStatus] : '—' }}
-          </BaseBadge>
-        </strong>
-        <small>statut support</small>
-      </article>
-
-      <article class="admin-stat-card">
-        <span>Événements</span>
-        <strong>{{ revenueCatEvents.length }}</strong>
-        <small>RevenueCat chargés</small>
+        <small>{{ item.detail }}</small>
       </article>
     </div>
 
@@ -265,7 +254,7 @@ onMounted(() => {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Résumé abonnement</p>
-            <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">État courant</h2>
+            <h2 class="mt-1 text-lg font-semibold text-coursia-text">État courant</h2>
           </div>
           <BaseBadge :tone="tierTone">{{ user ? tierLabels[user.subscriptionTier] : 'Aucun compte' }}</BaseBadge>
         </div>
@@ -273,15 +262,15 @@ onMounted(() => {
         <div v-if="user" class="mt-5 grid gap-3 md:grid-cols-3">
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">ID utilisateur</p>
-            <p class="mt-2 break-all text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ user.id }}</p>
+            <p class="mt-2 break-all text-sm font-semibold text-coursia-text">{{ user.id }}</p>
           </div>
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Version app</p>
-            <p class="mt-2 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ user.appVersion || '—' }}</p>
+            <p class="mt-2 text-sm font-semibold text-coursia-text">{{ user.appVersion || '—' }}</p>
           </div>
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Dernier événement</p>
-            <p class="mt-2 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ latestEvent?.type ?? '—' }}</p>
+            <p class="mt-2 text-sm font-semibold text-coursia-text">{{ latestEvent?.type ?? '—' }}</p>
           </div>
         </div>
 
@@ -293,11 +282,7 @@ onMounted(() => {
           <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Entitlements</p>
             <div class="mt-3 flex flex-wrap gap-2">
-              <BaseBadge
-                v-for="entitlement in activeEntitlements"
-                :key="entitlement"
-                tone="primary"
-              >
+              <BaseBadge v-for="entitlement in activeEntitlements" :key="entitlement" tone="primary">
                 {{ entitlement }}
               </BaseBadge>
               <span v-if="activeEntitlements.length === 0" class="text-sm text-coursia-muted">Aucun entitlement chargé.</span>
@@ -307,11 +292,7 @@ onMounted(() => {
           <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Produits</p>
             <div class="mt-3 flex flex-wrap gap-2">
-              <BaseBadge
-                v-for="product in productIds"
-                :key="product"
-                tone="neutral"
-              >
+              <BaseBadge v-for="product in productIds" :key="product" tone="neutral">
                 {{ product }}
               </BaseBadge>
               <span v-if="productIds.length === 0" class="text-sm text-coursia-muted">Aucun produit chargé.</span>
@@ -323,18 +304,14 @@ onMounted(() => {
       <aside class="grid content-start gap-4">
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Lecture support</p>
-          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Répartition événements</h2>
+          <h2 class="mt-1 text-lg font-semibold text-coursia-text">Répartition événements</h2>
           <p class="mt-2 text-sm text-coursia-muted">
             Vue synthétique limitée aux événements utiles pour diagnostiquer un problème d’accès.
           </p>
 
           <div class="mt-5 grid gap-3">
-            <div
-              v-for="[type, count] in eventStats"
-              :key="type"
-              class="flex items-center justify-between gap-3 rounded-2xl bg-coursia-surface-muted px-4 py-3"
-            >
-              <span class="truncate text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ type }}</span>
+            <div v-for="[type, count] in eventStats" :key="type" class="flex items-center justify-between gap-3 rounded-2xl bg-coursia-surface-muted px-4 py-3">
+              <span class="truncate text-sm font-semibold text-coursia-text">{{ type }}</span>
               <BaseBadge tone="neutral">{{ count }}</BaseBadge>
             </div>
             <div v-if="eventStats.length === 0" class="rounded-2xl bg-coursia-surface-muted p-4 text-sm text-coursia-muted">
@@ -345,7 +322,7 @@ onMounted(() => {
 
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Règles</p>
-          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Ce que cette vue ne fait pas</h2>
+          <h2 class="mt-1 text-lg font-semibold text-coursia-text">Ce que cette vue ne fait pas</h2>
           <ul class="mt-4 grid gap-2 text-sm text-coursia-muted">
             <li v-for="rule in readOnlyRules" :key="rule" class="flex gap-2">
               <span class="mt-1 h-1.5 w-1.5 rounded-full bg-coursia-primary" />
@@ -356,10 +333,10 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+    <section class="admin-table overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Timeline RevenueCat</h2>
+          <h2 class="text-sm font-semibold text-coursia-text">Timeline RevenueCat</h2>
           <p class="mt-1 text-xs text-coursia-muted">
             Diagnostic uniquement. Les changements d’abonnement se font hors de cette page.
           </p>
@@ -384,9 +361,9 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="event in revenueCatEvents" :key="event.id" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
+            <tr v-for="event in revenueCatEvents" :key="event.id">
               <td>
-                <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ event.type }}</p>
+                <p class="font-semibold text-coursia-text">{{ event.type }}</p>
                 <p class="mt-1 max-w-[12rem] truncate text-xs text-coursia-muted">{{ event.id }}</p>
               </td>
               <td class="text-sm text-coursia-muted">{{ event.entitlement || '—' }}</td>

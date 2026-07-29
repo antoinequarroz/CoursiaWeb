@@ -86,10 +86,10 @@ const procedureActionLabels: Record<ProcedureAction, string> = {
 }
 
 const supportRules = [
-  'Recherche par email exact ou UUID Supabase.',
-  'Email masqué et aucune donnée foyer affichée.',
-  'Événements RevenueCat en lecture seule.',
-  'Export, blocage et suppression passent par procédure auditée.',
+  'Recherche limitée à un email exact ou un UUID Supabase.',
+  'Email masqué, aucune donnée foyer ou recette privée affichée.',
+  'Événements RevenueCat utiles en lecture seule.',
+  'Export, blocage et suppression passent par une procédure auditée.',
 ]
 
 const accountTone = computed<BadgeTone>(() => {
@@ -108,6 +108,38 @@ const tierTone = computed<BadgeTone>(() => {
 })
 
 const latestEvent = computed(() => revenueCatEvents.value[0] ?? null)
+const hasSearchInput = computed(() => Boolean(search.userId.trim() || search.email.trim()))
+const procedureReady = computed(() =>
+  Boolean(user.value && procedure.reason.trim().length >= 10 && procedure.ticketReference.trim().length >= 3 && procedure.confirmed),
+)
+
+const supportSummary = computed(() => [
+  {
+    label: 'Compte',
+    value: user.value ? accountLabels[user.value.accountStatus] : '—',
+    detail: 'statut support',
+    tone: accountTone.value,
+  },
+  {
+    label: 'Abonnement',
+    value: user.value ? tierLabels[user.value.subscriptionTier] : '—',
+    detail: 'palier courant',
+    tone: tierTone.value,
+  },
+  {
+    label: 'Version app',
+    value: user.value?.appVersion ?? '—',
+    detail: 'client déclaré',
+    tone: 'neutral' as BadgeTone,
+  },
+  {
+    label: 'RevenueCat',
+    value: String(revenueCatEvents.value.length),
+    detail: 'événements chargés',
+    tone: revenueCatEvents.value.length > 0 ? 'primary' as BadgeTone : 'neutral' as BadgeTone,
+  },
+])
+
 const activeEntitlements = computed(() => {
   const entitlements = revenueCatEvents.value
     .map((event) => event.entitlement)
@@ -115,11 +147,6 @@ const activeEntitlements = computed(() => {
 
   return Array.from(new Set(entitlements))
 })
-
-const hasSearchInput = computed(() => Boolean(search.userId.trim() || search.email.trim()))
-const procedureReady = computed(() =>
-  Boolean(user.value && procedure.reason.trim().length >= 10 && procedure.ticketReference.trim().length >= 3 && procedure.confirmed),
-)
 
 function getEventValue(event: RevenueCatEvent, camelKey: keyof RevenueCatEvent, snakeKey: keyof RevenueCatEvent) {
   return event[camelKey] ?? event[snakeKey] ?? '—'
@@ -227,97 +254,59 @@ onMounted(() => {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-coursia-primary">COUR-105 · support</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-[#101828] dark:text-[#f7fbf8]">
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-coursia-text">
           Support utilisateurs
         </h1>
         <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
-          Recherche contrôlée, données minimisées et procédures sensibles traçables pour aider sans exposer le foyer.
+          Vue contrôlée pour retrouver un compte, comprendre son état et lancer une procédure sensible sans exposer le foyer.
         </p>
       </div>
 
       <BaseBadge tone="neutral">{{ impersonationDisabledMessage }}</BaseBadge>
     </div>
 
-    <form class="rounded-2xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="lookupUser">
-      <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
-          Identifiant utilisateur
-          <input
-            v-model="search.userId"
-            placeholder="UUID Supabase"
-            autocomplete="off"
-          >
-        </label>
-        <label class="grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
-          Email
-          <input
-            v-model="search.email"
-            type="email"
-            placeholder="email exact"
-            autocomplete="email"
-          >
-        </label>
-        <BaseButton class="self-end" type="submit" :disabled="isLoading || !hasSearchInput">
-          {{ isLoading ? 'Recherche...' : 'Rechercher' }}
-        </BaseButton>
-      </div>
+    <form class="admin-toolbar" @submit.prevent="lookupUser">
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        UUID utilisateur
+        <input v-model="search.userId" placeholder="UUID Supabase" autocomplete="off">
+      </label>
+      <label class="grid gap-1.5 text-xs font-semibold text-coursia-text">
+        Email exact
+        <input v-model="search.email" type="email" placeholder="info@antoinequarroz.ch" autocomplete="email">
+      </label>
+      <BaseButton class="self-end" type="submit" :disabled="isLoading || !hasSearchInput">
+        {{ isLoading ? 'Recherche...' : 'Rechercher' }}
+      </BaseButton>
     </form>
 
     <div v-if="feedback || errorMessage" class="grid gap-2">
-      <p
-        v-if="feedback"
-        class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success"
-      >
+      <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
         {{ feedback }}
       </p>
-      <p
-        v-if="errorMessage"
-        class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger"
-      >
+      <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
         {{ errorMessage }}
       </p>
     </div>
 
     <div class="grid gap-3 md:grid-cols-4">
-      <article class="admin-stat-card">
-        <span>Compte</span>
+      <article v-for="item in supportSummary" :key="item.label" class="admin-stat-card">
+        <span>{{ item.label }}</span>
         <strong class="text-base">
-          <BaseBadge :tone="accountTone">
-            {{ user ? accountLabels[user.accountStatus] : '—' }}
+          <BaseBadge v-if="item.label === 'Compte' || item.label === 'Abonnement'" :tone="item.tone">
+            {{ item.value }}
           </BaseBadge>
+          <template v-else>{{ item.value }}</template>
         </strong>
-        <small>statut support</small>
-      </article>
-
-      <article class="admin-stat-card">
-        <span>Abonnement</span>
-        <strong class="text-base">
-          <BaseBadge :tone="tierTone">
-            {{ user ? tierLabels[user.subscriptionTier] : '—' }}
-          </BaseBadge>
-        </strong>
-        <small>palier actif connu</small>
-      </article>
-
-      <article class="admin-stat-card">
-        <span>Version app</span>
-        <strong>{{ user?.appVersion ?? '—' }}</strong>
-        <small>client mobile déclaré</small>
-      </article>
-
-      <article class="admin-stat-card">
-        <span>RevenueCat</span>
-        <strong>{{ revenueCatEvents.length }}</strong>
-        <small>événements utiles</small>
+        <small>{{ item.detail }}</small>
       </article>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
       <section class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Profil support</p>
-            <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Informations minimisées</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Profil minimisé</p>
+            <h2 class="mt-1 text-lg font-semibold text-coursia-text">Données support disponibles</h2>
           </div>
           <BaseBadge tone="neutral">Lecture auditée</BaseBadge>
         </div>
@@ -325,33 +314,30 @@ onMounted(() => {
         <div v-if="user" class="mt-5 grid gap-3 md:grid-cols-2">
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">ID utilisateur</p>
-            <p class="mt-2 break-all text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ user.id }}</p>
+            <p class="mt-2 break-all text-sm font-semibold text-coursia-text">{{ user.id }}</p>
           </div>
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Email</p>
-            <p class="mt-2 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ user.emailMasked }}</p>
+            <p class="mt-2 text-sm font-semibold text-coursia-text">{{ user.emailMasked }}</p>
           </div>
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Dernier événement</p>
-            <p class="mt-2 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
-              {{ latestEvent ? latestEvent.type : '—' }}
-            </p>
+            <p class="mt-2 text-sm font-semibold text-coursia-text">{{ latestEvent ? latestEvent.type : '—' }}</p>
           </div>
           <div class="rounded-2xl bg-coursia-surface-muted p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-coursia-muted">Reçu le</p>
-            <p class="mt-2 text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">
+            <p class="mt-2 text-sm font-semibold text-coursia-text">
               {{ latestEvent ? formatDate(getEventValue(latestEvent, 'receivedAt', 'received_at')) : '—' }}
             </p>
           </div>
         </div>
 
         <div v-else class="mt-5 rounded-2xl bg-coursia-surface-muted p-5 text-sm text-coursia-muted">
-          Recherche un utilisateur par email exact ou identifiant. Aucune donnée foyer, recette privée ou information sensible
-          n’est affichée ici par défaut.
+          Recherche un utilisateur par email exact ou identifiant. Les données sensibles restent hors de cette interface.
         </div>
 
         <div class="mt-5 rounded-2xl border border-coursia-border bg-coursia-surface-muted p-4">
-          <h3 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Garde-fous support</h3>
+          <h3 class="text-sm font-semibold text-coursia-text">Garde-fous support</h3>
           <ul class="mt-3 grid gap-2 text-sm text-coursia-muted">
             <li v-for="rule in supportRules" :key="rule" class="flex gap-2">
               <span class="mt-1 h-1.5 w-1.5 rounded-full bg-coursia-primary" />
@@ -364,23 +350,23 @@ onMounted(() => {
       <aside class="grid content-start gap-4">
         <article class="rounded-2xl border border-coursia-border bg-coursia-surface p-5">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Abonnement</p>
-          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Entitlements actifs</h2>
+          <h2 class="mt-1 text-lg font-semibold text-coursia-text">Entitlements actifs</h2>
           <p class="mt-2 text-sm text-coursia-muted">
             {{ activeEntitlements.length ? activeEntitlements.join(', ') : 'Aucun entitlement actif chargé.' }}
           </p>
           <BaseButton class="mt-4 w-full" type="button" variant="secondary" :disabled="!user" @click="showProcedure = !showProcedure">
-            {{ showProcedure ? 'Fermer procédure' : 'Créer une procédure' }}
+            {{ showProcedure ? 'Fermer la procédure' : 'Créer une procédure' }}
           </BaseButton>
         </article>
 
         <form v-if="showProcedure" class="rounded-2xl border border-coursia-border bg-coursia-surface p-5" @submit.prevent="requestProcedure">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-coursia-primary">Procédure contrôlée</p>
-          <h2 class="mt-1 text-lg font-semibold text-[#101828] dark:text-[#f7fbf8]">Export, suppression, blocage</h2>
+          <h2 class="mt-1 text-lg font-semibold text-coursia-text">Export, suppression, blocage</h2>
           <p class="mt-2 text-sm text-coursia-muted">
-            Ces actions créent une demande traçable. Aucune impersonation, aucune suppression silencieuse.
+            Ces actions créent une demande traçable. Rien n’est exécuté silencieusement depuis cette vue.
           </p>
 
-          <label class="mt-5 grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="mt-5 grid gap-1.5 text-xs font-semibold text-coursia-text">
             Action
             <select v-model="procedure.action">
               <option v-for="(label, action) in procedureLabels" :key="action" :value="action">
@@ -392,23 +378,14 @@ onMounted(() => {
             {{ supportProcedureDescriptions[procedure.action] }}
           </p>
 
-          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-coursia-text">
             Référence ticket
-            <input
-              v-model="procedure.ticketReference"
-              required
-              placeholder="COUR-105 / support-123"
-            >
+            <input v-model="procedure.ticketReference" required placeholder="COUR-105 / support-123">
           </label>
 
-          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-[#344054] dark:text-[#dbe7df]">
+          <label class="mt-4 grid gap-1.5 text-xs font-semibold text-coursia-text">
             Raison
-            <textarea
-              v-model="procedure.reason"
-              required
-              rows="4"
-              placeholder="Explique pourquoi cette procédure est nécessaire."
-            />
+            <textarea v-model="procedure.reason" required rows="4" placeholder="Explique pourquoi cette procédure est nécessaire." />
           </label>
 
           <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-coursia-border bg-coursia-surface-muted px-3 py-2.5 text-sm text-coursia-muted">
@@ -423,10 +400,10 @@ onMounted(() => {
       </aside>
     </div>
 
-    <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+    <section class="admin-table overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-coursia-border px-5 py-4">
         <div>
-          <h2 class="text-sm font-semibold text-[#101828] dark:text-[#f7fbf8]">Événements RevenueCat</h2>
+          <h2 class="text-sm font-semibold text-coursia-text">Événements RevenueCat</h2>
           <p class="mt-1 text-xs text-coursia-muted">
             Lecture seule. Les payloads bruts et données sensibles restent hors interface support.
           </p>
@@ -451,9 +428,9 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="event in revenueCatEvents" :key="event.id" class="border-t border-coursia-border transition hover:bg-coursia-surface-muted">
+            <tr v-for="event in revenueCatEvents" :key="event.id">
               <td>
-                <p class="font-semibold text-[#101828] dark:text-[#f7fbf8]">{{ event.type }}</p>
+                <p class="font-semibold text-coursia-text">{{ event.type }}</p>
                 <p class="mt-1 max-w-[12rem] truncate text-xs text-coursia-muted">{{ event.id }}</p>
               </td>
               <td class="text-sm text-coursia-muted">{{ event.entitlement || '—' }}</td>

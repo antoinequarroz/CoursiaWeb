@@ -63,7 +63,7 @@ export const retailCsvColumns = [
 ] as const
 
 export const retailCsvTemplate = `${retailCsvColumns.join(',')}
-coop,pates-penne-500g,PÃ¢tes penne,500,g,2.40,Action 20%,coop.ch,2026-07-26T20:00:00+02:00`
+coop,pates-penne-500g,Pâtes penne,500,g,2.40,Action 20%,coop.ch,2026-07-26T20:00:00+02:00`
 
 export type RetailCsvRow = {
   rowNumber: number
@@ -165,7 +165,7 @@ export const validateRetailCsvRows = (
       return { rowNumber: row.rowNumber, action: 'error', productSlug, field: 'format_quantity', message: 'Format invalide.' }
     }
     if (!productUnitSchema.safeParse(row.formatUnit).success) {
-      return { rowNumber: row.rowNumber, action: 'error', productSlug, field: 'format_unit', message: 'UnitÃ© invalide.' }
+      return { rowNumber: row.rowNumber, action: 'error', productSlug, field: 'format_unit', message: 'Unité invalide.' }
     }
     if (!row.priceChf || Number(row.priceChf) <= 0) {
       return { rowNumber: row.rowNumber, action: 'error', productSlug, field: 'price_chf', message: 'Prix invalide.' }
@@ -181,7 +181,7 @@ export const validateRetailCsvRows = (
       rowNumber: row.rowNumber,
       action: existingProductSlugs.has(productSlug) ? 'update' : 'create',
       productSlug,
-      message: 'Ligne prÃªte pour import manuel ou CSV.',
+      message: 'Ligne prête pour import manuel ou CSV.',
     }
   })
 

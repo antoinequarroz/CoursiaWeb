@@ -1090,6 +1090,45 @@ textarea {
   [data-theme='dark'] .admin-console :where(.shadow-sm, .shadow-coursia-sm, .shadow-coursia-md, .shadow-coursia-glass) {
     box-shadow: var(--admin-shadow);
   }
+
+  [data-theme='dark'] .admin-console main :where(
+    .admin-page article,
+    .admin-page form,
+    .admin-page section,
+    .admin-page div
+  ):where(.bg-coursia-surface, .border-coursia-border) {
+    background: var(--admin-card);
+    border-color: var(--admin-border);
+  }
+
+  [data-theme='dark'] .admin-console main :where(
+    .admin-page .bg-coursia-background,
+    .admin-page .bg-coursia-surface-muted,
+    .admin-page .bg-\[\#fbf7f0\],
+    .admin-page .bg-\[\#fbf8f1\],
+    .admin-page .bg-\[\#fbfaf7\]
+  ) {
+    background: var(--admin-muted-panel);
+    border-color: var(--admin-border-soft);
+  }
+
+  [data-theme='dark'] .admin-console main :where(.admin-page thead) {
+    background: var(--admin-muted-panel);
+  }
+
+  [data-theme='dark'] .admin-console main :where(.admin-page tbody tr:hover) {
+    background: color-mix(in srgb, var(--admin-card-strong) 70%, var(--admin-primary-soft));
+  }
+
+  [data-theme='dark'] .admin-console main :where(.admin-page input, .admin-page select, .admin-page textarea) {
+    background: color-mix(in srgb, var(--admin-card-strong) 78%, var(--admin-muted-panel));
+    border-color: var(--admin-border);
+    color: var(--admin-foreground);
+  }
+
+  [data-theme='dark'] .admin-console main :where(.admin-page input:focus, .admin-page select:focus, .admin-page textarea:focus) {
+    background: var(--admin-card-strong);
+  }
 }
 
 @layer utilities {

@@ -42,7 +42,7 @@ export const adminDashboardIndicators = [
   { label: 'Brouillons', value: 14, status: 'warning', href: '/admin/recettes?status=draft' },
   { label: 'Contenus à valider', value: 7, status: 'warning', href: '/admin/contenus?status=review' },
   { label: 'Prix périmés', value: 23, status: 'danger', href: '/admin/prix?status=stale' },
-  { label: 'Alertes', value: 4, status: 'danger', href: '/admin/alertes' },
+  { label: 'Alertes', value: 4, status: 'danger', href: '/admin/moderation' },
 ] as const
 
 type AdminNavigationRole = (typeof adminNavigationSections)[number]['items'][number]['minimumRole']

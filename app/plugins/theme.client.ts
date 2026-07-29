@@ -13,5 +13,7 @@ function resolveInitialTheme(): CoursiaThemeName {
 }
 
 export default defineNuxtPlugin(() => {
-  document.documentElement.dataset.theme = resolveInitialTheme()
+  const theme = resolveInitialTheme()
+  document.documentElement.dataset.theme = theme
+  document.documentElement.style.colorScheme = theme
 })

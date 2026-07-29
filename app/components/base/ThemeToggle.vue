@@ -21,20 +21,21 @@ function resolveTheme(): CoursiaThemeName {
 }
 
 function applyTheme(theme: CoursiaThemeName) {
-  currentTheme.value = theme
-
   if (!import.meta.client) {
+    currentTheme.value = theme
     return
   }
 
   document.documentElement.classList.add('theme-switching')
   document.documentElement.dataset.theme = theme
+  document.documentElement.style.colorScheme = theme
+  currentTheme.value = theme
 
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => {
-      document.documentElement.classList.remove('theme-switching')
-    })
-  })
+  void document.documentElement.offsetHeight
+
+  window.setTimeout(() => {
+    document.documentElement.classList.remove('theme-switching')
+  }, 0)
 }
 
 if (import.meta.client) {

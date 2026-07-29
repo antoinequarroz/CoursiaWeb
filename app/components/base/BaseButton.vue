@@ -14,10 +14,10 @@ const props = withDefaults(
 
 const variantClass = computed(() => {
   const classes = {
-    primary: 'bg-coursia-primary text-coursia-primary-contrast shadow-coursia-sm hover:opacity-90',
+    primary: 'bg-coursia-primary text-coursia-primary-contrast shadow-coursia-sm hover:opacity-90 disabled:hover:opacity-100',
     secondary:
-      'border border-coursia-border bg-coursia-surface text-coursia-foreground hover:bg-coursia-surface-muted',
-    ghost: 'text-coursia-primary hover:bg-coursia-primary/10',
+      'border border-coursia-border bg-coursia-surface text-coursia-foreground hover:border-coursia-primary/45 hover:bg-coursia-primary/10',
+    ghost: 'text-coursia-primary hover:bg-coursia-primary/10 hover:text-coursia-primary',
   } as const
 
   return classes[props.variant]
@@ -35,7 +35,7 @@ const sizeClass = computed(() => {
 
 <template>
   <button
-    class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+    class="base-button ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
     :class="[variantClass, sizeClass]"
     :disabled="disabled"
   >

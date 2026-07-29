@@ -5,155 +5,295 @@ definePageMeta({
   layout: 'admin',
 })
 
-const form = reactive<RetailerInput>({
-  name: '',
-  slug: '',
-  status: 'active',
-  websiteUrl: undefined,
-})
+type RetailerRow = {
+  id: string
+  name: string
+  slug: string
+  status: 'active'
+  offer_count?: number
+  active_offer_count?: number
+  price_count?: number
+  mobile?: {
+    table?: string
+    code?: string
+    name?: string
+  }
+}
+
+type RetailerForm = Pick<RetailerInput, 'name' | 'slug'>
 
 const filters = reactive({
   search: '',
-  status: '',
 })
 
-const retailers = ref<Array<Record<string, unknown>>>([])
-const selectedRetailerId = ref<string | null>(null)
-const feedback = ref('')
+const form = reactive<RetailerForm>({
+  name: '',
+  slug: '',
+})
+
+const retailers = ref<RetailerRow[]>([])
+const selectedRetailer = ref<RetailerRow | null>(null)
+const editorOpen = ref(false)
+const editingRetailerId = ref<string | null>(null)
 const loading = ref(false)
+const saving = ref(false)
+const feedback = ref('')
+const errorMessage = ref('')
+
+const retailerQuery = computed(() => {
+  const query: Record<string, string | number> = { limit: 100 }
+  if (filters.search.trim()) query.search = filters.search.trim()
+  return query
+})
+
+const stats = computed(() => ({
+  retailers: retailers.value.length,
+  offers: retailers.value.reduce((sum, retailer) => sum + (retailer.offer_count ?? 0), 0),
+  activeOffers: retailers.value.reduce((sum, retailer) => sum + (retailer.active_offer_count ?? 0), 0),
+  prices: retailers.value.reduce((sum, retailer) => sum + (retailer.price_count ?? 0), 0),
+}))
+
+const toSlug = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 
 const resetForm = () => {
-  selectedRetailerId.value = null
   Object.assign(form, {
     name: '',
     slug: '',
-    status: 'active',
-    websiteUrl: undefined,
   })
 }
 
-const selectRetailer = (retailer: Record<string, unknown>) => {
-  selectedRetailerId.value = String(retailer.id)
+const selectRetailer = (retailer: RetailerRow) => {
+  selectedRetailer.value = retailer
+  editorOpen.value = false
+  editingRetailerId.value = null
+}
+
+const startCreate = () => {
+  selectedRetailer.value = null
+  editingRetailerId.value = null
+  resetForm()
+  editorOpen.value = true
+  feedback.value = ''
+  errorMessage.value = ''
+}
+
+const startEdit = (retailer = selectedRetailer.value) => {
+  if (!retailer) return
+
+  selectedRetailer.value = retailer
+  editingRetailerId.value = retailer.id
   Object.assign(form, {
-    name: String(retailer.name ?? ''),
-    slug: String(retailer.slug ?? ''),
-    status: retailer.status === 'archived' ? 'archived' : 'active',
-    websiteUrl: retailer.website_url ? String(retailer.website_url) : undefined,
+    name: retailer.name,
+    slug: retailer.slug,
   })
+  editorOpen.value = true
+  feedback.value = ''
+  errorMessage.value = ''
+}
+
+const closeEditor = () => {
+  editorOpen.value = false
+  editingRetailerId.value = null
+  resetForm()
 }
 
 const loadRetailers = async () => {
   loading.value = true
+  errorMessage.value = ''
+
   try {
-    const response = await $fetch<{ data: Array<Record<string, unknown>> }>('/api/admin/retailers', {
-      query: filters,
+    const response = await $fetch<{ data: RetailerRow[] }>('/api/admin/retailers', {
+      query: retailerQuery.value,
     })
+
     retailers.value = response.data
+
+    if (selectedRetailer.value) {
+      selectedRetailer.value = retailers.value.find((retailer) => retailer.id === selectedRetailer.value?.id) ?? null
+    }
+
+    if (!selectedRetailer.value && retailers.value[0]) {
+      selectedRetailer.value = retailers.value[0]
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Chargement impossible.'
   } finally {
     loading.value = false
   }
 }
 
 const saveRetailer = async () => {
-  const endpoint = selectedRetailerId.value ? `/api/admin/retailers/${selectedRetailerId.value}` : '/api/admin/retailers'
-  const method = selectedRetailerId.value ? 'PUT' : 'POST'
+  saving.value = true
+  feedback.value = ''
+  errorMessage.value = ''
 
-  await $fetch(endpoint, { method, body: form })
-  feedback.value = selectedRetailerId.value ? 'Enseigne modifiée et auditée.' : 'Enseigne créée et auditée.'
+  try {
+    const payload: RetailerInput = {
+      name: form.name,
+      slug: form.slug,
+      status: 'active',
+      websiteUrl: undefined,
+    }
+    const endpoint = editingRetailerId.value ? `/api/admin/retailers/${editingRetailerId.value}` : '/api/admin/retailers'
+    const method = editingRetailerId.value ? 'PUT' : 'POST'
+    const response = await $fetch<{ data: RetailerRow }>(endpoint, { method, body: payload })
+
+    feedback.value = editingRetailerId.value ? 'Enseigne modifiée.' : 'Enseigne créée.'
+    selectedRetailer.value = response.data
+    editorOpen.value = false
+    editingRetailerId.value = null
+    await loadRetailers()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Enregistrement impossible.'
+  } finally {
+    saving.value = false
+  }
+}
+
+const clearFilters = async () => {
+  filters.search = ''
   await loadRetailers()
 }
 
-const archiveRetailer = async (retailer: Record<string, unknown>) => {
-  await $fetch(`/api/admin/retailers/${String(retailer.id)}`, {
-    method: 'PUT',
-    body: {
-      name: retailer.name,
-      slug: retailer.slug,
-      status: 'archived',
-      websiteUrl: retailer.website_url || undefined,
-    },
-  })
-  feedback.value = 'Enseigne archivée sans suppression des historiques de prix.'
-  await loadRetailers()
-}
+watch(
+  () => form.name,
+  (name) => {
+    if (!editingRetailerId.value && !form.slug) {
+      form.slug = toSlug(name)
+    }
+  },
+)
 
-onMounted(() => {
-  void loadRetailers()
-})
+onMounted(loadRetailers)
 </script>
 
 <template>
   <section class="admin-page">
-    <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
       <div>
-        <p class="text-sm font-black uppercase tracking-[0.18em] text-coursia-primary">COUR-102</p>
-        <h1 class="mt-2 text-3xl font-black">Enseignes du comparateur</h1>
-        <p class="mt-3 text-coursia-muted">
-          Gestion des enseignes utilisées par les produits, les prix courants et l’historique.
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-coursia-primary">Comparateur</p>
+        <h1 class="mt-1 text-2xl font-black tracking-tight text-coursia-foreground md:text-3xl">
+          Enseignes
+        </h1>
+        <p class="mt-2 max-w-3xl text-sm text-coursia-muted">
+          Référentiel des magasins utilisés par les offres, les prix et les paniers de l’application mobile.
         </p>
       </div>
-      <div class="flex gap-2">
-        <BaseButton type="button" variant="secondary" @click="resetForm">Nouvelle enseigne</BaseButton>
-        <BaseButton type="button" :disabled="loading" @click="loadRetailers">Rafraîchir</BaseButton>
+
+      <div class="flex flex-wrap gap-2">
+        <BaseButton type="button" variant="secondary" :disabled="loading" @click="loadRetailers">
+          Rafraîchir
+        </BaseButton>
+        <BaseButton type="button" @click="startCreate">
+          Nouvelle enseigne
+        </BaseButton>
       </div>
     </div>
 
-    <form class="admin-toolbar grid gap-3 md:grid-cols-[1fr_16rem_auto]" @submit.prevent="loadRetailers">
-      <label class="grid gap-1 text-sm font-bold">
+    <div class="grid gap-3 md:grid-cols-4">
+      <article class="admin-stat-card">
+        <span>Enseignes</span>
+        <strong>{{ stats.retailers }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span>Offres</span>
+        <strong class="text-coursia-primary">{{ stats.offers }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span>Offres actives</span>
+        <strong class="text-coursia-success">{{ stats.activeOffers }}</strong>
+      </article>
+      <article class="admin-stat-card">
+        <span>Prix enregistrés</span>
+        <strong>{{ stats.prices }}</strong>
+      </article>
+    </div>
+
+    <form class="admin-toolbar grid gap-3 xl:grid-cols-[1fr_auto_auto]" @submit.prevent="loadRetailers">
+      <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
         Recherche
-        <input v-model="filters.search" type="search" placeholder="Nom, slug, URL..." />
+        <input v-model="filters.search" type="search" placeholder="Coop, Migros, Aldi..." />
       </label>
-      <label class="grid gap-1 text-sm font-bold">
-        Statut
-        <select v-model="filters.status">
-          <option value="">Tous statuts</option>
-          <option value="active">Actif</option>
-          <option value="archived">Archivé</option>
-        </select>
-      </label>
-      <div class="flex items-end">
-        <BaseButton type="submit" class="w-full" :disabled="loading">Filtrer</BaseButton>
+      <div class="flex items-end gap-2">
+        <BaseButton type="submit" :disabled="loading">Appliquer</BaseButton>
+        <BaseButton v-if="filters.search" type="button" variant="ghost" @click="clearFilters">Effacer</BaseButton>
       </div>
     </form>
 
-    <p v-if="feedback" class="rounded-xl border border-coursia-border bg-coursia-surface px-4 py-3 text-sm font-semibold">
+    <p v-if="feedback" class="rounded-2xl border border-coursia-success/20 bg-coursia-success/10 p-3 text-sm font-semibold text-coursia-success">
       {{ feedback }}
     </p>
+    <p v-if="errorMessage" class="rounded-2xl border border-coursia-danger/20 bg-coursia-danger/10 p-3 text-sm font-semibold text-coursia-danger">
+      {{ errorMessage }}
+    </p>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
-      <section class="rounded-xl border border-coursia-border bg-coursia-surface p-4">
-        <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-base font-black">Liste des enseignes</h2>
-          <span class="text-sm text-coursia-muted">{{ retailers.length }} entrée(s)</span>
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem]">
+      <section class="admin-table overflow-hidden rounded-2xl border border-coursia-border bg-coursia-surface">
+        <div class="flex items-center justify-between gap-4 border-b border-coursia-border px-4 py-3">
+          <div>
+            <h2 class="text-base font-black text-coursia-foreground">Catalogue magasins</h2>
+            <p class="mt-1 text-xs text-coursia-muted">{{ retailers.length }} enseigne(s) affichée(s)</p>
+          </div>
+          <BaseBadge tone="neutral">{{ loading ? 'Chargement' : 'Live Supabase' }}</BaseBadge>
         </div>
 
-        <div v-if="loading" class="rounded-xl bg-coursia-background p-4 text-sm text-coursia-muted">
-          Chargement...
+        <div v-if="loading" class="p-4 text-sm text-coursia-muted">
+          Chargement des enseignes...
         </div>
+
+        <div v-else-if="retailers.length === 0" class="grid place-items-center p-10 text-center">
+          <div class="max-w-sm">
+            <p class="font-black text-coursia-foreground">Aucune enseigne trouvée</p>
+            <p class="mt-2 text-sm text-coursia-muted">Crée la première enseigne avant d’ajouter des produits et des prix.</p>
+            <BaseButton class="mt-4" type="button" @click="startCreate">Créer une enseigne</BaseButton>
+          </div>
+        </div>
+
         <div v-else class="overflow-x-auto">
-          <table class="admin-table">
+          <table class="min-w-[48rem]">
             <thead>
               <tr>
                 <th>Enseigne</th>
-                <th>Statut</th>
-                <th>Source</th>
+                <th>Offres</th>
+                <th>Prix</th>
+                <th>Source mobile</th>
                 <th class="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="retailer in retailers" :key="String(retailer.id)">
+              <tr
+                v-for="retailer in retailers"
+                :key="retailer.id"
+                class="cursor-pointer transition"
+                :class="selectedRetailer?.id === retailer.id ? 'bg-coursia-primary/10 shadow-[inset_4px_0_0_var(--color-coursia-primary)]' : ''"
+                @click="selectRetailer(retailer)"
+              >
                 <td>
-                  <button type="button" class="text-left" @click="selectRetailer(retailer)">
-                    <span class="block font-black">{{ retailer.name }}</span>
-                    <span class="block text-xs text-coursia-muted">{{ retailer.slug }}</span>
-                  </button>
+                  <span class="block max-w-[18rem] truncate font-black text-coursia-foreground">{{ retailer.name }}</span>
+                  <span class="mt-1 block max-w-[18rem] truncate text-xs text-coursia-muted">{{ retailer.slug }}</span>
                 </td>
-                <td>{{ retailer.status }}</td>
-                <td>{{ retailer.website_url || 'source interne' }}</td>
                 <td>
+                  <BaseBadge :tone="(retailer.active_offer_count ?? 0) > 0 ? 'primary' : 'neutral'">
+                    {{ retailer.active_offer_count ?? 0 }} active(s)
+                  </BaseBadge>
+                </td>
+                <td class="text-sm text-coursia-muted">
+                  {{ retailer.price_count ?? 0 }} historique(s)
+                </td>
+                <td class="text-sm text-coursia-muted">
+                  {{ retailer.mobile?.table ?? 'enseignes' }}
+                </td>
+                <td @click.stop>
                   <div class="flex justify-end gap-2">
-                    <BaseButton size="sm" variant="secondary" type="button" @click="selectRetailer(retailer)">Modifier</BaseButton>
-                    <BaseButton size="sm" variant="ghost" type="button" @click="archiveRetailer(retailer)">Archiver</BaseButton>
+                    <BaseButton size="sm" variant="secondary" type="button" @click="startEdit(retailer)">
+                      Modifier
+                    </BaseButton>
                   </div>
                 </td>
               </tr>
@@ -162,29 +302,87 @@ onMounted(() => {
         </div>
       </section>
 
-      <form class="rounded-xl border border-coursia-border bg-coursia-surface p-4" @submit.prevent="saveRetailer">
-        <h2 class="text-base font-black">{{ selectedRetailerId ? 'Modifier l’enseigne' : 'Créer une enseigne' }}</h2>
-        <label class="mt-4 grid gap-1 text-sm font-bold">
-          Nom
-          <input v-model="form.name" required />
-        </label>
-        <label class="mt-3 grid gap-1 text-sm font-bold">
-          Slug
-          <input v-model="form.slug" required />
-        </label>
-        <label class="mt-3 grid gap-1 text-sm font-bold">
-          Statut
-          <select v-model="form.status">
-            <option value="active">Actif</option>
-            <option value="archived">Archivé</option>
-          </select>
-        </label>
-        <label class="mt-3 grid gap-1 text-sm font-bold">
-          Site / source publique
-          <input v-model="form.websiteUrl" />
-        </label>
-        <BaseButton class="mt-5" type="submit">Enregistrer</BaseButton>
-      </form>
+      <aside class="grid gap-4">
+        <section v-if="editorOpen" class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-coursia-primary">
+                {{ editingRetailerId ? 'Modification' : 'Création' }}
+              </p>
+              <h2 class="mt-1 text-lg font-black text-coursia-foreground">Fiche enseigne</h2>
+            </div>
+            <button type="button" class="cursor-pointer rounded-xl px-3 py-2 text-sm font-black text-coursia-muted transition hover:bg-coursia-surface-muted" @click="closeEditor">
+              Fermer
+            </button>
+          </div>
+
+          <form class="mt-4 grid gap-4" @submit.prevent="saveRetailer">
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Nom
+              <input v-model="form.name" required placeholder="Ex. Coop" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-coursia-foreground">
+              Code
+              <input v-model="form.slug" required placeholder="coop" />
+            </label>
+
+            <div class="rounded-2xl border border-coursia-border bg-coursia-surface-muted p-3">
+              <p class="text-sm font-black text-coursia-foreground">Champs réellement persistés</p>
+              <p class="mt-1 text-xs leading-5 text-coursia-muted">
+                Le modèle mobile actuel stocke uniquement le nom et le code de l’enseigne. L’archivage
+                et les sites publics doivent être ajoutés au schéma avant d’être proposés comme action.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 border-t border-coursia-border pt-4">
+              <BaseButton type="submit" :disabled="saving">
+                {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+              </BaseButton>
+              <BaseButton type="button" variant="secondary" @click="closeEditor">Annuler</BaseButton>
+            </div>
+          </form>
+        </section>
+
+        <section v-else class="rounded-2xl border border-coursia-border bg-coursia-surface p-4 shadow-coursia-sm">
+          <div v-if="!selectedRetailer" class="grid place-items-center rounded-2xl bg-coursia-surface-muted p-8 text-center">
+            <div>
+              <p class="font-black text-coursia-foreground">Sélectionne une enseigne</p>
+              <p class="mt-2 text-sm text-coursia-muted">Le détail et les liens de travail apparaîtront ici.</p>
+            </div>
+          </div>
+
+          <template v-else>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h2 class="truncate text-lg font-black text-coursia-foreground">{{ selectedRetailer.name }}</h2>
+                <p class="mt-1 truncate text-sm text-coursia-muted">{{ selectedRetailer.slug }}</p>
+              </div>
+              <BaseBadge tone="success">Active</BaseBadge>
+            </div>
+
+            <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Offres</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.offer_count ?? 0 }}</dd>
+              </div>
+              <div class="rounded-xl bg-coursia-surface-muted p-3">
+                <dt class="text-xs font-bold text-coursia-muted">Prix</dt>
+                <dd class="mt-1 font-black text-coursia-foreground">{{ selectedRetailer.price_count ?? 0 }}</dd>
+              </div>
+            </dl>
+
+            <div class="mt-4 grid gap-2">
+              <BaseButton type="button" @click="startEdit()">Modifier</BaseButton>
+              <NuxtLink class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted" :to="`/admin/produits?retailerId=${selectedRetailer.id}`">
+                Voir les produits liés
+              </NuxtLink>
+              <NuxtLink class="ds-focus-ring inline-flex cursor-pointer items-center justify-center rounded-coursia-md border border-coursia-border bg-coursia-surface px-4 py-2.5 text-sm font-semibold text-coursia-foreground transition hover:bg-coursia-surface-muted" :to="`/admin/prix?retailerId=${selectedRetailer.id}`">
+                Voir les prix
+              </NuxtLink>
+            </div>
+          </template>
+        </section>
+      </aside>
     </div>
   </section>
 </template>

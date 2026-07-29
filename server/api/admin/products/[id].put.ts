@@ -24,6 +24,33 @@ export default defineEventHandler(async (event) => {
   }
 
   const product = toAdminProductRow(data as never)
+  const offerPayload = toMobileOfferRow(parsed.data, product.id)
+  const { data: existingOffer, error: existingOfferError } = await mobileTable(supabase, 'offres_magasin')
+    .select('id')
+    .eq('produit_canonique_id', product.id)
+    .eq('enseigne_id', parsed.data.retailerId)
+    .maybeSingle()
+
+  if (existingOfferError) {
+    throwApiError('UPSTREAM_ERROR', 'Produit modifié, mais impossible de consulter son offre magasin.')
+  }
+
+  if (existingOffer && typeof existingOffer === 'object' && 'id' in existingOffer) {
+    const { error: offerUpdateError } = await mobileTable(supabase, 'offres_magasin')
+      .update(offerPayload)
+      .eq('id', String((existingOffer as Record<string, unknown>).id))
+
+    if (offerUpdateError) {
+      throwApiError('UPSTREAM_ERROR', 'Produit modifié, mais impossible de modifier son offre magasin.')
+    }
+  } else {
+    const { error: offerInsertError } = await mobileTable(supabase, 'offres_magasin')
+      .insert(offerPayload)
+
+    if (offerInsertError) {
+      throwApiError('UPSTREAM_ERROR', 'Produit modifié, mais impossible de créer son offre magasin.')
+    }
+  }
 
   await writeAdminAuditLog(supabase, {
     actorUserId: admin.userId,
